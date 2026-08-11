@@ -5,7 +5,7 @@ scope: Execution plan for reliability, performance, history, form, preview, corr
 authority: Selected execution plan for senior-review remediation; workspace.md owns execution state, and code, configuration, tests, and verified runtime behavior own current implementation facts
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-11 after locally verifying SRR-01 through SRR-03; invalidated by approved scope changes, implementation evidence, dependency changes, or a different selected plan
+freshness: Updated on 2026-08-11 after SRR-04 passed its performance and full verification gates; invalidated by approved scope changes, implementation evidence, dependency changes, or a different selected plan
 ---
 
 # Plan: Remediate the senior review findings
@@ -41,7 +41,7 @@ Excluded unless separately approved:
 - Verified: `package.json` pins pnpm but does not declare a Node engine; `.nvmrc` and `.github/workflows/` are absent at the inspected commit.
 - Verified: Node 22.21.1 passes lint, typecheck, all 349 tests, and the production build; checksum-verified Node 25.2.1 reproduces 58 local-storage-related failures in three test files.
 - Approved execution baseline: support Node 24.19.0 LTS through `.nvmrc`, a bounded `engines.node` range, and CI. Storage must still be corrected so the suite does not depend on accidental runtime globals.
-- Proposed history limit: 50 entries. Confirm the product expectation and retained-memory result before marking SRR-05 complete.
+- Proposed history limit: 50 entries. Confirm the product expectation and retained-memory result before marking SRR-06 complete.
 - Scoped validation may proceed only after benchmarks demonstrate need and equivalence tests show that command-specific validation rejects every case rejected by full validation within the changed scope.
 - Full validation remains required at untrusted document boundaries. Undo/redo validation changes are separate from the initial history cap.
 - Phase 4 excludes backend persistence, so the bounded form remedy is to fail closed and state that preview submissions are not saved.
@@ -67,8 +67,8 @@ Excluded unless separately approved:
 | SRR-00 | Create or switch to an approved feature branch and establish a clean reproducible baseline | Feature branch approval | Record branch, HEAD, Node/pnpm versions, failing suites, and current check results | Repository maintainer | Complete: Node 22 green and Node 25 failure reproduced |
 | SRR-01 | Add the supported Node declaration and local version file | SRR-00 | Fresh install uses the selected major; package-manager and engine checks agree | Implementer | Complete: Node 24.19.0 verified |
 | SRR-02 | Introduce one browser-storage boundary and inject isolated storage in tests | SRR-01 | Storage tests do not depend on Node's global `localStorage`; affected editor and preview suites pass | Implementer | Complete: 350 tests pass on Node 24 and Node 25 |
-| SRR-03 | Add GitHub Actions CI for install, lint, typecheck, test, and build | SRR-01, SRR-02 | Workflow uses the lockfile and pinned toolchain; all four project checks pass | Implementer and technical verifier | Implemented and locally verified; first remote run pending |
-| SRR-04 | Add deterministic command benchmarks, remove the redundant parent-index build, and allocate one ID set per command | SRR-03 | Before/after results for representative 100, 1,000, and 10,000-node documents; command regression tests pass | Implementer and technical verifier | Not started |
+| SRR-03 | Add GitHub Actions CI for install, lint, typecheck, test, and build | SRR-01, SRR-02 | Workflow uses the lockfile and pinned toolchain; all four project checks pass | Implementer and technical verifier | Complete: local matrix and GitHub Actions run `31490573187` passed |
+| SRR-04 | Add deterministic command benchmarks, remove the redundant parent-index build, and allocate one ID set per command | SRR-03 | Before/after results for representative 100, 1,000, and 10,000-node documents; command regression tests pass | Implementer and technical verifier | Complete: 64.1% lower 10,000-node duplication mean; full matrix passes |
 | SRR-05 | Design scoped command validation and implement it only behind equivalence and mutation-scope tests | SRR-04 | Incremental and full validators agree across supported command cases and generated invalid cases; untrusted hydration remains full-document | Editor architecture owner and technical verifier | Not started |
 | SRR-06 | Cap history at 50 entries and measure retained memory; keep patch-based history as a separately gated follow-up | SRR-03 | Eviction, grouping, undo, redo, selection, and edit-after-undo tests pass; memory result is recorded | Implementer and technical verifier | Not started |
 | SRR-07 | Make preview forms explicitly non-persistent, fail the stub closed without parsing the body, and remove submitted-value logging | SRR-03 | Route and Preview tests prove no accepted/discarded state, no sensitive logging, and a clear user-facing notice | Implementer and product reviewer | Not started |

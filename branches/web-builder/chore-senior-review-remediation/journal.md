@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated after locally verifying SRR-01 through SRR-03 on 2026-08-11; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after SRR-04 passed its performance and full verification gates on 2026-08-11; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after locally verifying SRR-01 through SRR-03 on 2026-08-11; 
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-02 are complete. SRR-03 is implemented and locally verified; its first remote GitHub Actions run is pending an authorized commit and push.
+SRR-00 through SRR-04 are complete. SRR-05 scoped-validation equivalence design is next.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -31,6 +31,12 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Injected preview storage through narrow shell props and replaced ambient storage in tests with an isolated Map-backed implementation.
 - Added behavior coverage for preview-storage failure.
 - Added `.github/workflows/ci.yml` with read-only permissions, concurrency control, a bounded timeout, frozen installation, lint, typecheck, test, and build.
+- Committed the reliability tranche as `126d8d491329c90e1c57bfebc59cc7443004d7b5` and pushed `chore/senior-review-remediation` to origin.
+- Added deterministic rename and subtree-duplication benchmarks for valid 100, 1,000, and 10,000-node results.
+- Removed the redundant post-component-validation tree-index rebuild.
+- Replaced repeated project-wide node-ID scans with one reserved ID set per allocating command.
+- Added regression coverage proving repeated generated IDs are retried without producing duplicate subtree identities.
+- Recorded the method, raw JSON results, and interpretation in `workspaces/senior-review-remediation/research/command-path-performance.md`.
 
 **Verification:**
 
@@ -39,12 +45,15 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Node 25.2.1 emitted the invalid `--localstorage-file` warning reported by the senior review.
 - After SRR-02, Node 25.2.1 passes the 3 affected files / 59 tests and the complete 26 files / 350 tests without the prior storage warning.
 - Node 24.19.0 passes frozen installation, lint, typecheck, 26 files / 350 tests, and the production build.
-- CI workflow YAML syntax and Git whitespace validation pass locally; a remote workflow run remains pending.
+- GitHub Actions run `31490573187` passed every workflow step in 1 minute 29 seconds.
+- SRR-04 focused verification passes 42 command and hydration tests.
+- SRR-04 full Node 24.19.0 verification passes lint, typecheck, 26 files / 351 tests, and production build.
+- Valid duplication to a 10,000-node result improved from a 7,705.46 ms mean to 2,763.77 ms, a 64.1% reduction and 2.79× speedup.
+- A valid 10,000-node rename remains effectively unchanged at about 1.73 seconds, confirming that full hydration is the next dominant cost.
 
 **Remaining:**
 
-- Obtain authorization to commit and push the reliability tranche so GitHub Actions can run.
-- Record command-path performance fixtures and baseline results during SRR-04 before optimization.
+- Define command mutation scopes and an equivalence oracle before changing full-document command validation under SRR-05.
 
 **Last left off:**
-2026-08-11 — SRR-01 and SRR-02 complete; SRR-03 locally green. Next action: commit and push with authorization to verify CI remotely, then start SRR-04.
+2026-08-11 — SRR-04 is locally complete and fully green. Next action: design SRR-05 equivalence coverage and keep full hydration until that gate passes.

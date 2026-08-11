@@ -385,19 +385,26 @@ function uniquePageId(
   return null;
 }
 
-function uniqueNodeId(
+function collectProjectNodeIds(
   document: Readonly<ProjectDocument>,
-  idGenerator: IdGenerator,
-  reservedIds: ReadonlySet<NodeId> = new Set(),
-): NodeId | null {
-  const existing = new Set<NodeId>();
+): Set<NodeId> {
+  const nodeIds = new Set<NodeId>();
   for (const page of Object.values(document.pages)) {
-    for (const nodeId of Object.keys(page.nodes) as NodeId[]) existing.add(nodeId);
+    for (const nodeId of Object.keys(page.nodes) as NodeId[]) nodeIds.add(nodeId);
   }
+  return nodeIds;
+}
 
+function reserveUniqueNodeId(
+  reservedIds: Set<NodeId>,
+  idGenerator: IdGenerator,
+): NodeId | null {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const nodeId = asNodeId(idGenerator("node"));
-    if (!existing.has(nodeId) && !reservedIds.has(nodeId)) return nodeId;
+    if (!reservedIds.has(nodeId)) {
+      reservedIds.add(nodeId);
+      return nodeId;
+    }
   }
   return null;
 }
@@ -716,7 +723,10 @@ function insertNode(
     });
   }
 
-  const nodeId = uniqueNodeId(snapshot.document, services.idGenerator);
+  const nodeId = reserveUniqueNodeId(
+    collectProjectNodeIds(snapshot.document),
+    services.idGenerator,
+  );
   if (!nodeId) {
     return rejected({
       code: "id-collision",
@@ -813,14 +823,10 @@ function insertBlock(
   };
   collectTemplates(template);
 
-  const reservedIds = new Set<NodeId>();
+  const reservedIds = collectProjectNodeIds(snapshot.document);
   const idByTemplate = new Map<typeof template, NodeId>();
   for (const node of templates) {
-    const nodeId = uniqueNodeId(
-      snapshot.document,
-      services.idGenerator,
-      reservedIds,
-    );
+    const nodeId = reserveUniqueNodeId(reservedIds, services.idGenerator);
     if (!nodeId) {
       return rejected({
         code: "id-collision",
@@ -828,7 +834,6 @@ function insertBlock(
         reason: "Could not generate unique IDs for the block subtree",
       });
     }
-    reservedIds.add(nodeId);
     idByTemplate.set(node, nodeId);
   }
 
@@ -1061,15 +1066,11 @@ function duplicateNode(
   if (placement) return placement;
 
   const sourceIds = collectSubtreeNodeIds(snapshot.document, page.id, node.id);
-  const reservedIds = new Set<NodeId>();
+  const reservedIds = collectProjectNodeIds(snapshot.document);
   const idMap = Object.create(null) as Record<NodeId, NodeId>;
 
   for (const sourceId of sourceIds) {
-    const duplicateId = uniqueNodeId(
-      snapshot.document,
-      services.idGenerator,
-      reservedIds,
-    );
+    const duplicateId = reserveUniqueNodeId(reservedIds, services.idGenerator);
     if (!duplicateId) {
       return rejected({
         code: "id-collision",
@@ -1078,7 +1079,6 @@ function duplicateNode(
         reason: "Could not generate unique IDs for the duplicated subtree",
       });
     }
-    reservedIds.add(duplicateId);
     idMap[sourceId] = duplicateId;
   }
 

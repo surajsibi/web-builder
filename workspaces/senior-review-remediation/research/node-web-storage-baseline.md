@@ -106,8 +106,8 @@ Verification results:
 - Node 25.2.1 focused gate: 3 files and 59 affected tests passed without the previous storage warning.
 - Node 25.2.1 full gate: 26 files and 350 tests passed in 64.78 seconds.
 - Node 24.19.0 CI-equivalent gate: frozen installation, lint, typecheck, 26 files / 350 tests, and production build passed.
-- The first remote GitHub Actions run remains pending an authorized commit and push.
+- GitHub Actions run `31490573187` passed frozen installation, lint, typecheck, all 350 tests, and the production build on commit `126d8d491329c90e1c57bfebc59cc7443004d7b5`.
 
 ## Durable knowledge
 
-The supported Node and CI contract now lives in executable configuration. Storage-environment behavior remains in tests and code rather than a duplicated long-lived guide. Consider promoting a concise preventive rule only after the first remote CI run confirms the workflow.
+The supported Node and CI contract now lives in executable configuration and is verified on a GitHub-hosted runner. Storage-environment behavior remains in tests and code rather than a duplicated long-lived guide.

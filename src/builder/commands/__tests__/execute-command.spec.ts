@@ -447,6 +447,40 @@ describe("executeEditorCommand", () => {
     });
   });
 
+  it("should keep duplicated subtree IDs unique when the generator repeats a fresh ID", () => {
+    const snapshot = createSnapshot();
+    const generatedIds = [
+      "node-card-copy",
+      "node-card-copy",
+      "node-text-copy",
+    ];
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.duplicate",
+        pageId: asPageId("page-home"),
+        nodeId: asNodeId("node-card"),
+        destination: { parentId: asNodeId("node-section"), index: 1 },
+      },
+      { idGenerator: () => generatedIds.shift() ?? "node-collision" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.value).toMatchObject({
+      idMap: {
+        "node-card": "node-card-copy",
+        "node-text": "node-text-copy",
+      },
+    });
+    expect(
+      Object.keys(
+        result.candidate.document.pages[asPageId("page-home")].nodes,
+      ),
+    ).toHaveLength(5);
+  });
+
   it("should reject duplication into a locked destination without changing the source", () => {
     const snapshot = createSnapshot();
     snapshot.document.pages[asPageId("page-home")].nodes[
