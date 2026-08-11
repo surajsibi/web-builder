@@ -34,6 +34,7 @@ import {
   createPreviewHref,
   createPreviewSnapshotId,
   storePreviewSnapshot,
+  type PreviewSnapshotWriter,
 } from "@/builder/preview/preview-snapshot";
 import { EditorCanvas } from "@/builder/ui/editor-canvas";
 import { EditorLeftSidebar } from "@/builder/ui/editor-left-sidebar";
@@ -58,6 +59,7 @@ import {
 } from "@/builder/ui/tree-navigation";
 
 type EditorShellProps = {
+  previewStorage?: PreviewSnapshotWriter;
   store?: StoreApi<BuilderStoreState>;
 };
 
@@ -147,7 +149,10 @@ function usesHeadingLevelPreset(
   );
 }
 
-export function EditorShell({ store = editorStore }: EditorShellProps) {
+export function EditorShell({
+  previewStorage,
+  store = editorStore,
+}: EditorShellProps) {
   const state = useStore(store);
   const [announcement, setAnnouncement] = useState(
     "Editor ready. Choose a component to begin.",
@@ -586,10 +591,14 @@ export function EditorShell({ store = editorStore }: EditorShellProps) {
         dirty={state.dirty}
         onPreviewOpen={(event) => {
           try {
-            storePreviewSnapshot(window.localStorage, previewSnapshotId, {
-              document,
-              activePageId,
-            });
+            storePreviewSnapshot(
+              previewStorage ?? window.localStorage,
+              previewSnapshotId,
+              {
+                document,
+                activePageId,
+              },
+            );
           } catch {
             event.preventDefault();
             setAnnouncement(

@@ -13,14 +13,22 @@ import {
   type BuilderStoreState,
 } from "@/builder/store/builder-store";
 import { editorStore } from "@/builder/store/editor-store";
-import { takePreviewSnapshot } from "@/builder/preview/preview-snapshot";
+import {
+  takePreviewSnapshot,
+  type PreviewSnapshotReader,
+} from "@/builder/preview/preview-snapshot";
 
 type PreviewShellProps = {
+  previewStorage?: PreviewSnapshotReader;
   snapshotId?: string | null;
   store?: StoreApi<BuilderStoreState>;
 };
 
-export function PreviewShell({ snapshotId = null, store }: PreviewShellProps) {
+export function PreviewShell({
+  previewStorage,
+  snapshotId = null,
+  store,
+}: PreviewShellProps) {
   const [snapshotStore] = useState(() => createBuilderStore());
   const consumedSnapshotRef = useRef<{
     id: string;
@@ -85,7 +93,10 @@ export function PreviewShell({ snapshotId = null, store }: PreviewShellProps) {
       snapshot = consumedSnapshotRef.current.value;
     } else {
       try {
-        snapshot = takePreviewSnapshot(window.localStorage, snapshotId);
+        snapshot = takePreviewSnapshot(
+          previewStorage ?? window.localStorage,
+          snapshotId,
+        );
         consumedSnapshotRef.current = { id: snapshotId, value: snapshot };
       } catch {
         complete("unavailable");
@@ -109,7 +120,7 @@ export function PreviewShell({ snapshotId = null, store }: PreviewShellProps) {
     return () => {
       canceled = true;
     };
-  }, [previewStore, snapshotId]);
+  }, [previewStorage, previewStore, snapshotId]);
 
   if (snapshotStatus === "loading") {
     return (

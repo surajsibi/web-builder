@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
   createPreviewHref,
@@ -6,9 +6,8 @@ import {
   storePreviewSnapshot,
   takePreviewSnapshot,
 } from "@/builder/preview/preview-snapshot";
+import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
 import { createTestProject } from "@/builder/testing/project-fixtures";
-
-afterEach(() => window.localStorage.clear());
 
 describe("preview snapshots", () => {
   it("should create a stable, URL-safe preview destination", () => {
@@ -28,23 +27,25 @@ describe("preview snapshots", () => {
   it("should consume a stored snapshot only once", () => {
     const project = createTestProject();
     const snapshotId = "snapshot-once";
+    const storage = createMemoryPreviewStorage();
 
-    storePreviewSnapshot(window.localStorage, snapshotId, {
+    storePreviewSnapshot(storage, snapshotId, {
       document: project,
       activePageId: project.homePageId,
     });
 
-    expect(takePreviewSnapshot(window.localStorage, snapshotId)).toEqual({
+    expect(takePreviewSnapshot(storage, snapshotId)).toEqual({
       document: project,
       activePageId: project.homePageId,
     });
-    expect(takePreviewSnapshot(window.localStorage, snapshotId)).toBeNull();
+    expect(takePreviewSnapshot(storage, snapshotId)).toBeNull();
   });
 
   it("should discard malformed stored data", () => {
-    window.localStorage.setItem("web-builder:preview:broken", "not-json");
+    const storage = createMemoryPreviewStorage();
+    storage.setItem("web-builder:preview:broken", "not-json");
 
-    expect(takePreviewSnapshot(window.localStorage, "broken")).toBeNull();
-    expect(window.localStorage.getItem("web-builder:preview:broken")).toBeNull();
+    expect(takePreviewSnapshot(storage, "broken")).toBeNull();
+    expect(storage.getItem("web-builder:preview:broken")).toBeNull();
   });
 });

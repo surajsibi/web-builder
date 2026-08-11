@@ -8,6 +8,11 @@ export type PreviewSnapshot = {
   activePageId: PageId;
 };
 
+export type PreviewSnapshotWriter = Pick<Storage, "setItem">;
+export type PreviewSnapshotReader = Pick<Storage, "getItem" | "removeItem">;
+export type PreviewSnapshotStorage = PreviewSnapshotWriter &
+  PreviewSnapshotReader;
+
 type StoredPreviewSnapshot = {
   document: unknown;
   activePageId: string;
@@ -30,7 +35,7 @@ function snapshotStorageKey(snapshotId: string): string {
 }
 
 export function storePreviewSnapshot(
-  storage: Pick<Storage, "setItem">,
+  storage: PreviewSnapshotWriter,
   snapshotId: string,
   snapshot: PreviewSnapshot,
 ): void {
@@ -45,7 +50,7 @@ function isStoredPreviewSnapshot(value: unknown): value is StoredPreviewSnapshot
 }
 
 export function takePreviewSnapshot(
-  storage: Pick<Storage, "getItem" | "removeItem">,
+  storage: PreviewSnapshotReader,
   snapshotId: string,
 ): StoredPreviewSnapshot | null {
   const key = snapshotStorageKey(snapshotId);

@@ -12,6 +12,7 @@ import { asNodeId } from "@/builder/model/ids";
 import { PreviewShell } from "@/builder/preview/preview-shell";
 import { storePreviewSnapshot } from "@/builder/preview/preview-snapshot";
 import { createBuilderStore } from "@/builder/store/builder-store";
+import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
 import {
   createTestNode,
   createTestProject,
@@ -19,7 +20,6 @@ import {
 
 afterEach(() => {
   cleanup();
-  window.localStorage.clear();
   vi.unstubAllGlobals();
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
@@ -354,14 +354,19 @@ describe("PreviewShell", () => {
   it("should hydrate and consume a transferred preview snapshot", async () => {
     const project = createTestProject();
     const snapshotId = "current-editor-state";
-    storePreviewSnapshot(window.localStorage, snapshotId, {
+    const previewStorage = createMemoryPreviewStorage();
+    storePreviewSnapshot(previewStorage, snapshotId, {
       document: project,
       activePageId: project.homePageId,
     });
 
     render(
       <StrictMode>
-        <PreviewShell snapshotId={snapshotId} store={createBuilderStore()} />
+        <PreviewShell
+          previewStorage={previewStorage}
+          snapshotId={snapshotId}
+          store={createBuilderStore()}
+        />
       </StrictMode>,
     );
 
@@ -370,13 +375,17 @@ describe("PreviewShell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("article")).toContainElement(screen.getByText("Text"));
     expect(
-      window.localStorage.getItem("web-builder:preview:" + snapshotId),
+      previewStorage.getItem("web-builder:preview:" + snapshotId),
     ).toBeNull();
   });
 
   it("should reject a missing transferred preview snapshot", async () => {
     render(
-      <PreviewShell snapshotId="missing" store={createBuilderStore()} />,
+      <PreviewShell
+        previewStorage={createMemoryPreviewStorage()}
+        snapshotId="missing"
+        store={createBuilderStore()}
+      />,
     );
 
     expect(

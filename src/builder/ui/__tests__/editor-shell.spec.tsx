@@ -11,12 +11,12 @@ import { asNodeId, asPageId } from "@/builder/model/ids";
 import { createNewProject } from "@/builder/project/factory";
 import { createBuilderStore } from "@/builder/store/builder-store";
 import { editorStore } from "@/builder/store/editor-store";
+import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
 import { takePreviewSnapshot } from "@/builder/preview/preview-snapshot";
 import { EditorShell } from "@/builder/ui/editor-shell";
 
 afterEach(() => {
   cleanup();
-  window.localStorage.clear();
 });
 
 function createEditorTestStore() {
@@ -48,7 +48,14 @@ describe("EditorShell", () => {
   });
 
   it("should render the toolbar, component library, empty canvas, and empty Inspector", () => {
-    render(<EditorShell store={createEditorTestStore()} />);
+    const previewStorage = createMemoryPreviewStorage();
+
+    render(
+      <EditorShell
+        previewStorage={previewStorage}
+        store={createEditorTestStore()}
+      />,
+    );
 
     expect(screen.getByText("Canvas Studio")).toBeInTheDocument();
     expect(screen.getByText("Editor Test Project")).toBeInTheDocument();
@@ -76,13 +83,35 @@ describe("EditorShell", () => {
     fireEvent.click(previewLink);
     expect(
       takePreviewSnapshot(
-        window.localStorage,
+        previewStorage,
         "project-editor-test:page-editor-test:0",
       ),
     ).toMatchObject({
       activePageId: "page-editor-test",
       document: { projectId: "project-editor-test" },
     });
+  });
+
+  it("should keep the editor open and announce when preview storage is unavailable", () => {
+    render(
+      <EditorShell
+        previewStorage={{
+          setItem: () => {
+            throw new Error("Storage unavailable");
+          },
+        }}
+        store={createEditorTestStore()}
+      />,
+    );
+
+    const previewLink = screen.getByRole("link", { name: "Preview" });
+
+    expect(fireEvent.click(previewLink)).toBe(false);
+    expect(
+      screen.getByText(
+        "Preview could not open because browser storage is unavailable.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("should filter Button presets and insert a Raised 3D preset as one editable Button", () => {

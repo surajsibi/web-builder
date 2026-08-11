@@ -5,7 +5,7 @@ scope: Project-wide remediation of the 2026-08-11 senior review for the web-buil
 authority: Selected execution-state authority for senior-review remediation; the execution plan owns intended work, while code, configuration, tests, and verified runtime behavior own implemented behavior
 owner: Project owner
 lifecycle: draft
-freshness: Created on 2026-08-11 from the user-supplied senior review and bounded repository inspection; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
+freshness: Updated on 2026-08-11 after SRR-01 and SRR-02 passed locally and SRR-03 was implemented; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
 ---
 
 # Senior review remediation workspace
@@ -14,13 +14,15 @@ freshness: Created on 2026-08-11 from the user-supplied senior review and bounde
 
 **Feature directory identifier:** `senior-review-remediation`
 
-**Overall status:** Planning complete; implementation has not started.
+**Overall status:** SRR-00 through SRR-02 are locally complete. SRR-03 is implemented and locally verified; its first remote GitHub Actions run is pending.
 
 **Participating repositories:** `web-builder`
 
-**Active branches:** `web-builder`: `main`
+**Active branches:** `web-builder`: `chore/senior-review-remediation`
 
-**Current milestone:** Obtain approval to create or switch to a dedicated feature branch, then reproduce the reported test failures and record the performance baseline.
+**Branch history:** Planning was saved on `main` at `b159f15aef531819538ccc32a877d27f7061a64f`; implementation moved to the dedicated feature branch from that commit.
+
+**Current milestone:** Commit and push the reliability tranche to exercise CI, then begin SRR-04 performance measurement.
 
 **Feature summary:** Convert the 2026-08-11 senior review into independently verifiable remediation phases. Restore a reliable Node and CI baseline first, measure and improve command-path performance without weakening validation, bound history memory, make form-submission behavior honest and safe, and then address targeted correctness, coverage, preview-storage, and repository-readiness findings.
 
@@ -28,13 +30,15 @@ freshness: Created on 2026-08-11 from the user-supplied senior review and bounde
 
 ## Evidence state
 
-- Reviewer-reported: Node 25.2.1 produces 58 local-storage-related failures out of 349 tests on a fresh clone.
+- Verified by checksum-verified reproduction: Node 25.2.1 produces 58 local-storage-related failures out of 349 tests in exactly the three reported suites.
 - Verified by bounded inspection: `package.json` has no `engines` field, `.nvmrc` and a GitHub Actions workflow are absent, `EditorShell` subscribes without a selector, history entries retain full before/after content snapshots without a cap, preview snapshots are removed after reads, and the form route returns an accepted response without persistence.
-- Not yet verified in this workspace: the reported failing test count, command-path timing, large-document memory behavior, and proposed remediation performance.
+- Verified baseline: Node 22.21.1 passes lint, typecheck, all 349 tests, and the production build.
+- Verified remediation: Node 24.19.0 passes frozen installation, lint, typecheck, all 350 tests, and the production build; Node 25.2.1 also passes all 350 tests.
+- Not yet verified in this workspace: the first remote CI run, command-path timing, large-document memory behavior, and proposed performance improvements.
 
 ## Current execution state
 
-- **Done:** Review converted into a governed D3 execution plan with ordered work, gates, risks, and completion criteria.
-- **Verification:** Documentation manifests, relative links, and trailing whitespace passed the local validation on 2026-08-11. No application checks have been rerun and no source code has changed.
-- **Remaining:** Approve branch setup, reproduce the baseline, then execute plan items SRR-01 through SRR-09.
-- **Last left off:** 2026-08-11 — Plan saved; next action is approval to create or switch to a dedicated feature branch before implementation.
+- **Done:** SRR-00 established the baseline. SRR-01 pinned Node 24.19.0. SRR-02 injected preview storage and removed ambient storage use from tests. SRR-03 added the CI workflow.
+- **Verification:** Node 24.19.0 passes the exact CI-equivalent sequence with 26 test files / 350 tests. Node 25.2.1 passes all 350 tests after previously failing 58. Workflow YAML syntax and Git whitespace checks pass.
+- **Remaining:** Run the workflow remotely, then execute SRR-04 through SRR-10.
+- **Last left off:** 2026-08-11 — Reliability tranche locally green; next action is an authorized commit/push to exercise GitHub Actions, followed by SRR-04 benchmark fixtures.
