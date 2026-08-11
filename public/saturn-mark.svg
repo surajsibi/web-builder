@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56" role="img" aria-labelledby="saturn-mark-title">
+  <title id="saturn-mark-title">Saturn mark</title>
+  <circle cx="28" cy="28" r="28" fill="#fff"/>
+  <g fill="none" stroke="#202020" stroke-width="3.6" transform="rotate(34 28 28)">
+    <ellipse cx="28" cy="28" rx="18" ry="6.5"/>
+  </g>
+  <circle cx="28" cy="28" r="9.5" fill="#202020"/>
+  <path d="M13.1 24.5c3.4 5.2 10.2 10.8 18.2 13.5 6 2 10.7 1.8 12.8-.4" fill="none" stroke="#202020" stroke-linecap="round" stroke-width="3.6"/>
+</svg>
