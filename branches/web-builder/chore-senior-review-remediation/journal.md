@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-05 passed its equivalence, performance, and full local verification gates on 2026-08-11; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Checkpointed after pushing SRR-05 commit 20c3497 and observing GitHub Actions run 31493250145 in progress on 2026-08-11; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after SRR-05 passed its equivalence, performance, and full lo
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-04 are complete. SRR-05 is locally complete and awaiting checkpoint/remote CI verification.
+SRR-00 through SRR-04 are complete. SRR-05 is locally complete, pushed as `20c3497`, and running in GitHub Actions as run `31493250145`.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -62,8 +62,8 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 
 **Remaining:**
 
-- Checkpoint SRR-05 and verify it in GitHub Actions.
+- On resume, verify GitHub Actions run `31493250145`; do not assume its result.
 - Add the 50-entry history cap and retained-memory evidence without changing history representation under SRR-06.
 
 **Last left off:**
-2026-08-11 — SRR-05 is locally complete and fully green. Next action: checkpoint and remotely verify it, then begin SRR-06.
+2026-08-11 — Checkpoint saved. SRR-05 commit `20c3497d641abf8b59e82aee8e022685a269f81b` is pushed; GitHub Actions run `31493250145` was in progress at pause time. The only unstaged files are unrelated changes in `workspaces/api-data-bindings/plan/api-data-sources-and-bindings-spec.md` and `workspaces/api-data-bindings/workspace.md`; preserve them. On resume, verify CI and then begin SRR-06.

@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-11 after SRR-03 passed locally and in GitHub Actio
 
 **Feature directory identifier:** `senior-review-remediation`
 
-**Overall status:** SRR-00 through SRR-04 are complete. SRR-05 scoped command validation is locally complete and awaiting remote CI verification.
+**Overall status:** SRR-00 through SRR-04 are complete. SRR-05 is locally complete, pushed as `20c3497`, and running in GitHub Actions.
 
 **Participating repositories:** `web-builder`
 
@@ -22,7 +22,7 @@ freshness: Updated on 2026-08-11 after SRR-03 passed locally and in GitHub Actio
 
 **Branch history:** Planning was saved on `main` at `b159f15aef531819538ccc32a877d27f7061a64f`; implementation moved to the dedicated feature branch from that commit.
 
-**Current milestone:** Checkpoint and remotely verify SRR-05, then begin the bounded-history work in SRR-06.
+**Current milestone:** On resume, verify GitHub Actions run `31493250145`; if green, mark SRR-05 complete and begin the bounded-history work in SRR-06.
 
 **Feature summary:** Convert the 2026-08-11 senior review into independently verifiable remediation phases. Restore a reliable Node and CI baseline first, measure and improve command-path performance without weakening validation, bound history memory, make form-submission behavior honest and safe, and then address targeted correctness, coverage, preview-storage, and repository-readiness findings.
 
@@ -38,11 +38,12 @@ freshness: Updated on 2026-08-11 after SRR-03 passed locally and in GitHub Actio
 - Verified command performance: valid duplication to a 10,000-node result improved from a 7,705.46 ms mean to 2,763.77 ms after one-set ID allocation; a 10,000-node rename remains about 1.73 seconds because full hydration still dominates.
 - Verified remotely: GitHub Actions run `31492155602` passed the complete SRR-04 matrix on commit `de7bd9545da36a7052cb1d85c1a83d2acaaade8a`.
 - Verified scoped validation: all command kinds and generated node-cap/depth-cap failures match full hydration; a 10,000-node rename improved from 1,728.33 ms to 240.05 ms.
-- Not yet verified in this workspace: the SRR-05 remote CI run and large-document history memory behavior.
+- In progress remotely: GitHub Actions run `31493250145` for SRR-05 commit `20c3497d641abf8b59e82aee8e022685a269f81b`.
+- Not yet verified in this workspace: the SRR-05 remote CI result and large-document history memory behavior.
 
 ## Current execution state
 
 - **Done:** SRR-00 through SRR-04 established and optimized the reliability/command baseline. SRR-05 retains full hydration as an executable oracle, scopes all 13 command kinds, runs full tree validation for structural mutations, and leaves hydrate/initial-load/undo/redo boundaries unchanged.
 - **Verification:** Node 24.19.0 passes lint, typecheck, 27 files / 369 tests, and the production build after SRR-05. Scoped and full command modes produce deeply equal results across the equivalence matrix. The 10,000-node rename is 86.1% faster, and duplication is 59.9% faster than the SRR-04 full-hydration result.
-- **Remaining:** Remotely verify SRR-05, then execute SRR-06 through SRR-10.
-- **Last left off:** 2026-08-11 — SRR-05 is locally complete and fully green; next action is its checkpoint/CI run followed by the 50-entry history cap and memory evidence in SRR-06.
+- **Remaining:** Verify run `31493250145`, then execute SRR-06 through SRR-10.
+- **Last left off:** 2026-08-11 — SRR-05 commit `20c3497` is pushed and GitHub Actions run `31493250145` is in progress. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. On resume, check that run before starting the 50-entry history cap and memory evidence in SRR-06.
