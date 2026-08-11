@@ -67,11 +67,11 @@ describe("componentRegistry", () => {
   });
 
   it("should render an accessible image with authored fitting", () => {
-    const Image = componentRegistry.image.render;
+    const RenderImage = componentRegistry.image.render;
     const rootRef = vi.fn();
 
     render(
-      <Image
+      <RenderImage
         className="published-image"
         props={{
           src: "/saturn-mark.svg",
@@ -97,10 +97,10 @@ describe("componentRegistry", () => {
   });
 
   it("should render a linked image as a protected accessible destination", () => {
-    const Image = componentRegistry.image.render;
+    const RenderImage = componentRegistry.image.render;
 
     render(
-      <Image
+      <RenderImage
         props={{
           src: "https://cdn.example.com/logo.svg",
           alt: "Example home",

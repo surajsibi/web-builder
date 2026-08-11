@@ -1,11 +1,11 @@
 ---
 doc_id: WEB-BUILDER-NAVBAR-PLAN
 type: D3
-scope: Standalone web-builder reusable block infrastructure, Link primitive, original responsive Navbar block, commerce-style Navbar block, template-backed library thumbnails, 1232px large-screen content rails, and responsive All category mega menu
+scope: Standalone web-builder reusable block infrastructure, Link and Image primitives, editable Navbar logo surfaces, original responsive Navbar block, commerce-style Navbar block, template-backed library thumbnails, 1232px large-screen content rails, and responsive All category mega menu
 authority: User-approved execution plan for the navbar feature; Project.md owns approved architecture and code/tests own implemented behavior
 owner: Unassigned; accountable project owner required before promotion from draft
 lifecycle: draft
-freshness: The interactive Commerce Navbar mega-menu follow-up completed and was verified on 2026-08-11; verification totals and runtime evidence are owned by the implementation report and invalidated by a scope, implementation, or architecture change
+freshness: The editable Image and Navbar-logo follow-up completed and was verified on 2026-08-11; verification totals and runtime evidence are owned by the implementation report and invalidated by a scope, implementation, or architecture change
 ---
 
 # Plan: Reusable Blocks and Responsive Navbar
@@ -19,6 +19,7 @@ The approved architecture in `Project.md` governs component and block boundaries
 Included:
 
 - A semantic Link primitive with safe URL handling.
+- A semantic Image primitive with safe root-relative or HTTPS sources, explicit alternative text, optional protected linking, and authored fit.
 - Typed block templates and a validated block registry.
 - Atomic `block.insert` command execution.
 - Component Library click and drag support for Blocks.
@@ -34,7 +35,7 @@ Included:
 Excluded:
 
 - Hamburger-menu open/close state and the separate More dropdown.
-- User-managed image upload or logo asset management.
+- File upload, durable asset storage, and an asset-management library.
 - Persistence, publishing, deployment, and block templates beyond the two Navbar designs.
 - Changes to the established responsive breakpoint model.
 
@@ -73,6 +74,7 @@ The selected execution-state authority is `workspaces/navbar/workspace.md`.
 | NAV-08 | Replace structural-block icon placeholders with full-width, template-backed thumbnails | NAV-07 | Both Navbar cards show recognizable recursive previews with no nested interactive elements; focused tests, typecheck, lint, build, and browser QA pass | Implementer and accountable reviewer | Complete: 3 focused tests, typecheck, focused lint, build, and browser QA pass |
 | NAV-09 | Center Navbar content within a 1232px large-screen rail and make Commerce Navbar row surfaces full width | NAV-08 | Template structure asserts full-width wrappers and 1232px inner rails; focused registry/editor/library tests, typecheck, focused lint, build, and rendered geometry where available | Implementer and accountable reviewer | Complete: template assertions, typecheck, lint, build, and 1280px rendered validation confirm the 24px start implied by the centered 1232px rail |
 | NAV-10 | Replace the static All category link with an accessible responsive mega-menu subtree and preserve native disclosure activation in the editor | NAV-09 | Semantic renderer coverage, template structure, editor interaction, full regression suite, build, and desktop/mobile runtime behavior pass | Implementer and accountable reviewer | Complete: 330 full-suite tests, typecheck, full lint, build, and desktop/mobile browser QA pass |
+| NAV-11 | Add the reusable Image primitive and replace Navbar logo background-image workarounds with editable Image nodes while preserving decorative utility icons | NAV-10 | Safe source/link validation, accessible linked and decorative rendering, Media library discovery, Inspector editing, Navbar template assertions, full regression suite, typecheck, lint, and build | Implementer and accountable reviewer | Complete: 142 focused tests, 349 full-suite tests, typecheck, full lint, and build pass |
 
 ## Quality and approval gates
 
@@ -92,10 +94,11 @@ The selected execution-state authority is `workspaces/navbar/workspace.md`.
 - Recursive materialization can leave a partial tree if validation and mutation are interleaved. Contain by validating/materializing isolated data before cloning and mutating the document.
 - Template style overrides can drift outside the responsive schema. Contain by parsing every materialized node through the component props schema and responsive style schema.
 - Link navigation can interfere with Canvas editing. Reuse the renderer root-attribute guard and verify editor interaction tests; actual navigation remains available in Preview.
+- Remote Image sources depend on the authored HTTPS host and expose visitors to that host's availability and request-level privacy behavior. Keep source validation strict and defer uploads, proxying, and asset governance to the future asset model.
 - If a focused gate fails, stop at the last passing todo and keep the workspace resume point accurate. No destructive rollback command is authorized.
 
 ## Completion
 
-Completion requires NAV-01 through NAV-10 to pass, the feature workspace to identify final verification and residual risks, and a D5 implementation report under `workspaces/navbar/reports/`. Durable implementation facts remain authoritative in code and tests; any future architecture documentation update must avoid duplicating `Project.md`.
+Completion requires NAV-01 through NAV-11 to pass, the feature workspace to identify final verification and residual risks, and a D5 implementation report under `workspaces/navbar/reports/`. Durable implementation facts remain authoritative in code and tests; any future architecture documentation update must avoid duplicating `Project.md`.
 
-NAV-01 through NAV-10 are complete within the recorded verification boundary. The result and residual risks are recorded in the [Navbar block implementation report](../reports/Navbar-Block-Implementation-Report.md); accountable user review remains pending while this plan stays in draft lifecycle.
+NAV-01 through NAV-11 are complete within the recorded verification boundary. The result and residual risks are recorded in the [Navbar block implementation report](../reports/Navbar-Block-Implementation-Report.md); accountable user review remains pending while this plan stays in draft lifecycle.

@@ -5,7 +5,7 @@ scope: Web builder native Label primitive implementation state
 authority: Selected execution-state authority for the Label component feature; code, tests, and verified runtime behavior remain authoritative
 owner: Unassigned; accountable project owner required before promotion from draft
 lifecycle: draft
-freshness: Active on 2026-08-11; invalidated by a related Label contract, labelable-control ID contract, placement rule, rendering behavior, or verification-status change
+freshness: Verified on 2026-08-11 against 349 automated tests, TypeScript, ESLint, a production build, and rendered editor and Preview behavior; invalidated by a related Label contract, labelable-control ID contract, placement rule, rendering behavior, or verification-status change
 ---
 
 # Label component workspace
@@ -14,13 +14,13 @@ freshness: Active on 2026-08-11; invalidated by a related Label contract, labela
 
 **Feature directory identifier:** `label`
 
-**Overall status:** Implementation in progress
+**Overall status:** Implemented and verified; ready for user review
 
 **Participating repositories:** None detected. The implementation is scoped to the standalone web-builder source tree at the workspace root, which does not contain Git metadata.
 
 **Active branches:** Not applicable.
 
-**Current milestone:** Implement and verify one accessible native Label before the shared Form Field wrapper.
+**Current milestone:** Label implementation and verification complete; the shared Form Field wrapper remains the next milestone.
 
 **Feature summary:** Add one leaf Label component that renders visible text through a native `<label>` and associates with a labelable control through an authored control ID. Keep submission field names independent from DOM IDs, migrate existing Input, Textarea, and Dropdown nodes with an empty control ID, and make Label editable through the shared Inspector, inline text editing, and style systems.
 
@@ -52,8 +52,18 @@ freshness: Active on 2026-08-11; invalidated by a related Label contract, labela
 
 ## Execution state
 
-- **Current step:** Implement the Label and explicit control-ID contracts.
-- **Done:** Inspected the registry, labelable controls, placement rules, Component Library grouping, inline text editing, migrations, and nearby behavior-first tests.
-- **Verification:** Not yet run for Label.
-- **Remaining:** Complete implementation, coverage, architecture documentation, automated checks, and rendered editor and Preview verification.
-- **Last left off:** 2026-08-11 - Contract selected; implementation is in progress.
+- **Current step:** Present the completed Label for user review.
+- **Done:** Implemented the Label contract, renderer, icon, registry placement, Component Library grouping and search, Inspector editing, Canvas inline editing, Form placement, labelable-control IDs, migrations, tests, and architecture documentation.
+- **Verification:** Passed automated, static, build, and rendered browser checks recorded below.
+- **Remaining:** User review only. The shared Form Field wrapper remains intentionally unstarted.
+- **Last left off:** 2026-08-11 - Label is implemented and verified.
+
+## Verification
+
+- Focused Vitest coverage passed: 5 files and 162 tests.
+- Full Vitest coverage passed: 26 files and 349 tests.
+- `pnpm typecheck`, `pnpm lint`, and `pnpm build` passed. The production build generated `/`, `/preview`, and `/api/form-submissions`; Next.js also emitted the pre-existing warning about the additional lockfile under the user profile.
+- Rendered editor verification confirmed 9 Forms-family entries and exactly 2 entries under the Forms subgroup: Label and Form.
+- Rendered editor verification inserted Label and Input, authored `Email address` with target `email-field`, and confirmed the native Label `for`, Input `id`, absent fallback `aria-label`, and computed accessible name all resolve through the same association.
+- Rendered Preview verification confirmed the visible `Email address` Label and target textbox, and clicking the Label moved browser focus to that textbox through native label activation.
+- Preview logs contained no Label or application runtime error. The only errors came from the installed browser extension attempting to call `postMessage` on a missing extension target.
