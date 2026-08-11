@@ -150,6 +150,28 @@ describe("executeEditorCommand", () => {
     expect(result.candidate.selectedNodeId).toBe("node-text");
   });
 
+  it("should retry an empty generated node ID before inserting", () => {
+    const snapshot = createSnapshot();
+    const generatedIds = ["", "node-created"];
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.insert",
+        pageId: asPageId("page-home"),
+        componentType: "card",
+        destination: { parentId: null, index: 1 },
+      },
+      { idGenerator: () => generatedIds.shift() ?? "node-collision" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(
+      result.candidate.document.pages[asPageId("page-home")].rootIds,
+    ).toContain("node-created");
+  });
+
   it("should insert form controls inside a Form and reject unsupported children", () => {
     const snapshot = createSnapshot();
     const insertedForm = executeEditorCommand(

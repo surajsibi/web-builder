@@ -6,7 +6,7 @@ scope: SRR-04 command-path performance measurement and low-risk optimization for
 authority: Recorded benchmark artifacts and verified command behavior own the measurements; source code and tests own implemented behavior
 owner: Project owner
 lifecycle: concluded
-freshness: Verified on 2026-08-11 against commit 126d8d4 plus the pending SRR-04 changes; invalidated by command execution, hydration, registry schema, benchmark fixture, Node, or Vitest changes
+freshness: Verified on 2026-08-11 against baseline commit 126d8d4 and optimized commit de7bd95; invalidated by command execution, hydration, registry schema, benchmark fixture, Node, or Vitest changes
 ---
 
 # Investigation: Command-path performance
@@ -26,6 +26,7 @@ The senior review reported that every applied editor command performs full-docum
 - Duplication fixture: a valid section subtree containing 50, 500, or 5,000 nodes is duplicated at the page root, producing exactly 100, 1,000, or 10,000 nodes.
 - Baseline implementation: committed command and hydration code at `126d8d491329c90e1c57bfebc59cc7443004d7b5`.
 - Optimized implementation: reuse the initial validated parent index after component validation, and reserve generated IDs in one project-wide set per allocating command.
+- Remote verification: GitHub Actions run `31492155602` passed lint, typecheck, all 351 tests, and the production build for optimized commit `de7bd9545da36a7052cb1d85c1a83d2acaaade8a`.
 
 The machine and fixture construction are identical between runs. Vitest labels benchmarking experimental, so these numbers are comparative evidence for this change rather than a cross-machine performance guarantee.
 

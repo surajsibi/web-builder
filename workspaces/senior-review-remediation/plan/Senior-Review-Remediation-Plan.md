@@ -5,7 +5,7 @@ scope: Execution plan for reliability, performance, history, form, preview, corr
 authority: Selected execution plan for senior-review remediation; workspace.md owns execution state, and code, configuration, tests, and verified runtime behavior own current implementation facts
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-11 after SRR-04 passed its performance and full verification gates; invalidated by approved scope changes, implementation evidence, dependency changes, or a different selected plan
+freshness: Updated on 2026-08-11 after SRR-05 passed its equivalence, performance, and full local verification gates; invalidated by approved scope changes, implementation evidence, dependency changes, or a different selected plan
 ---
 
 # Plan: Remediate the senior review findings
@@ -69,7 +69,7 @@ Excluded unless separately approved:
 | SRR-02 | Introduce one browser-storage boundary and inject isolated storage in tests | SRR-01 | Storage tests do not depend on Node's global `localStorage`; affected editor and preview suites pass | Implementer | Complete: 350 tests pass on Node 24 and Node 25 |
 | SRR-03 | Add GitHub Actions CI for install, lint, typecheck, test, and build | SRR-01, SRR-02 | Workflow uses the lockfile and pinned toolchain; all four project checks pass | Implementer and technical verifier | Complete: local matrix and GitHub Actions run `31490573187` passed |
 | SRR-04 | Add deterministic command benchmarks, remove the redundant parent-index build, and allocate one ID set per command | SRR-03 | Before/after results for representative 100, 1,000, and 10,000-node documents; command regression tests pass | Implementer and technical verifier | Complete: 64.1% lower 10,000-node duplication mean; full matrix passes |
-| SRR-05 | Design scoped command validation and implement it only behind equivalence and mutation-scope tests | SRR-04 | Incremental and full validators agree across supported command cases and generated invalid cases; untrusted hydration remains full-document | Editor architecture owner and technical verifier | Not started |
+| SRR-05 | Design scoped command validation and implement it only behind equivalence and mutation-scope tests | SRR-04 | Incremental and full validators agree across supported command cases and generated invalid cases; untrusted hydration remains full-document | Editor architecture owner and technical verifier | Locally complete: 369 tests and full matrix pass; remote CI pending |
 | SRR-06 | Cap history at 50 entries and measure retained memory; keep patch-based history as a separately gated follow-up | SRR-03 | Eviction, grouping, undo, redo, selection, and edit-after-undo tests pass; memory result is recorded | Implementer and technical verifier | Not started |
 | SRR-07 | Make preview forms explicitly non-persistent, fail the stub closed without parsing the body, and remove submitted-value logging | SRR-03 | Route and Preview tests prove no accepted/discarded state, no sensitive logging, and a clear user-facing notice | Implementer and product reviewer | Not started |
 | SRR-08 | Address focused correctness and interaction findings | SRR-03 | Selector render test, Mac Backspace coverage, precise style-default errors, structural equality tests, reusable bounded preview snapshots, and consolidated drop validation pass | Implementer | Not started |

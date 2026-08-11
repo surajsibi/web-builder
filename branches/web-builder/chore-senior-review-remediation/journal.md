@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-04 passed its performance and full verification gates on 2026-08-11; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after SRR-05 passed its equivalence, performance, and full local verification gates on 2026-08-11; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after SRR-04 passed its performance and full verification gat
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-04 are complete. SRR-05 scoped-validation equivalence design is next.
+SRR-00 through SRR-04 are complete. SRR-05 is locally complete and awaiting checkpoint/remote CI verification.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -37,6 +37,11 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Replaced repeated project-wide node-ID scans with one reserved ID set per allocating command.
 - Added regression coverage proving repeated generated IDs are retried without producing duplicate subtree identities.
 - Recorded the method, raw JSON results, and interpretation in `workspaces/senior-review-remediation/research/command-path-performance.md`.
+- Retained full candidate hydration as an explicit command validation mode and introduced scoped validation as the hydrated-store default.
+- Classified all 13 commands as local or structural; structural mutations run the complete tree-invariant validator once.
+- Added a scoped/full equivalence suite covering every command kind, invalid props/styles, a generated node-cap overflow, and a generated depth overflow.
+- Kept hydration, initial-document preparation, undo, and redo on full document validation.
+- Recorded scoped-validation boundaries, equivalence coverage, and benchmark results in `workspaces/senior-review-remediation/research/scoped-command-validation.md`.
 
 **Verification:**
 
@@ -48,12 +53,17 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - GitHub Actions run `31490573187` passed every workflow step in 1 minute 29 seconds.
 - SRR-04 focused verification passes 42 command and hydration tests.
 - SRR-04 full Node 24.19.0 verification passes lint, typecheck, 26 files / 351 tests, and production build.
+- GitHub Actions run `31492155602` passed the same SRR-04 matrix in 1 minute 21 seconds on commit `de7bd9545da36a7052cb1d85c1a83d2acaaade8a`.
 - Valid duplication to a 10,000-node result improved from a 7,705.46 ms mean to 2,763.77 ms, a 64.1% reduction and 2.79× speedup.
 - A valid 10,000-node rename remains effectively unchanged at about 1.73 seconds, confirming that full hydration is the next dominant cost.
+- SRR-05 focused verification passes 59 command, equivalence, and hydration tests.
+- SRR-05 full Node 24.19.0 verification passes lint, typecheck, 27 files / 369 tests, and production build.
+- Scoped validation reduces the 10,000-node rename mean from 1,728.33 ms to 240.05 ms (86.1%, 7.20×) and the SRR-04 duplication mean from 2,763.77 ms to 1,107.97 ms (59.9%, 2.49×).
 
 **Remaining:**
 
-- Define command mutation scopes and an equivalence oracle before changing full-document command validation under SRR-05.
+- Checkpoint SRR-05 and verify it in GitHub Actions.
+- Add the 50-entry history cap and retained-memory evidence without changing history representation under SRR-06.
 
 **Last left off:**
-2026-08-11 — SRR-04 is locally complete and fully green. Next action: design SRR-05 equivalence coverage and keep full hydration until that gate passes.
+2026-08-11 — SRR-05 is locally complete and fully green. Next action: checkpoint and remotely verify it, then begin SRR-06.

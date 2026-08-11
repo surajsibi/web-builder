@@ -43,6 +43,7 @@ import {
   normalizeExplicitPageSlug,
 } from "../project/slug";
 import {
+  buildProjectParentIndex,
   collectSubtreeNodeIds,
   type ParentById,
 } from "../project/tree";
@@ -66,6 +67,7 @@ export type CommandPreparationResult =
   | { status: "rejected"; error: CommandValidationError };
 
 export type CommandExecutorServices = {
+  candidateValidation?: "full" | "scoped";
   idGenerator: IdGenerator;
 };
 
@@ -380,7 +382,9 @@ function uniquePageId(
 ): PageId | null {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const pageId = asPageId(idGenerator("page"));
-    if (!Object.hasOwn(document.pages, pageId)) return pageId;
+    if (pageId.length > 0 && !Object.hasOwn(document.pages, pageId)) {
+      return pageId;
+    }
   }
   return null;
 }
@@ -401,7 +405,7 @@ function reserveUniqueNodeId(
 ): NodeId | null {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const nodeId = asNodeId(idGenerator("node"));
-    if (!reservedIds.has(nodeId)) {
+    if (nodeId.length > 0 && !reservedIds.has(nodeId)) {
       reservedIds.add(nodeId);
       return nodeId;
     }
@@ -507,19 +511,45 @@ function mapHydrationErrorToCommand(
 function finalizeCandidate(
   candidate: CommandCandidate,
   value: CommandAppliedValue,
+  mutationScope: "local" | "tree",
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
-  const validation = prepareProjectHydration(candidate.document);
-  if (!validation.success) {
-    return rejected(mapHydrationErrorToCommand(validation.error));
+  // Store snapshots are fully hydrated before command execution. Full mode is
+  // retained as the equivalence oracle; hydrate, initial load, undo, and redo
+  // continue to validate untrusted or reconstructed documents in full.
+  if (services.candidateValidation === "full") {
+    const validation = prepareProjectHydration(candidate.document);
+    if (!validation.success) {
+      return rejected(mapHydrationErrorToCommand(validation.error));
+    }
+
+    return {
+      status: "applied",
+      candidate: {
+        ...candidate,
+        document: validation.value.document,
+        parentById: validation.value.parentById,
+      },
+      value,
+    };
+  }
+
+  if (mutationScope === "tree") {
+    const tree = buildProjectParentIndex(candidate.document);
+    if (!tree.success) {
+      return rejected({
+        code: "tree-invalid",
+        pageId: tree.issue.pageId,
+        nodeId: tree.issue.nodeId,
+        reason: tree.issue.reason,
+      });
+    }
+    candidate = { ...candidate, parentById: tree.parentById };
   }
 
   return {
     status: "applied",
-    candidate: {
-      ...candidate,
-      document: validation.value.document,
-      parentById: validation.value.parentById,
-    },
+    candidate,
     value,
   };
 }
@@ -583,12 +613,15 @@ function createPage(
       selectedNodeId: null,
     },
     { pageId, index: candidate.pageOrder.length - 1 },
+    "tree",
+    services,
   );
 }
 
 function renamePage(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "page.rename" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
@@ -614,12 +647,15 @@ function renamePage(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { pageId: command.pageId },
+    "local",
+    services,
   );
 }
 
 function deletePage(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "page.delete" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
@@ -673,6 +709,8 @@ function deletePage(
       selectedNodeId,
     },
     { pageId: command.pageId, removedNodeIds },
+    "tree",
+    services,
   );
 }
 
@@ -766,6 +804,8 @@ function insertNode(
           : snapshot.selectedNodeId,
     },
     { nodeId, destination: command.destination },
+    "tree",
+    services,
   );
 }
 
@@ -886,12 +926,15 @@ function insertBlock(
       nodeIds,
       destination: command.destination,
     },
+    "tree",
+    services,
   );
 }
 
 function removeNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.remove" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -949,12 +992,15 @@ function removeNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate, selectedNodeId },
     { nodeId: node.id, removedNodeIds },
+    "tree",
+    services,
   );
 }
 
 function moveNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.move" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1042,6 +1088,8 @@ function moveNode(
       previousDestination,
       destination: command.destination,
     },
+    "tree",
+    services,
   );
 }
 
@@ -1124,12 +1172,15 @@ function duplicateNode(
       idMap,
       destination: command.destination,
     },
+    "tree",
+    services,
   );
 }
 
 function renameNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.rename" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1157,12 +1208,15 @@ function renameNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
 function lockNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.lock" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1176,12 +1230,15 @@ function lockNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
 function updateProps(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.updateProps" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1228,6 +1285,8 @@ function updateProps(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
@@ -1277,6 +1336,7 @@ function applyStyleChange(
 function updateStyles(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.updateStyles" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1327,12 +1387,15 @@ function updateStyles(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
 function hideNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.hide" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1377,6 +1440,8 @@ function hideNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
@@ -1402,27 +1467,27 @@ export function executeEditorCommand(
     case "page.create":
       return createPage(snapshot, validatedCommand, services);
     case "page.rename":
-      return renamePage(snapshot, validatedCommand);
+      return renamePage(snapshot, validatedCommand, services);
     case "page.delete":
-      return deletePage(snapshot, validatedCommand);
+      return deletePage(snapshot, validatedCommand, services);
     case "node.insert":
       return insertNode(snapshot, validatedCommand, services);
     case "node.remove":
-      return removeNode(snapshot, validatedCommand);
+      return removeNode(snapshot, validatedCommand, services);
     case "node.move":
-      return moveNode(snapshot, validatedCommand);
+      return moveNode(snapshot, validatedCommand, services);
     case "node.duplicate":
       return duplicateNode(snapshot, validatedCommand, services);
     case "node.rename":
-      return renameNode(snapshot, validatedCommand);
+      return renameNode(snapshot, validatedCommand, services);
     case "node.lock":
-      return lockNode(snapshot, validatedCommand);
+      return lockNode(snapshot, validatedCommand, services);
     case "node.hide":
-      return hideNode(snapshot, validatedCommand);
+      return hideNode(snapshot, validatedCommand, services);
     case "node.updateProps":
-      return updateProps(snapshot, validatedCommand);
+      return updateProps(snapshot, validatedCommand, services);
     case "node.updateStyles":
-      return updateStyles(snapshot, validatedCommand);
+      return updateStyles(snapshot, validatedCommand, services);
     case "block.insert":
       return insertBlock(snapshot, validatedCommand, services);
   }
