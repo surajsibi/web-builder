@@ -5,7 +5,7 @@ scope: Project-wide remediation of the 2026-08-11 senior review for the web-buil
 authority: Selected execution-state authority for senior-review remediation; the execution plan owns intended work, while code, configuration, tests, and verified runtime behavior own implemented behavior
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-12 after SRR-09 passed its focused and full local verification gates; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
+freshness: Updated on 2026-08-12 after SRR-09 passed locally and remotely and the SRR-10 implementation report was produced; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
 ---
 
 # Senior review remediation workspace
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-12 after SRR-09 passed its focused and full local 
 
 **Feature directory identifier:** `senior-review-remediation`
 
-**Overall status:** SRR-00 through SRR-08 are complete. SRR-09 is locally complete and awaiting its remote CI checkpoint.
+**Overall status:** SRR-00 through SRR-10 are implemented and verified. The branch is ready for accountable review and is intentionally not archived or merged automatically.
 
 **Participating repositories:** `web-builder`
 
@@ -22,7 +22,7 @@ freshness: Updated on 2026-08-12 after SRR-09 passed its focused and full local 
 
 **Branch history:** Planning was saved on `main` at `b159f15aef531819538ccc32a877d27f7061a64f`; implementation moved to the dedicated feature branch from that commit.
 
-**Current milestone:** Checkpoint SRR-09 in remote CI, then publish the SRR-10 implementation report.
+**Current milestone:** Project-owner review of the implementation report, residual risks, and deferred license/CSP decisions.
 
 **Feature summary:** Convert the 2026-08-11 senior review into independently verifiable remediation phases. Restore a reliable Node and CI baseline first, measure and improve command-path performance without weakening validation, bound history memory, make form-submission behavior honest and safe, and then address targeted correctness, coverage, preview-storage, and repository-readiness findings.
 
@@ -48,10 +48,12 @@ freshness: Updated on 2026-08-12 after SRR-09 passed its focused and full local 
 - Verified direct coverage: 39 focused tests pass for JSON value guards, slug normalization and generation, document-version migration handling, and project tree invariants.
 - Verified repository readiness: a maintained root developer guide now owns setup and verification onboarding; missing license and CSP choices remain explicitly gated on project-owner and security review.
 - Verified local SRR-09 matrix: Node 24.19.0 passes lint, typecheck, 32 files / 414 tests, and the production build.
+- Verified remotely: GitHub Actions run `31566812922` passed the complete SRR-09/final code matrix on commit `abaf022a1a58a725e675dc75363a7fa0877acbd9`.
+- Published for review: [senior-review remediation implementation report](reports/Senior-Review-Remediation-Implementation-Report.md).
 
 ## Current execution state
 
 - **Done:** SRR-00 through SRR-07 established reliability, performance, bounded history, and honest fail-closed form behavior. SRR-08 scopes the shell subscription, supports Mac Backspace deletion, distinguishes invalid registry style defaults, compares JSON values structurally, retains at most 10 reusable preview snapshots, consolidates drag validation with the command executor, and documents the deterministic singleton initialization requirement.
 - **Verification:** Node 24.19.0 passes lint, typecheck, 28 files / 375 tests, and the production build after SRR-08. Focused SRR-08 tests pass 92 cases.
-- **Remaining:** Complete SRR-09 remote verification, then execute SRR-10.
-- **Last left off:** 2026-08-12 — SRR-09 is locally complete and fully green. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is the remote checkpoint followed by the SRR-10 report.
+- **Remaining:** Accountable review, merge decision, license selection, CSP/security decision, and any accepted residual-risk follow-up. These decisions are not inferred or performed automatically.
+- **Last left off:** 2026-08-12 — SRR-00 through SRR-10 are implemented and verified. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is project-owner review of the implementation report and branch.

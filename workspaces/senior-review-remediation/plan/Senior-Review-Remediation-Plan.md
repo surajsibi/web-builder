@@ -5,7 +5,7 @@ scope: Execution plan for reliability, performance, history, form, preview, corr
 authority: Selected execution plan for senior-review remediation; workspace.md owns execution state, and code, configuration, tests, and verified runtime behavior own current implementation facts
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-12 after SRR-09 passed its focused and full local verification gates; invalidated by approved scope changes, implementation evidence, dependency changes, or a different selected plan
+freshness: Updated on 2026-08-12 after SRR-09 passed locally and remotely and the SRR-10 implementation report was produced; invalidated by approved scope changes, implementation evidence, dependency changes, or a different selected plan
 ---
 
 # Plan: Remediate the senior review findings
@@ -73,8 +73,8 @@ Excluded unless separately approved:
 | SRR-06 | Cap history at 50 entries and measure retained memory; keep patch-based history as a separately gated follow-up | SRR-03 | Eviction, grouping, undo, redo, selection, and edit-after-undo tests pass; memory result is recorded | Implementer and technical verifier | Complete: local matrix and GitHub Actions run `31563217075` passed |
 | SRR-07 | Make preview forms explicitly non-persistent, fail the stub closed without parsing the body, and remove submitted-value logging | SRR-03 | Route and Preview tests prove no accepted/discarded state, no sensitive logging, and a clear user-facing notice | Implementer and product reviewer | Complete: local matrix and GitHub Actions run `31563682967` passed |
 | SRR-08 | Address focused correctness and interaction findings | SRR-03 | Selector render test, Mac Backspace coverage, precise style-default errors, structural equality tests, reusable bounded preview snapshots, and consolidated drop validation pass | Implementer | Complete: local matrix and GitHub Actions run `31565406088` passed |
-| SRR-09 | Expand direct risk-based coverage and complete repository readiness work | SRR-04 through SRR-08 | JSON guard, slug, migration, and tree tests pass; obsolete scaffolding decision is recorded; README is verified; license and CSP remain owner-reviewed decisions | Implementer, technical verifier, and project owner | Locally complete: focused and full matrix pass; remote CI pending |
-| SRR-10 | Run the final verification matrix and publish an implementation report | SRR-04 through SRR-09 | `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` pass on the supported Node version and in CI | Technical verifier | Not started |
+| SRR-09 | Expand direct risk-based coverage and complete repository readiness work | SRR-04 through SRR-08 | JSON guard, slug, migration, and tree tests pass; obsolete scaffolding decision is recorded; README is verified; license and CSP remain owner-reviewed decisions | Implementer, technical verifier, and project owner | Complete: local matrix and GitHub Actions run `31566812922` passed |
+| SRR-10 | Run the final verification matrix and publish an implementation report | SRR-04 through SRR-09 | `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build` pass on the supported Node version and in CI | Technical verifier | Complete: final code matrix passed and implementation report published for review |
 
 ## Quality and approval gates
 
@@ -100,6 +100,6 @@ Excluded unless separately approved:
 
 ## Completion
 
-Completion requires SRR-00 through SRR-10 to be complete or explicitly deferred by the project owner, all supported-runtime checks to pass locally and in CI, benchmark and memory evidence to be recorded, and a D5 implementation report to identify changes, verification, residual risks, and deferred findings.
+SRR-00 through SRR-10 are implemented and verified. The [D5 implementation report](../reports/Senior-Review-Remediation-Implementation-Report.md) records the changes, verification, residual risks, and deferred owner decisions.
 
 Promote only verified durable knowledge to the appropriate project authority. Archive the feature and branch workspaces after accountable review and completion; do not archive or delete them automatically.
