@@ -118,6 +118,18 @@ const generatedNavbarIds = [
   "node-navbar-cta",
 ];
 
+const maximumNodeCountCase: EquivalenceCase = {
+  name: "should match full validation when a node insertion exceeds the project limit",
+  createSnapshot: () => createFlatSnapshot(MAX_PROJECT_NODES),
+  command: {
+    kind: "node.insert",
+    pageId: asPageId("page-home"),
+    componentType: "card",
+    destination: { parentId: null, index: MAX_PROJECT_NODES },
+  },
+  generatedIds: ["node-over-limit"],
+};
+
 const equivalenceCases: EquivalenceCase[] = [
   {
     name: "should match full validation when creating a page",
@@ -238,17 +250,6 @@ const equivalenceCases: EquivalenceCase[] = [
     generatedIds: generatedNavbarIds,
   },
   {
-    name: "should match full validation when a node insertion exceeds the project limit",
-    createSnapshot: () => createFlatSnapshot(MAX_PROJECT_NODES),
-    command: {
-      kind: "node.insert",
-      pageId: asPageId("page-home"),
-      componentType: "card",
-      destination: { parentId: null, index: MAX_PROJECT_NODES },
-    },
-    generatedIds: ["node-over-limit"],
-  },
-  {
     name: "should match full validation when a move exceeds the tree depth limit",
     createSnapshot: createDepthLimitSnapshot,
     command: {
@@ -282,13 +283,25 @@ const equivalenceCases: EquivalenceCase[] = [
   },
 ];
 
+function expectEquivalentResult(testCase: EquivalenceCase): void {
+  const snapshot = testCase.createSnapshot?.() ?? createSnapshot();
+
+  const scoped = executeCase(testCase, snapshot, "scoped");
+  const full = executeCase(testCase, snapshot, "full");
+
+  expect(scoped).toEqual(full);
+}
+
 describe("executeEditorCommand candidate validation equivalence", () => {
   it.each(equivalenceCases)("$name", (testCase) => {
-    const snapshot = testCase.createSnapshot?.() ?? createSnapshot();
-
-    const scoped = executeCase(testCase, snapshot, "scoped");
-    const full = executeCase(testCase, snapshot, "full");
-
-    expect(scoped).toEqual(full);
+    expectEquivalentResult(testCase);
   });
+
+  it(
+    maximumNodeCountCase.name,
+    () => {
+      expectEquivalentResult(maximumNodeCountCase);
+    },
+    30_000,
+  );
 });

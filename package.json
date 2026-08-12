@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "benchmark:commands": "vitest bench src/builder/commands/__benchmarks__/execute-command.bench.ts --run --environment node --maxWorkers 1 --no-file-parallelism",
+    "benchmark:drag": "vitest bench src/builder/ui/__benchmarks__/drag-and-drop.bench.ts --run --environment node --maxWorkers 1 --no-file-parallelism",
     "benchmark:history": "vitest bench src/builder/store/__benchmarks__/history-retention.bench.ts --run --environment node --maxWorkers 1 --no-file-parallelism",
     "test": "vitest run",
     "test:watch": "vitest"

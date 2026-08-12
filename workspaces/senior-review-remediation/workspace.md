@@ -4,8 +4,8 @@ type: D4
 scope: Project-wide remediation of the 2026-08-11 senior review for the web-builder repository
 authority: Selected execution-state authority for senior-review remediation; the execution plan owns intended work, while code, configuration, tests, and verified runtime behavior own implemented behavior
 owner: Project owner
-lifecycle: draft
-freshness: Updated on 2026-08-12 after SRR-09 passed locally and remotely and the SRR-10 implementation report was produced; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
+lifecycle: in_review
+freshness: Updated on 2026-08-12 after SRR-11 through SRR-15 implementation and the local SRR-16 matrix; invalidated by a branch change, remote CI result, review response, merge decision, or new verification evidence
 ---
 
 # Senior review remediation workspace
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-12 after SRR-09 passed locally and remotely and th
 
 **Feature directory identifier:** `senior-review-remediation`
 
-**Overall status:** SRR-00 through SRR-10 are implemented and verified. The branch is ready for accountable review and is intentionally not archived or merged automatically.
+**Overall status:** SRR-00 through SRR-15 are implemented and locally verified. The SRR-16 local matrix and evidence update are complete; one pull-request CI run, review response, and merge decision remain.
 
 **Participating repositories:** `web-builder`
 
@@ -22,7 +22,7 @@ freshness: Updated on 2026-08-12 after SRR-09 passed locally and remotely and th
 
 **Branch history:** Planning was saved on `main` at `b159f15aef531819538ccc32a877d27f7061a64f`; implementation moved to the dedicated feature branch from that commit.
 
-**Current milestone:** Project-owner review of the implementation report, residual risks, and deferred license/CSP decisions.
+**Current milestone:** Remote validation and accountable review of the implemented SRR-11 through SRR-16 pre-merge review follow-up.
 
 **Feature summary:** Convert the 2026-08-11 senior review into independently verifiable remediation phases. Restore a reliable Node and CI baseline first, measure and improve command-path performance without weakening validation, bound history memory, make form-submission behavior honest and safe, and then address targeted correctness, coverage, preview-storage, and repository-readiness findings.
 
@@ -50,10 +50,20 @@ freshness: Updated on 2026-08-12 after SRR-09 passed locally and remotely and th
 - Verified local SRR-09 matrix: Node 24.19.0 passes lint, typecheck, 32 files / 414 tests, and the production build.
 - Verified remotely: GitHub Actions run `31566812922` passed the complete SRR-09/final code matrix on commit `abaf022a1a58a725e675dc75363a7fa0877acbd9`.
 - Published for review: [senior-review remediation implementation report](reports/Senior-Review-Remediation-Implementation-Report.md).
+- Verified review state: [pull request review 4913695775](https://github.com/surajsibi/web-builder/pull/1#pullrequestreview-4913695775) requested changes against commit `fc3b1b63e9c8ec6583bc5d796b1d61a682c3479b`; no inline review threads were present.
+- Verified follow-up findings: drag dry-run validation performs a moving-subtree scan for each rendered drop zone; preview storage writes before cleanup and cannot recover from quota failure; the maximum-node equivalence test has limited timeout margin; and the CI workflow runs both push and pull-request events for a PR branch SHA.
+- Verified review triage: the JSON-symbol and internal block-placement comments require evidence-based responses rather than code changes. The unreachable production form submission runtime should be removed while persisted form fields remain schema-compatible until a versioned migration.
+- Verified supported-runtime check after review: Node 24.19.0 passed 32 files and 414 tests in 153.27 seconds; the maximum-node equivalence case took 2.544 seconds in isolation.
+- Verified SRR-11: exact-size drag fixtures reduced the 1,200/3,000/6,000-zone overlay means from 13.3770/66.0623/267.57 ms to 4.2840/5.6562/10.8092 ms after replacing per-zone subtree scans with an upward parent walk.
+- Verified SRR-12: quota simulations prove cleanup occurs before a new write at the entry cap, one quota failure gets one bounded retry, unrecoverable quota errors still surface, unrelated storage is preserved, and an existing current snapshot survives failed overwrite recovery.
+- Verified SRR-13: only the generated maximum-node equivalence case has a 30-second timeout; its focused suite passes and the complete 31-file / 416-test suite passed twice.
+- Verified SRR-14 locally: the CI workflow retains `pull_request` and `workflow_dispatch`, limits `push` to `main`, and parses as YAML. Remote event-count validation requires the final branch push.
+- Verified SRR-15: the renderer runtime, value converter, submission state machine, status styles, and inactive Inspector controls are removed; preview guidance, native submission cancellation, fail-closed `503`, and persisted success/error schema compatibility remain covered.
+- Verified local SRR-16 matrix on Node 24.19.0: frozen installation, focused suites, lint, typecheck, two complete 31-file / 416-test runs, production build, and the drag benchmark pass.
 
 ## Current execution state
 
-- **Done:** SRR-00 through SRR-07 established reliability, performance, bounded history, and honest fail-closed form behavior. SRR-08 scopes the shell subscription, supports Mac Backspace deletion, distinguishes invalid registry style defaults, compares JSON values structurally, retains at most 10 reusable preview snapshots, consolidates drag validation with the command executor, and documents the deterministic singleton initialization requirement.
-- **Verification:** Node 24.19.0 passes lint, typecheck, 28 files / 375 tests, and the production build after SRR-08. Focused SRR-08 tests pass 92 cases.
-- **Remaining:** Accountable review, merge decision, license selection, CSP/security decision, and any accepted residual-risk follow-up. These decisions are not inferred or performed automatically.
-- **Last left off:** 2026-08-12 — SRR-00 through SRR-10 are implemented and verified. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is project-owner review of the implementation report and branch.
+- **Done:** SRR-11 through SRR-15 are implemented; the SRR-16 local matrix, drag investigation, implementation-report update, and review-response evidence are complete. The unrelated modifications under `workspaces/api-data-bindings/` remain untouched.
+- **Verification:** Node 24.19.0 passes frozen installation, focused regression suites, lint, typecheck, two complete 31-file / 416-test runs, the production build, and exact-size drag benchmarks. Workflow syntax parses locally.
+- **Remaining:** Verify one automatic pull-request CI run for the published follow-up SHA, post the prepared evidence-based review response only with approval, and then make the merge decision. License and CSP decisions remain separate owner/security gates.
+- **Last left off:** 2026-08-12 — the pre-merge follow-up is implemented, locally verified, and approved for publication. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action after publication is remote PR validation.

@@ -1017,6 +1017,23 @@ function removeNode(
   );
 }
 
+function containsAncestor(
+  parentById: Readonly<ParentById>,
+  ancestorId: NodeId,
+  candidateId: NodeId,
+): boolean {
+  const visited = new Set<NodeId>();
+  let current: NodeId | null = candidateId;
+
+  while (current !== null && !visited.has(current)) {
+    if (current === ancestorId) return true;
+    visited.add(current);
+    current = parentById[current] ?? null;
+  }
+
+  return false;
+}
+
 function moveNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.move" }>,
@@ -1052,14 +1069,13 @@ function moveNode(
   const lockedDestination = assertDestinationEditable(page, command.destination);
   if (lockedDestination) return lockedDestination;
 
-  const subtreeIds = collectSubtreeNodeIds(
-    snapshot.document,
-    page.id,
-    node.id,
-  );
   if (
     command.destination.parentId !== null &&
-    subtreeIds.includes(command.destination.parentId)
+    containsAncestor(
+      snapshot.parentById,
+      node.id,
+      command.destination.parentId,
+    )
   ) {
     return rejected({
       code: "cycle",

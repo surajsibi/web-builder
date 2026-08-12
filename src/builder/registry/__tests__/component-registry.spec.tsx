@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { formDataToValues } from "@/builder/forms/form-values";
 import {
   canPlaceType,
   componentRegistry,
@@ -448,7 +447,7 @@ describe("componentRegistry", () => {
     ).toThrow();
   });
 
-  it("should submit named descendant controls and announce success in preview mode", async () => {
+  it("should retain named descendant controls while suppressing preview submission", () => {
     const Form = componentRegistry.form.render;
     const Input = componentRegistry.input.render;
     const Textarea = componentRegistry.textarea.render;
@@ -457,8 +456,6 @@ describe("componentRegistry", () => {
     const Checkbox = componentRegistry.checkbox.render;
     const CheckboxGroup = componentRegistry["checkbox-group"].render;
     const Button = componentRegistry.button.render;
-    const submitForm = vi.fn().mockResolvedValue(undefined);
-
     render(
       <Form
         props={{
@@ -467,7 +464,7 @@ describe("componentRegistry", () => {
           successMessage: "Message received.",
           errorMessage: "Message failed.",
         }}
-        runtime={{ mode: "preview", nodeId: "node-contact", submitForm }}
+        runtime={{ mode: "preview", nodeId: "node-contact" }}
         style={{}}
       >
         <Input
@@ -573,30 +570,24 @@ describe("componentRegistry", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Accept terms" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Design" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Development" }));
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    const form = screen.getByRole("form", { name: "Contact form" });
+    if (!(form instanceof HTMLFormElement)) {
+      throw new Error("Expected the contact form to be a native form element");
+    }
 
-    await waitFor(() =>
-      expect(submitForm).toHaveBeenCalledWith({
-        formId: "node-contact",
-        formName: "contactForm",
-        values: {
-          email: "ada@example.com",
-          country: "India",
-          message: "Please send more information.",
-          contactMethod: "Email",
-          terms: "accepted",
-          interests: ["Design", "Development"],
-        },
-      }),
-    );
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Message received.",
-    );
+    const formData = new FormData(form);
+    expect(formData.get("email")).toBe("ada@example.com");
+    expect(formData.get("country")).toBe("India");
+    expect(formData.get("message")).toBe("Please send more information.");
+    expect(formData.get("contactMethod")).toBe("Email");
+    expect(formData.get("terms")).toBe("accepted");
+    expect(formData.getAll("interests")).toEqual(["Design", "Development"]);
+    expect(fireEvent.submit(form)).toBe(false);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("should suppress editor submissions and announce preview failures", async () => {
+  it("should suppress native submissions and show preview availability guidance", () => {
     const Form = componentRegistry.form.render;
-    const submitForm = vi.fn().mockRejectedValue(new Error("Rejected"));
     const props = {
       label: "Contact form",
       name: "contactForm",
@@ -607,30 +598,54 @@ describe("componentRegistry", () => {
     const view = render(
       <Form
         props={props}
-        runtime={{ mode: "editor", nodeId: "node-contact", submitForm }}
+        runtime={{ mode: "editor", nodeId: "node-contact" }}
         style={{}}
       >
         <button type="submit">Send</button>
       </Form>,
     );
 
-    fireEvent.submit(screen.getByRole("form", { name: "Contact form" }));
-    expect(submitForm).not.toHaveBeenCalled();
+    expect(
+      fireEvent.submit(screen.getByRole("form", { name: "Contact form" })),
+    ).toBe(false);
 
     view.rerender(
       <Form
         props={props}
-        runtime={{ mode: "preview", nodeId: "node-contact", submitForm }}
+        runtime={{
+          formSubmissionNotice: "Submission is unavailable in preview.",
+          mode: "preview",
+          nodeId: "node-contact",
+        }}
         style={{}}
       >
         <button type="submit">Send</button>
       </Form>,
     );
-    fireEvent.submit(screen.getByRole("form", { name: "Contact form" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Message failed.",
+    expect(
+      fireEvent.submit(screen.getByRole("form", { name: "Contact form" })),
+    ).toBe(false);
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Submission is unavailable in preview.",
     );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("should preserve saved response messages without exposing inactive controls", () => {
+    expect(
+      componentRegistry.form.propsSchema.parse({
+        label: "Contact form",
+        name: "contactForm",
+        successMessage: "Message received.",
+        errorMessage: "Message failed.",
+      }),
+    ).toMatchObject({
+      successMessage: "Message received.",
+      errorMessage: "Message failed.",
+    });
+    expect(
+      componentRegistry.form.inspector.props.map(({ path }) => path),
+    ).toEqual(["label", "name"]);
   });
 
   it("should render an accessible native input with text-like form semantics", () => {
@@ -757,7 +772,6 @@ describe("componentRegistry", () => {
   it("should not submit a Form when password visibility changes", () => {
     const Form = componentRegistry.form.render;
     const Input = componentRegistry.input.render;
-    const submitForm = vi.fn().mockResolvedValue(undefined);
 
     render(
       <Form
@@ -767,7 +781,7 @@ describe("componentRegistry", () => {
           successMessage: "Signed in.",
           errorMessage: "Sign-in failed.",
         }}
-        runtime={{ mode: "preview", nodeId: "node-sign-in", submitForm }}
+        runtime={{ mode: "preview", nodeId: "node-sign-in" }}
         style={{}}
       >
         <Input
@@ -788,9 +802,13 @@ describe("componentRegistry", () => {
       </Form>,
     );
 
+    const form = screen.getByRole("form", { name: "Sign-in form" });
+    const handleSubmit = vi.fn();
+    form.addEventListener("submit", handleSubmit);
+
     fireEvent.click(screen.getByRole("button", { name: "Show Password" }));
 
-    expect(submitForm).not.toHaveBeenCalled();
+    expect(handleSubmit).not.toHaveBeenCalled();
   });
 
   it("should preserve a live input value and adopt changed authored defaults or types", async () => {
@@ -1329,13 +1347,15 @@ describe("componentRegistry", () => {
       throw new Error("Expected the preferences form to be a native form element");
     }
 
-    expect(formDataToValues(new FormData(form))).toEqual({});
+    expect(Array.from(new FormData(form).entries())).toEqual([]);
 
     fireEvent.click(checkbox);
-    expect(formDataToValues(new FormData(form))).toEqual({ updates: "email" });
+    expect(Array.from(new FormData(form).entries())).toEqual([
+      ["updates", "email"],
+    ]);
 
     fireEvent.click(checkbox);
-    expect(formDataToValues(new FormData(form))).toEqual({});
+    expect(Array.from(new FormData(form).entries())).toEqual([]);
   });
 
   it.each([

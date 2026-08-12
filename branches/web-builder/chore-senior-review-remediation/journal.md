@@ -4,8 +4,8 @@ type: D4
 scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
-lifecycle: draft
-freshness: Updated after SRR-09 passed locally and remotely and the SRR-10 implementation report was produced on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+lifecycle: in_review
+freshness: Updated after SRR-11 through SRR-15 implementation and the local SRR-16 matrix on 2026-08-12; invalidated by a commit, push, remote CI result, review response, blocker, or resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,10 +14,10 @@ freshness: Updated after SRR-09 passed locally and remotely and the SRR-10 imple
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-10 are implemented and verified. The branch is ready for project-owner review.
+SRR-00 through SRR-15 are implemented and locally verified. Publication is approved; one pull-request CI run and the review response remain before a merge decision.
 
 **Approach:**
-Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
+Preserve the verified SRR-00 through SRR-10 work, then resolve the confirmed pre-merge review findings in isolated stages: drag complexity, preview quota recovery, test timeout margin, CI event duplication, compatibility-preserving form cleanup, and final verification.
 
 **Done:**
 
@@ -59,6 +59,19 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Removed the dead generated-slug root guard after direct normalization tests proved the base can never be `/`.
 - Added the maintained root contributor README with supported toolchain, setup, verification, repository orientation, preview/form boundaries, and explicit license/CSP status.
 - Retained the Phase 2 validation harness pending coordinated archival or link migration for the four draft reports that use it as historical evidence; confirmed it has no production import.
+- Inspected pull request review `4913695775` against exact commit `fc3b1b63e9c8ec6583bc5d796b1d61a682c3479b` and confirmed that it contains one changes-requested review with no inline threads.
+- Verified the drag complexity, preview quota-recovery, equivalence-timeout margin, duplicate-CI, and unreachable form-runtime findings; rejected the JSON-symbol and block-internal-placement claims with source evidence.
+- Extended the selected execution plan with SRR-11 through SRR-16 instead of creating a duplicate plan.
+- Received project-owner approval to execute the pre-merge follow-up.
+- Received project-owner approval to commit and push only the remediation files while preserving the unrelated `workspaces/api-data-bindings/` changes.
+- Added an exact-size drag-overlay benchmark and replaced per-zone moving-subtree collection with a cycle-safe upward walk through the trusted parent index.
+- Added preview quota recovery that prunes stale builder-owned snapshots before writes and retries one quota failure exactly once without deleting unrelated storage or an existing current snapshot.
+- Isolated the maximum-node validation-equivalence case with a 30-second per-test timeout while retaining global Vitest defaults.
+- Limited CI branch `push` validation to `main` while retaining `pull_request` and `workflow_dispatch`.
+- Removed the unreachable `submitForm` runtime callback, value conversion module and tests, form submission state machine, status styles, and inactive success/error Inspector controls.
+- Preserved persisted form success/error fields in the strict schema and defaults; forms cancel native submission, Preview retains its unavailable notice, and the route remains fail-closed at `503`.
+- Updated `Project.md` to remove the stale working-submission architecture and record the fail-closed contract.
+- Added the D2 drag-validation investigation and updated the selected plan, workspace, overlay, and implementation report with local evidence.
 
 **Verification:**
 
@@ -91,12 +104,24 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - SRR-09 full Node 24.19.0 verification passes lint, typecheck, 32 files / 414 tests, and production build.
 - GitHub Actions run `31566812922` passed every SRR-09/final-code workflow step in 1 minute 40 seconds on commit `abaf022a1a58a725e675dc75363a7fa0877acbd9`.
 - The SRR-10 D5 implementation report records all changes, verification, decisions, and residual risks.
+- After review inspection, Node 24.19.0 passed the complete 32-file / 414-test suite in 153.27 seconds.
+- The maximum-node equivalence case passed in isolation in 2.544 seconds, confirming correctness while leaving limited margin under the 5-second default timeout.
+- GitHub Actions runs `31567183248` (`push`) and `31569281861` (`pull_request`) both passed against reviewed commit `fc3b1b6`, confirming duplicate event coverage.
+- Corrected exact-size drag benchmark baseline means: 13.3770 ms, 66.0623 ms, and 267.57 ms for 1,200, 3,000, and 6,000 zones with 200, 500, and 1,000 moving-subtree nodes.
+- Corrected exact-size optimized drag means: 4.2840 ms, 5.6562 ms, and 10.8092 ms, reductions of 68.0%, 91.4%, and 96.0%.
+- Focused form, Preview, and route verification passes 3 files / 74 tests; focused move/drop verification passes 2 files / 39 tests; preview quota and equivalence suites also pass.
+- Node 24.19.0 lint and typecheck pass.
+- Two independent complete Node 24.19.0 runs each pass 31 files / 416 tests.
+- The Next.js 16.3.0 production build passes; the existing ancestor-lockfile/Turbopack-root warning remains non-fatal.
+- `.github/workflows/ci.yml` parses successfully as YAML with `push.branches: [main]`, `pull_request`, and `workflow_dispatch`.
+- Final consolidated focused verification passes 6 files / 127 tests after the optimized move path and exact-size benchmark fixture were restored.
+- Final post-audit lint and typecheck pass; documentation relative links resolve and `git diff --check` reports no whitespace errors.
 
 **Remaining:**
 
-- Obtain project-owner review of the implementation report and branch.
-- Decide the software license and whether to pursue a separately tested CSP.
-- Merge or request follow-up changes; archive the feature and branch workspaces only after accountable completion review.
+- After push, verify that the new pull-request SHA receives one automatic CI run and that its full matrix passes.
+- Post the prepared evidence-based response to review 4913695775 only with approval, then make the merge decision.
+- Decide the software license and whether to pursue a separately tested CSP as separate owner/security gates.
 
 **Last left off:**
-2026-08-12 — SRR-00 through SRR-10 are implemented and verified. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: project-owner review of the implementation report and branch.
+2026-08-12 — SRR-11 through SRR-15 and the local SRR-16 evidence matrix are complete and approved for publication. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action after publication: remote PR validation, then seek approval before posting the prepared review response.

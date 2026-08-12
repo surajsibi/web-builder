@@ -90,7 +90,7 @@ The following rules are authoritative:
 9. V1 uses the fixed desktop-first `base -> tablet -> mobile` cascade with property-specific merge rules.
 10. All persisted document mutations go through the canonical editor-command dispatcher. Session actions, persistence lifecycle actions, and hydration lifecycle actions cannot mutate document content independently.
 11. React components, DOM elements, functions, events, and Zustand actions are never stored in page JSON.
-12. Authored form configuration is persisted, but visitor-entered values and submission status remain runtime-only and never enter the project document, Zustand history, or autosave.
+12. Authored form configuration is persisted, but visitor-entered values remain DOM-only and never enter the project document, Zustand history, autosave, or a submission transport.
 
 ### Component Registry
 
@@ -164,9 +164,9 @@ type RendererBaseProps<Props extends JsonObject> = {
 };
 
 type ComponentRendererRuntime = {
+  formSubmissionNotice?: string;
   mode: "editor" | "preview";
   nodeId: string;
-  submitForm?: (submission: RuntimeFormSubmission) => Promise<void>;
 };
 
 type LeafRendererProps<Props extends JsonObject> =
@@ -290,7 +290,7 @@ Checkbox Group stores one visible group label, a required non-empty field name, 
 
 The Inspector's `string-multi-select` control references another string-array prop through validated `optionsPath` metadata. Checkbox Group uses it to present current options as default-selection checkboxes. When the authored option list changes, the Inspector prunes default selections that no longer reference an option before validating and committing the complete props object.
 
-Form is a native `<form>` container with an accessible label, a stable authored form name, and authored success and error messages. Its direct child allowlist contains text content, Labels, links, Buttons, Inputs, Textareas, Dropdowns, Radio Groups, Checkboxes, and Checkbox Groups; it excludes structural containers and Form itself so a valid tree cannot contain nested forms. Named successful descendant controls participate in native `FormData` submission. Unnamed and disabled controls remain excluded by browser semantics, unchecked Checkboxes are omitted, repeated names serialize as ordered arrays, and file inputs are rejected until an upload contract exists.
+Form is a native `<form>` container with an accessible label and a stable authored form name. Legacy authored success and error messages remain schema-compatible for existing saved documents but are not exposed in the Inspector or rendered until a real delivery contract exists. Its direct child allowlist contains text content, Labels, links, Buttons, Inputs, Textareas, Dropdowns, Radio Groups, Checkboxes, and Checkbox Groups; it excludes structural containers and Form itself so a valid tree cannot contain nested forms. Named successful descendant controls retain native `FormData` semantics, while Form cancels browser submission in both editor and Preview. Unnamed and disabled controls remain excluded by browser semantics, unchecked Checkboxes are omitted, and repeated names retain authored order.
 
 Every definition supplies a complete `defaults.props` object that satisfies the schema-derived props type and passes `propsSchema` during registry initialization. Defaults are immutable application-code templates. Creating a node clones and validates the defaults, stores the resulting props, and assigns the current definition `version` to the node's `componentVersion`.
 
@@ -1335,7 +1335,7 @@ Editor Interaction Layer
   -> selection, hover, drag-and-drop, and overlays
 ```
 
-The editor and preview use the same semantic component renderer. The controller may inject a runtime-only context containing the node ID, the editor or preview mode, and a form-submission callback. This context is application code, is never serialized, and exists only for environment-sensitive behavior such as suppressing submissions in the editor and delivering them in Preview. Ordinary semantic markup remains shared.
+The editor and preview use the same semantic component renderer. The controller may inject a runtime-only context containing the node ID, the editor or preview mode, and optional form-availability guidance. This context is application code, is never serialized, and exists only for environment-sensitive behavior. Ordinary semantic markup remains shared.
 
 #### Node Rendering Controller
 
@@ -1347,7 +1347,7 @@ The Node Rendering Controller:
 - Supplies a controlled `className` for known presets, generated responsive rules, pseudo-state rules, or scoped published CSS.
 - Recursively renders ordered children and uses the leaf or container renderer contract selected by the definition.
 - Forwards an optional `rootRef` supplied by an external consumer; it does not own registration or measurement.
-- Injects the runtime-only node identity, mode, and optional submission callback supplied by the owning surface.
+- Injects the runtime-only node identity, mode, and optional form-availability guidance supplied by the owning surface.
 - Applies React keys externally using stable node IDs.
 - Does not mutate the document, manage selection, handle drag-and-drop, or insert blocks.
 
@@ -1359,8 +1359,8 @@ Every component renderer must produce exactly one semantic DOM root element. The
 - Applies the controlled `className` and compiled `style` to its semantic root.
 - Attaches the optional `rootRef` to that same root element.
 - Renders the supplied child slot only when its definition is a container.
-- Produces the same authored semantic root in editor and preview; a Form may add runtime-only accessible status feedback after a submission attempt.
-- Does not access Zustand, parent or sibling information, registry state, editor commands, responsive resolution, drag-and-drop state, undo history, or autosave. A Form may use its injected runtime node ID only as submission identity.
+- Produces the same authored semantic root in editor and preview; a Form may add runtime-only availability guidance in Preview.
+- Does not access Zustand, parent or sibling information, registry state, editor commands, responsive resolution, drag-and-drop state, undo history, or autosave.
 
 Leaf renderers use `LeafRendererProps<Props>` and cannot accept children. Container renderers use `ContainerRendererProps<Props>` and receive `children`, which may be `null` for an empty container.
 
@@ -1388,7 +1388,7 @@ The editor toolbar links to the dedicated `/preview` route with `target="_blank"
 
 Preview maps the active page's ordered roots through the page and node rendering controllers. It does not render the editor toolbar, sidebars, Inspector, breadcrumbs, canvas stage, selection layer, drag-and-drop targets, resize controls, or editor-only empty prompts. The route derives its active `Viewport` from the real browser width using the shared V1 breakpoint constants, then uses the existing responsive resolver and style compiler.
 
-Preview supplies the runtime form-submission callback. A valid Form submission collects native `FormData`, converts named successful string controls—including multiline Textarea values, the selected value from a Radio Group, configured values from checked Checkboxes, and repeated selected values from a Checkbox Group—to JSON while preserving repeated names, and posts `projectId`, `pageId`, `formId`, `formName`, and `values` to the same-origin `/api/form-submissions` Route Handler. One selected Checkbox Group value remains a scalar and multiple selected values become an ordered array under the shared FormData contract. In non-production builds, Preview also logs the serialized `values` object to the browser console for local inspection. The Form prevents duplicate in-flight submissions and exposes accessible pending, success, and error status. Production builds and the Route Handler do not log submission values. The Route Handler validates the complete envelope with Zod and acknowledges valid input without echoing or durably storing visitor values; durable storage and delivery remain a separate backend integration.
+Preview does not supply a form-submission transport. Form cancels native submission and Preview supplies an accessible note that submissions are not saved or sent. The same-origin `/api/form-submissions` Route Handler remains fail-closed and returns `503 Service Unavailable` without reading or echoing the request body. Durable storage and delivery require a separately designed backend integration before submission controls or success and error states may be activated.
 
 The snapshot is transport, not project persistence or a second canonical document format. A copied preview URL is not shareable, and refreshing a consumed preview URL shows the bounded unavailable state; clicking Preview in the editor publishes a fresh snapshot. Preview never displays stored JSON or editor chrome. Durable persistence, published routes, and source-code export remain separate concerns.
 
@@ -1995,13 +1995,13 @@ The first proof of concept must demonstrate that the architecture can:
 28. Move an unlocked ancestor containing a locked descendant between unlocked parents, duplicate the locked subtree while preserving lock flags, and unlock it through `node.set-locked`.
 29. Set responsive `display` to `none`, confirm the node remains available in Layers, and confirm saved JSON contains no `meta.hidden`.
 30. Confirm applied, no-op, rejected, and unexpected failed command paths have distinct results; only applied document changes create history, increment `commitId`, and mark dirty.
-31. Place an Input, Textarea, Dropdown, Radio Group, Checkbox, Checkbox Group, and submit Button inside Form, enter and select values in Preview, and confirm the backend envelope contains the project, page, form, and named field values.
-32. Confirm editor submission attempts create no network request, repeated field names preserve order, and disabled, unnamed, or unchecked controls are omitted.
-33. Confirm invalid backend envelopes and unsupported nested Form placement are rejected without mutating the project document.
+31. Place an Input, Textarea, Dropdown, Radio Group, Checkbox, Checkbox Group, and submit Button inside Form, enter and select values in Preview, and confirm submission is canceled with an accessible unavailable notice and no network request.
+32. Confirm native `FormData` preserves repeated field order and omits disabled, unnamed, or unchecked controls without serializing visitor values into application state.
+33. Confirm the fail-closed backend route returns `503` without reading or echoing visitor values and unsupported nested Form placement is rejected without mutating the project document.
 34. Insert the Password reveal preset as one Input node, confirm editor interaction keeps it masked, and confirm Preview can reveal and hide the same live value through an accessible non-submit button.
-35. Insert and configure a Radio Group, confirm its fieldset legend names the group, its orientation and option list remain editable, keyboard and pointer interaction select only one option, disabled and required states retain native semantics, and Preview submits the selected named value.
-36. Insert and configure a Checkbox, confirm its visible label names the native control, its label remains independent from its submitted value, pointer and Space-key interaction toggle the live checked state, required and disabled states retain native semantics, and Preview submits the configured named value only while checked.
-37. Insert and configure a Checkbox Group, confirm its fieldset legend names the group, its option list and default selections remain synchronized, pointer and Space-key interaction toggle independent options, required means at least one selected option, disabled state reaches every option, and Preview submits repeated selected values in authored option order.
+35. Insert and configure a Radio Group, confirm its fieldset legend names the group, its orientation and option list remain editable, keyboard and pointer interaction select only one option, disabled and required states retain native semantics, and native `FormData` includes the selected named value.
+36. Insert and configure a Checkbox, confirm its visible label names the native control, its label remains independent from its configured value, pointer and Space-key interaction toggle the live checked state, required and disabled states retain native semantics, and native `FormData` includes the configured named value only while checked.
+37. Insert and configure a Checkbox Group, confirm its fieldset legend names the group, its option list and default selections remain synchronized, pointer and Space-key interaction toggle independent options, required means at least one selected option, disabled state reaches every option, and native `FormData` preserves selected values in authored option order.
 38. Insert a Label and one Input, Textarea, or Dropdown, assign the same valid target and control ID, confirm the visible Label supplies the control's accessible name, clicking the Label focuses the control in Preview, inline editing preserves the target, and legacy labelable controls migrate with their existing accessible-label behavior unchanged.
 
 ## Editor Workspace Layout

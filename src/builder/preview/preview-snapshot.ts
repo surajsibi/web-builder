@@ -16,6 +16,9 @@ export type PreviewSnapshotReader = Pick<Storage, "getItem"> &
 export type PreviewSnapshotStorage = PreviewSnapshotWriter &
   PreviewSnapshotReader;
 
+type CollectablePreviewSnapshotStorage = PreviewSnapshotWriter &
+  Required<Pick<Storage, "getItem" | "removeItem" | "key" | "length">>;
+
 type StoredPreviewSnapshot = {
   document: unknown;
   activePageId: string;
@@ -38,26 +41,21 @@ function snapshotStorageKey(snapshotId: string): string {
   return PREVIEW_SNAPSHOT_PREFIX + snapshotId;
 }
 
-export function storePreviewSnapshot(
+function canCollectPreviewSnapshots(
   storage: PreviewSnapshotWriter,
-  snapshotId: string,
-  snapshot: PreviewSnapshot,
-): void {
-  const currentKey = snapshotStorageKey(snapshotId);
-  storage.setItem(
-    currentKey,
-    JSON.stringify({ ...snapshot, storedAt: Date.now() }),
+): storage is CollectablePreviewSnapshotStorage {
+  return (
+    storage.getItem !== undefined &&
+    storage.removeItem !== undefined &&
+    storage.key !== undefined &&
+    storage.length !== undefined
   );
+}
 
-  if (
-    storage.getItem === undefined ||
-    storage.removeItem === undefined ||
-    storage.key === undefined ||
-    storage.length === undefined
-  ) {
-    return;
-  }
-
+function collectPreviewEntries(
+  storage: CollectablePreviewSnapshotStorage,
+  currentKey: string,
+): { key: string; storedAt: number }[] {
   const entries: { key: string; storedAt: number }[] = [];
   for (let index = 0; index < storage.length; index += 1) {
     const key = storage.key(index);
@@ -78,14 +76,67 @@ export function storePreviewSnapshot(
     entries.push({ key, storedAt });
   }
 
-  entries.sort((left, right) => {
+  return entries.sort((left, right) => {
     if (left.key === currentKey) return -1;
     if (right.key === currentKey) return 1;
     return right.storedAt - left.storedAt || right.key.localeCompare(left.key);
   });
-  for (const entry of entries.slice(MAX_PREVIEW_SNAPSHOTS)) {
+}
+
+function prunePreviewSnapshots(
+  storage: CollectablePreviewSnapshotStorage,
+  currentKey: string,
+  retainedEntryCount: number,
+): void {
+  for (const entry of collectPreviewEntries(storage, currentKey).slice(
+    retainedEntryCount,
+  )) {
     storage.removeItem(entry.key);
   }
+}
+
+function isQuotaExceededError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === "QuotaExceededError" ||
+      error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      error.code === 22 ||
+      error.code === 1014)
+  );
+}
+
+export function storePreviewSnapshot(
+  storage: PreviewSnapshotWriter,
+  snapshotId: string,
+  snapshot: PreviewSnapshot,
+): void {
+  const currentKey = snapshotStorageKey(snapshotId);
+  const serialized = JSON.stringify({ ...snapshot, storedAt: Date.now() });
+
+  if (!canCollectPreviewSnapshots(storage)) {
+    storage.setItem(currentKey, serialized);
+    return;
+  }
+
+  const currentEntryExists = storage.getItem(currentKey) !== null;
+  prunePreviewSnapshots(
+    storage,
+    currentKey,
+    currentEntryExists ? MAX_PREVIEW_SNAPSHOTS : MAX_PREVIEW_SNAPSHOTS - 1,
+  );
+
+  try {
+    storage.setItem(currentKey, serialized);
+  } catch (error) {
+    if (!isQuotaExceededError(error)) throw error;
+
+    // Preserve a reusable current snapshot while freeing every stale builder
+    // preview entry, then make one bounded recovery attempt.
+    prunePreviewSnapshots(storage, currentKey, currentEntryExists ? 1 : 0);
+    storage.setItem(currentKey, serialized);
+  }
+
+  prunePreviewSnapshots(storage, currentKey, MAX_PREVIEW_SNAPSHOTS);
 }
 
 function isStoredPreviewSnapshot(value: unknown): value is StoredPreviewSnapshot {
