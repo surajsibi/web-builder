@@ -1274,6 +1274,11 @@ export function FormRenderer({
       style={style}
     >
       {children}
+      {runtime?.mode === "preview" && runtime.formSubmissionNotice ? (
+        <p className="form-submission-notice" role="note">
+          {runtime.formSubmissionNotice}
+        </p>
+      ) : null}
       {statusMessage ? (
         <p
           aria-live={status === "error" ? "assertive" : "polite"}

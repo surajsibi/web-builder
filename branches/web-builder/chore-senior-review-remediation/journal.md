@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-05 passed remotely and SRR-06 passed its behavior, retention, and full local verification gates on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after SRR-06 passed remotely and SRR-07 passed its focused and full local verification gates on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after SRR-05 passed remotely and SRR-06 passed its behavior, 
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-05 are complete. SRR-06 is locally complete and awaiting checkpoint/remote CI verification.
+SRR-00 through SRR-06 are complete. SRR-07 is locally complete and awaiting checkpoint/remote CI verification.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -45,6 +45,9 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Added a 50-entry history limit across command append, undo, and redo without changing the full-snapshot representation.
 - Added cap-boundary coverage for eviction, grouped edits, undo, redo, selection, and edit-after-undo behavior.
 - Added `pnpm benchmark:history` and recorded retained-payload evidence in `workspaces/senior-review-remediation/research/history-retention.md`.
+- Changed `/api/form-submissions` to return an explicit non-persistent `503` response without parsing the request body.
+- Removed the unused payload-acceptance schema and the Preview logging/fetch path.
+- Added an accessible persistent notice to preview forms stating that submissions are not saved or sent.
 
 **Verification:**
 
@@ -66,11 +69,14 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - SRR-06 focused verification passes all 14 store tests.
 - SRR-06 full Node 24.19.0 verification passes lint, typecheck, 27 files / 372 tests, and production build.
 - After 100 edits to a 1,000-node document, the capped 50-entry history serializes to 94,080,080 bytes (89.72 MiB), 50.0% below the 188,160,101-byte uncapped projection.
+- GitHub Actions run `31563217075` passed every SRR-06 workflow step in 1 minute 16 seconds on commit `c42d562fc1805ec4666a61a14577a0f6044dc1fe`.
+- SRR-07 focused verification passes 73 route, Preview, and Form tests.
+- SRR-07 full Node 24.19.0 verification passes lint, typecheck, 27 files / 370 tests, and production build.
 
 **Remaining:**
 
-- Checkpoint SRR-06 and verify it in GitHub Actions.
-- Make preview form submission explicitly non-persistent and fail closed under SRR-07.
+- Checkpoint SRR-07 and verify it in GitHub Actions.
+- Begin the focused correctness and interaction findings under SRR-08.
 
 **Last left off:**
-2026-08-12 — SRR-06 is locally complete and fully green. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: checkpoint and remotely verify SRR-06, then begin SRR-07.
+2026-08-12 — SRR-07 is locally complete and fully green. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: checkpoint and remotely verify SRR-07, then begin SRR-08.

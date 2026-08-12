@@ -89,6 +89,7 @@ export type RendererBaseProps<Props extends JsonObject> = {
 };
 
 export type ComponentRendererRuntime = {
+  formSubmissionNotice?: string;
   mode: "editor" | "preview";
   nodeId: string;
   submitForm?: (submission: RuntimeFormSubmission) => Promise<void>;

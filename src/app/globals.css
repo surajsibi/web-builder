@@ -265,11 +265,18 @@ textarea:focus-visible {
   transform: rotate(180deg);
 }
 
+.form-submission-notice,
 .form-submission-status {
   color: inherit;
   font-size: 0.9rem;
   line-height: 1.5;
   margin: 0;
+}
+
+.form-submission-notice {
+  border-inline-start: 3px solid currentcolor;
+  opacity: 0.72;
+  padding-inline-start: 0.75rem;
 }
 
 .form-submission-status[role="alert"] {

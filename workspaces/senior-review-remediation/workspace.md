@@ -5,7 +5,7 @@ scope: Project-wide remediation of the 2026-08-11 senior review for the web-buil
 authority: Selected execution-state authority for senior-review remediation; the execution plan owns intended work, while code, configuration, tests, and verified runtime behavior own implemented behavior
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-12 after SRR-05 passed remotely and SRR-06 passed its local behavior, retention, and full verification gates; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
+freshness: Updated on 2026-08-12 after SRR-06 passed remotely and SRR-07 passed its focused and full local verification gates; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
 ---
 
 # Senior review remediation workspace
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-12 after SRR-05 passed remotely and SRR-06 passed 
 
 **Feature directory identifier:** `senior-review-remediation`
 
-**Overall status:** SRR-00 through SRR-05 are complete. SRR-06 bounded history is locally complete and awaiting checkpoint/remote CI verification.
+**Overall status:** SRR-00 through SRR-06 are complete. SRR-07 fail-closed preview form behavior is locally complete and awaiting checkpoint/remote CI verification.
 
 **Participating repositories:** `web-builder`
 
@@ -22,7 +22,7 @@ freshness: Updated on 2026-08-12 after SRR-05 passed remotely and SRR-06 passed 
 
 **Branch history:** Planning was saved on `main` at `b159f15aef531819538ccc32a877d27f7061a64f`; implementation moved to the dedicated feature branch from that commit.
 
-**Current milestone:** Checkpoint and remotely verify SRR-06, then begin honest fail-closed preview form behavior in SRR-07.
+**Current milestone:** Checkpoint and remotely verify SRR-07, then begin the focused correctness and interaction findings in SRR-08.
 
 **Feature summary:** Convert the 2026-08-11 senior review into independently verifiable remediation phases. Restore a reliable Node and CI baseline first, measure and improve command-path performance without weakening validation, bound history memory, make form-submission behavior honest and safe, and then address targeted correctness, coverage, preview-storage, and repository-readiness findings.
 
@@ -40,11 +40,13 @@ freshness: Updated on 2026-08-12 after SRR-05 passed remotely and SRR-06 passed 
 - Verified scoped validation: all command kinds and generated node-cap/depth-cap failures match full hydration; a 10,000-node rename improved from 1,728.33 ms to 240.05 ms.
 - Verified remotely: GitHub Actions run `31493250145` passed the complete SRR-05 matrix on commit `20c3497d641abf8b59e82aee8e022685a269f81b`.
 - Verified history retention: after 100 edits to a 1,000-node document, the live 50-entry history serializes to 94,080,080 bytes versus a 188,160,101-byte uncapped projection.
-- Not yet verified in this workspace: the SRR-06 remote CI result.
+- Verified remotely: GitHub Actions run `31563217075` passed the complete SRR-06 matrix on commit `c42d562fc1805ec4666a61a14577a0f6044dc1fe`.
+- Verified form behavior: the API rejects without body parsing, Preview never sends or logs visitor values, and each preview form displays a non-persistence notice instead of its configured success message.
+- Not yet verified in this workspace: the SRR-07 remote CI result.
 
 ## Current execution state
 
-- **Done:** SRR-00 through SRR-05 established reliability and safely scoped command validation. SRR-06 caps history at 50 entries while preserving grouping, undo, redo, selection, and divergent-edit behavior without changing snapshot representation.
-- **Verification:** Node 24.19.0 passes lint, typecheck, 27 files / 372 tests, and the production build after SRR-06. The actual capped 1,000-node history payload is 50.0% smaller than its 100-entry uncapped projection.
-- **Remaining:** Remotely verify SRR-06, then execute SRR-07 through SRR-10.
-- **Last left off:** 2026-08-12 — SRR-06 is locally complete and fully green. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is the SRR-06 checkpoint/CI run followed by SRR-07.
+- **Done:** SRR-00 through SRR-06 established reliability, performance, and bounded history. SRR-07 removes the accepted-and-discarded behavior, rejects before request-body parsing, removes the unused acceptance schema and client logging/network path, and labels Preview forms as non-persistent.
+- **Verification:** Node 24.19.0 passes lint, typecheck, 27 files / 370 tests, and the production build after SRR-07. Focused route, Preview, and Form tests pass 73 cases.
+- **Remaining:** Remotely verify SRR-07, then execute SRR-08 through SRR-10.
+- **Last left off:** 2026-08-12 — SRR-07 is locally complete and fully green. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is the SRR-07 checkpoint/CI run followed by SRR-08.

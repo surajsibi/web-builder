@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import type { StoreApi } from "zustand/vanilla";
 
 import { PageRenderingController } from "@/builder/rendering/page-rendering-controller";
-import type { RuntimeFormSubmission } from "@/builder/forms/form-values";
 import { useRuntimeViewport } from "@/builder/rendering/runtime-viewport";
 import {
   createBuilderStore,
@@ -49,34 +48,6 @@ export function PreviewShell({
   const activePageId = useStore(previewStore, (state) => state.activePageId);
   const viewport = useRuntimeViewport();
   const page = document && activePageId ? document.pages[activePageId] : null;
-  const projectId = document?.projectId ?? null;
-  const pageId = page?.id ?? null;
-  const submitForm = useCallback(
-    async (submission: RuntimeFormSubmission) => {
-      if (!projectId || !pageId) {
-        throw new Error("The preview submission context is unavailable");
-      }
-
-      if (process.env.NODE_ENV !== "production") {
-        console.log("Form submission values:", submission.values);
-      }
-
-      const response = await fetch("/api/form-submissions", {
-        body: JSON.stringify({
-          projectId,
-          pageId,
-          ...submission,
-        }),
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        throw new Error("The form submission was rejected");
-      }
-    },
-    [pageId, projectId],
-  );
 
   useEffect(() => {
     if (!snapshotId) return;
@@ -153,7 +124,11 @@ export function PreviewShell({
     >
       <PageRenderingController
         page={page}
-        runtime={{ mode: "preview", submitForm }}
+        runtime={{
+          formSubmissionNotice:
+            "Preview only: submissions are not saved or sent.",
+          mode: "preview",
+        }}
         viewport={viewport}
       />
     </div>
