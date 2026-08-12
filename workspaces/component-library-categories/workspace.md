@@ -5,7 +5,7 @@ scope: Component-library category refactor for the web-builder repository
 authority: Selected execution-state authority for this refactor; code, configuration, tests, and verified runtime behavior own implemented behavior
 owner: Project owner
 lifecycle: draft
-freshness: Updated after full local verification on 2026-08-12; invalidated by a branch, scope, implementation, or verification change
+freshness: Updated after draft PR #2 was opened on 2026-08-12; invalidated by a branch, scope, implementation, pull-request, or verification change
 ---
 
 # Component library categories workspace
@@ -14,13 +14,13 @@ freshness: Updated after full local verification on 2026-08-12; invalidated by a
 
 **Feature directory identifier:** `component-library-categories`
 
-**Overall status:** Implementation and full local verification complete; awaiting review and commit.
+**Overall status:** Implementation and full local verification complete; draft PR #2 is open for review.
 
 **Participating repositories:** `web-builder`
 
 **Active branches:** `web-builder`: `refactor/component-library-categories`
 
-**Current milestone:** Review and checkpoint the verified category refactor.
+**Current milestone:** Review [draft PR #2](https://github.com/surajsibi/web-builder/pull/2), which targets `chore/senior-review-remediation` to keep the diff limited to this refactor.
 
 **Feature summary:** Keep Form as the sole Forms entry; move Standard Input, Textarea, and the password-input preset to Inputs; move Checkbox, Checkbox Group, and Radio Group to Choices; move Dropdown to Selectors; and place Label under Typography. Preserve insertion, drag-and-drop, rendering, serialization, hydration, inspector, and validation behavior.
 
