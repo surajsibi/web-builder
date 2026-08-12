@@ -5,7 +5,7 @@ scope: Repository-specific implementation differences for web-builder chore/seni
 authority: Repository-specific overlay for the linked feature; code, configuration, tests, and verified runtime behavior remain authoritative
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-05 scoped validation passed its equivalence, benchmark, and full local verification gates on 2026-08-11; invalidated by an implementation, dependency, configuration, or verification change
+freshness: Updated after SRR-06 bounded history passed its behavior, retention, and full local verification gates on 2026-08-12; invalidated by an implementation, dependency, configuration, or verification change
 ---
 
 # Repository overlay — web-builder / chore/senior-review-remediation
@@ -21,11 +21,14 @@ freshness: Updated after SRR-05 scoped validation passed its equivalence, benchm
 - `pnpm benchmark:commands` runs the deterministic SRR-04 command-path fixtures.
 - Editor commands default to scoped validation for hydrated store snapshots; `candidateValidation: "full"` retains the full-hydration oracle used by equivalence tests.
 - Local metadata/component edits reuse the trusted parent index; structural commands run one complete tree-invariant pass and rebuild the parent index.
+- Undo/redo history retains at most 50 entries across command append and stack movement; the existing full before/after snapshot representation remains unchanged.
+- `pnpm benchmark:history` reproduces the 1,000-node retained-payload measurement.
 
 ## Verified CI behavior
 
 - GitHub Actions run `31490573187` passed on a GitHub-hosted Ubuntu runner for commit `126d8d491329c90e1c57bfebc59cc7443004d7b5`.
 - GitHub Actions run `31492155602` passed the SRR-04 checkpoint on commit `de7bd9545da36a7052cb1d85c1a83d2acaaade8a`.
+- GitHub Actions run `31493250145` passed the SRR-05 checkpoint on commit `20c3497d641abf8b59e82aee8e022685a269f81b`.
 
 ## Constraints
 
@@ -38,3 +41,4 @@ freshness: Updated after SRR-05 scoped validation passed its equivalence, benchm
 
 - The installed local Node 22 runtime remains outside the declared engine range and produces an expected pnpm warning.
 - Scoped command validation relies on the builder-store invariant that every incoming command snapshot was fully hydrated; arbitrary caller-constructed snapshots are outside that boundary.
+- The 50-entry cap bounds growth by edit count, but the measured 1,000-node retained payload is still 89.72 MiB; patch-based or structurally shared history remains a separately gated follow-up.

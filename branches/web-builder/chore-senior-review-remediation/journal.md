@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Checkpointed after pushing SRR-05 commit 20c3497 and observing GitHub Actions run 31493250145 in progress on 2026-08-11; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after SRR-05 passed remotely and SRR-06 passed its behavior, retention, and full local verification gates on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Checkpointed after pushing SRR-05 commit 20c3497 and observing GitHub
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-04 are complete. SRR-05 is locally complete, pushed as `20c3497`, and running in GitHub Actions as run `31493250145`.
+SRR-00 through SRR-05 are complete. SRR-06 is locally complete and awaiting checkpoint/remote CI verification.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -42,6 +42,9 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Added a scoped/full equivalence suite covering every command kind, invalid props/styles, a generated node-cap overflow, and a generated depth overflow.
 - Kept hydration, initial-document preparation, undo, and redo on full document validation.
 - Recorded scoped-validation boundaries, equivalence coverage, and benchmark results in `workspaces/senior-review-remediation/research/scoped-command-validation.md`.
+- Added a 50-entry history limit across command append, undo, and redo without changing the full-snapshot representation.
+- Added cap-boundary coverage for eviction, grouped edits, undo, redo, selection, and edit-after-undo behavior.
+- Added `pnpm benchmark:history` and recorded retained-payload evidence in `workspaces/senior-review-remediation/research/history-retention.md`.
 
 **Verification:**
 
@@ -59,11 +62,15 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - SRR-05 focused verification passes 59 command, equivalence, and hydration tests.
 - SRR-05 full Node 24.19.0 verification passes lint, typecheck, 27 files / 369 tests, and production build.
 - Scoped validation reduces the 10,000-node rename mean from 1,728.33 ms to 240.05 ms (86.1%, 7.20×) and the SRR-04 duplication mean from 2,763.77 ms to 1,107.97 ms (59.9%, 2.49×).
+- GitHub Actions run `31493250145` passed every SRR-05 workflow step on commit `20c3497d641abf8b59e82aee8e022685a269f81b`.
+- SRR-06 focused verification passes all 14 store tests.
+- SRR-06 full Node 24.19.0 verification passes lint, typecheck, 27 files / 372 tests, and production build.
+- After 100 edits to a 1,000-node document, the capped 50-entry history serializes to 94,080,080 bytes (89.72 MiB), 50.0% below the 188,160,101-byte uncapped projection.
 
 **Remaining:**
 
-- On resume, verify GitHub Actions run `31493250145`; do not assume its result.
-- Add the 50-entry history cap and retained-memory evidence without changing history representation under SRR-06.
+- Checkpoint SRR-06 and verify it in GitHub Actions.
+- Make preview form submission explicitly non-persistent and fail closed under SRR-07.
 
 **Last left off:**
-2026-08-11 — Checkpoint saved. SRR-05 commit `20c3497d641abf8b59e82aee8e022685a269f81b` is pushed; GitHub Actions run `31493250145` was in progress at pause time. The only unstaged files are unrelated changes in `workspaces/api-data-bindings/plan/api-data-sources-and-bindings-spec.md` and `workspaces/api-data-bindings/workspace.md`; preserve them. On resume, verify CI and then begin SRR-06.
+2026-08-12 — SRR-06 is locally complete and fully green. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: checkpoint and remotely verify SRR-06, then begin SRR-07.

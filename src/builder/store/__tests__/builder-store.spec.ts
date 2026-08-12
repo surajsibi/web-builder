@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { asNodeId, asPageId } from "@/builder/model/ids";
-import { createBuilderStore } from "@/builder/store/builder-store";
+import {
+  createBuilderStore,
+  MAX_HISTORY_ENTRIES,
+} from "@/builder/store/builder-store";
 import { createTestProject } from "@/builder/testing/project-fixtures";
 
 function createStore() {
@@ -198,6 +201,113 @@ describe("createBuilderStore", () => {
         asNodeId("node-text")
       ].meta.name,
     ).toBe(originalName);
+  });
+
+  it("should retain only the newest history entries through undo and redo", () => {
+    const store = createStore();
+    store.getState().selectNode(asNodeId("node-text"));
+
+    for (let index = 1; index <= MAX_HISTORY_ENTRIES + 1; index += 1) {
+      const result = store.getState().dispatchEditorCommand({
+        kind: "page.rename",
+        pageId: asPageId("page-home"),
+        name: `Landing ${index}`,
+      });
+      expect(result.status).toBe("applied");
+    }
+
+    expect(store.getState().history.past).toHaveLength(MAX_HISTORY_ENTRIES);
+
+    for (let index = 0; index < MAX_HISTORY_ENTRIES; index += 1) {
+      expect(store.getState().undo().status).toBe("applied");
+    }
+
+    expect(store.getState().undo()).toEqual({ status: "noop" });
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].name,
+    ).toBe("Landing 1");
+    expect(store.getState().selectedNodeId).toBe("node-text");
+    expect(store.getState().history.future).toHaveLength(MAX_HISTORY_ENTRIES);
+
+    for (let index = 0; index < MAX_HISTORY_ENTRIES; index += 1) {
+      expect(store.getState().redo().status).toBe("applied");
+    }
+
+    expect(store.getState().redo()).toEqual({ status: "noop" });
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].name,
+    ).toBe(`Landing ${MAX_HISTORY_ENTRIES + 1}`);
+    expect(store.getState().selectedNodeId).toBe("node-text");
+    expect(store.getState().history.past).toHaveLength(MAX_HISTORY_ENTRIES);
+  });
+
+  it("should coalesce the active history group without evicting another entry", () => {
+    const store = createStore();
+
+    for (let index = 1; index < MAX_HISTORY_ENTRIES; index += 1) {
+      store.getState().dispatchEditorCommand({
+        kind: "page.rename",
+        pageId: asPageId("page-home"),
+        name: `Landing ${index}`,
+      });
+    }
+    store.getState().dispatchEditorCommand(
+      {
+        kind: "page.rename",
+        pageId: asPageId("page-home"),
+        name: "First grouped edit",
+      },
+      { historyGroupId: "rename-session" },
+    );
+    store.getState().dispatchEditorCommand(
+      {
+        kind: "page.rename",
+        pageId: asPageId("page-home"),
+        name: "Final grouped edit",
+      },
+      { historyGroupId: "rename-session" },
+    );
+
+    expect(store.getState().history.past).toHaveLength(MAX_HISTORY_ENTRIES);
+    expect(store.getState().undo().status).toBe("applied");
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].name,
+    ).toBe(`Landing ${MAX_HISTORY_ENTRIES - 1}`);
+
+    for (let index = 1; index < MAX_HISTORY_ENTRIES; index += 1) {
+      expect(store.getState().undo().status).toBe("applied");
+    }
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].name,
+    ).toBe("Home");
+  });
+
+  it("should clear retained redo entries after editing from an undone state", () => {
+    const store = createStore();
+
+    for (let index = 1; index <= MAX_HISTORY_ENTRIES + 1; index += 1) {
+      store.getState().dispatchEditorCommand({
+        kind: "page.rename",
+        pageId: asPageId("page-home"),
+        name: `Landing ${index}`,
+      });
+    }
+    store.getState().undo();
+    store.getState().undo();
+    expect(store.getState().history.future).toHaveLength(2);
+
+    const divergent = store.getState().dispatchEditorCommand({
+      kind: "page.rename",
+      pageId: asPageId("page-home"),
+      name: "Divergent edit",
+    });
+
+    expect(divergent.status).toBe("applied");
+    expect(store.getState().history.future).toHaveLength(0);
+    expect(store.getState().redo()).toEqual({ status: "noop" });
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].name,
+    ).toBe("Divergent edit");
   });
 
   it("should clear selection on a page switch without changing history or dirty state", () => {

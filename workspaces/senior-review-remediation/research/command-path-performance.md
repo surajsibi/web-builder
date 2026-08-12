@@ -54,4 +54,4 @@ Building one node-ID set per allocating command removes the reported O(N×M) all
 
 Removing the redundant second tree-index build is logically safe because component migration and validation mutate component version, props, and styles but do not mutate page roots or node child relationships. The end-to-end rename benchmark cannot distinguish its smaller cost from run variance because full-document cloning and component/schema validation dominate the command.
 
-The remaining 1.73-second 10,000-node rename confirms that SRR-05 is the important performance gate. Scoped validation must not proceed until equivalence tests compare it with full hydration and retain full validation at every untrusted input boundary.
+The remaining 1.73-second 10,000-node rename established SRR-05 as the next performance gate. SRR-05 subsequently added scoped/full equivalence coverage and retained full validation at every untrusted or reconstructed input boundary; its concluded evidence is recorded in [scoped-command-validation.md](scoped-command-validation.md).
