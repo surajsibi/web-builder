@@ -5,7 +5,7 @@ scope: Repository-specific implementation differences for web-builder chore/seni
 authority: Repository-specific overlay for the linked feature; code, configuration, tests, and verified runtime behavior remain authoritative
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-07 fail-closed preview form behavior passed its focused and full local verification gates on 2026-08-12; invalidated by an implementation, dependency, configuration, or verification change
+freshness: Updated after SRR-08 focused corrections passed their focused and full local verification gates on 2026-08-12; invalidated by an implementation, dependency, configuration, or verification change
 ---
 
 # Repository overlay — web-builder / chore/senior-review-remediation
@@ -25,6 +25,10 @@ freshness: Updated after SRR-07 fail-closed preview form behavior passed its foc
 - `pnpm benchmark:history` reproduces the 1,000-node retained-payload measurement.
 - `/api/form-submissions` is an explicit unavailable endpoint: it returns `503` with `Cache-Control: no-store` and does not parse request bodies.
 - Preview forms display that submissions are not saved or sent and receive no submission callback, so visitor values are not logged or transmitted.
+- `EditorShell` uses a shallow selector and excludes active drop-target state; individual drop zones render active state from the drag library while the store retains the drag-end fallback target.
+- The command executor exposes a validation-only path for insert, block-insert, and move commands; drag target resolution uses it before any candidate clone or generated-ID allocation.
+- Preview snapshots remain reusable and storage is garbage-collected to the 10 newest builder preview entries.
+- JSON-value equality is structural and object-key-order-insensitive; arrays remain order-sensitive.
 
 ## Verified CI behavior
 
@@ -32,6 +36,7 @@ freshness: Updated after SRR-07 fail-closed preview form behavior passed its foc
 - GitHub Actions run `31492155602` passed the SRR-04 checkpoint on commit `de7bd9545da36a7052cb1d85c1a83d2acaaade8a`.
 - GitHub Actions run `31493250145` passed the SRR-05 checkpoint on commit `20c3497d641abf8b59e82aee8e022685a269f81b`.
 - GitHub Actions run `31563217075` passed the SRR-06 checkpoint on commit `c42d562fc1805ec4666a61a14577a0f6044dc1fe`.
+- GitHub Actions run `31563682967` passed the SRR-07 checkpoint on commit `01d58a13b783c5c320f48b53bad9f40a5f9fcbe9`.
 
 ## Constraints
 
@@ -46,3 +51,4 @@ freshness: Updated after SRR-07 fail-closed preview form behavior passed its foc
 - Scoped command validation relies on the builder-store invariant that every incoming command snapshot was fully hydrated; arbitrary caller-constructed snapshots are outside that boundary.
 - The 50-entry cap bounds growth by edit count, but the measured 1,000-node retained payload is still 89.72 MiB; patch-based or structurally shared history remains a separately gated follow-up.
 - Persistent form submissions, rate limiting, and bounded request parsing remain excluded until a durable backend is approved; the current endpoint fails before any body buffering or parsing.
+- The preview snapshot cap bounds orphan count, not byte size; browser storage quotas can still reject a large snapshot and the editor reports that failure without opening Preview.

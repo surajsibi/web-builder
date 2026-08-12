@@ -1,11 +1,11 @@
 import { useState } from "react";
 
-import type {
-  EditorDragSource,
-  EditorDropTarget,
-} from "@/builder/interaction/types";
+import type { EditorDragSource } from "@/builder/interaction/types";
 import type { NodeId } from "@/builder/model/ids";
-import type { PageDocument } from "@/builder/model/project-document";
+import type {
+  PageDocument,
+  ProjectDocument,
+} from "@/builder/model/project-document";
 import type { ParentById } from "@/builder/project/tree";
 import type { BlockType } from "@/builder/registry/block-registry";
 import type { ComponentType } from "@/builder/registry/component-registry";
@@ -14,12 +14,12 @@ import { ComponentLibrary } from "@/builder/ui/component-library";
 import { LayersPanel } from "@/builder/ui/layers-panel";
 
 type EditorLeftSidebarProps = {
+  document: ProjectDocument;
   page: Readonly<PageDocument>;
   parentById: Readonly<ParentById>;
   viewport: Viewport;
   selectedNodeId: NodeId | null;
   dragSource: EditorDragSource | null;
-  activeDropTarget: EditorDropTarget | null;
   getComponentInsertionLabel: (type: ComponentType) => string;
   getBlockInsertionLabel: (type: BlockType) => string;
   onInsertComponent: (type: ComponentType) => void;
@@ -63,7 +63,7 @@ export function EditorLeftSidebar(props: EditorLeftSidebarProps) {
           />
         ) : (
           <LayersPanel
-            activeDropTarget={props.activeDropTarget}
+            document={props.document}
             dragSource={props.dragSource}
             key={props.page.id}
             onSelectNode={props.onSelectNode}

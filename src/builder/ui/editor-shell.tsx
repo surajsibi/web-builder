@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { useStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 import type { StoreApi } from "zustand/vanilla";
 
 import type {
@@ -153,7 +154,27 @@ export function EditorShell({
   previewStorage,
   store = editorStore,
 }: EditorShellProps) {
-  const state = useStore(store);
+  const state = useStore(
+    store,
+    useShallow((current) => ({
+      activePageId: current.activePageId,
+      activeViewport: current.activeViewport,
+      clearSelection: current.clearSelection,
+      commitId: current.commitId,
+      dirty: current.dirty,
+      dispatchEditorCommand: current.dispatchEditorCommand,
+      document: current.document,
+      dragSession: current.dragSession,
+      history: current.history,
+      parentById: current.parentById,
+      redo: current.redo,
+      selectedNodeId: current.selectedNodeId,
+      selectNode: current.selectNode,
+      setActivePage: current.setActivePage,
+      setViewport: current.setViewport,
+      undo: current.undo,
+    })),
+  );
   const [announcement, setAnnouncement] = useState(
     "Editor ready. Choose a component to begin.",
   );
@@ -206,7 +227,7 @@ export function EditorShell({
         return;
       }
 
-      if (event.key === "Delete") {
+      if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
         const nodeName = page.nodes[nodeId].meta.name;
         const result = current.dispatchEditorCommand({
@@ -631,7 +652,7 @@ export function EditorShell({
 
       <div className="editor-workspace">
         <EditorLeftSidebar
-          activeDropTarget={state.activeDropTarget}
+          document={document}
           dragSource={state.dragSession?.source ?? null}
           getBlockInsertionLabel={(type) =>
             blockInsertionTarget(type)?.label ?? "Unavailable"
@@ -649,7 +670,7 @@ export function EditorShell({
         />
 
         <EditorCanvas
-          activeDropTarget={state.activeDropTarget}
+          document={document}
           dragSource={state.dragSession?.source ?? null}
           onClearSelection={clearSelection}
           onCancelVisualEdit={cancelVisualEdit}

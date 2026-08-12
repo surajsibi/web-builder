@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-06 passed remotely and SRR-07 passed its focused and full local verification gates on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after SRR-07 passed remotely and SRR-08 passed its focused and full local verification gates on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after SRR-06 passed remotely and SRR-07 passed its focused an
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-06 are complete. SRR-07 is locally complete and awaiting checkpoint/remote CI verification.
+SRR-00 through SRR-07 are complete. SRR-08 is locally complete and awaiting checkpoint/remote CI verification.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -48,6 +48,12 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Changed `/api/form-submissions` to return an explicit non-persistent `503` response without parsing the request body.
 - Removed the unused payload-acceptance schema and the Preview logging/fetch path.
 - Added an accessible persistent notice to preview forms stating that submissions are not saved or sent.
+- Scoped `EditorShell` to a shallow selection that excludes high-frequency active drop-target changes and moved active highlighting to each drag-library drop zone.
+- Added Backspace as the non-editable Mac removal shortcut while retaining editable-control guards.
+- Separated registry props-default and styles-default validation errors and replaced serialized equality with structural JSON equality.
+- Made preview snapshots reusable and garbage-collected builder preview entries to the newest 10 snapshots.
+- Replaced duplicated drag validation rules with a command-executor validation-only path that stops before candidate allocation.
+- Documented why the module-level editor store must retain deterministic initial IDs and timestamps.
 
 **Verification:**
 
@@ -72,11 +78,14 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - GitHub Actions run `31563217075` passed every SRR-06 workflow step in 1 minute 16 seconds on commit `c42d562fc1805ec4666a61a14577a0f6044dc1fe`.
 - SRR-07 focused verification passes 73 route, Preview, and Form tests.
 - SRR-07 full Node 24.19.0 verification passes lint, typecheck, 27 files / 370 tests, and production build.
+- GitHub Actions run `31563682967` passed every SRR-07 workflow step in 1 minute 29 seconds on commit `01d58a13b783c5c320f48b53bad9f40a5f9fcbe9`.
+- SRR-08 focused verification passes 92 command, project, preview, drag, layers, and shell tests.
+- SRR-08 full Node 24.19.0 verification passes lint, typecheck, 28 files / 375 tests, and production build.
 
 **Remaining:**
 
-- Checkpoint SRR-07 and verify it in GitHub Actions.
-- Begin the focused correctness and interaction findings under SRR-08.
+- Checkpoint SRR-08 and verify it in GitHub Actions.
+- Begin risk-based direct coverage and repository-readiness work under SRR-09.
 
 **Last left off:**
-2026-08-12 — SRR-07 is locally complete and fully green. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: checkpoint and remotely verify SRR-07, then begin SRR-08.
+2026-08-12 — SRR-08 is locally complete and fully green. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: checkpoint and remotely verify SRR-08, then begin SRR-09.

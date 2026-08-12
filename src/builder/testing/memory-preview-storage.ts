@@ -5,6 +5,10 @@ export function createMemoryPreviewStorage(): PreviewSnapshotStorage {
 
   return {
     getItem: (key) => values.get(key) ?? null,
+    get length() {
+      return values.size;
+    },
+    key: (index) => [...values.keys()][index] ?? null,
     removeItem: (key) => {
       values.delete(key);
     },

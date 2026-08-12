@@ -13,12 +13,12 @@ import {
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/react";
 
-import type {
-  EditorDragSource,
-  EditorDropTarget,
-} from "@/builder/interaction/types";
+import type { EditorDragSource } from "@/builder/interaction/types";
 import type { NodeId } from "@/builder/model/ids";
-import type { PageDocument } from "@/builder/model/project-document";
+import type {
+  PageDocument,
+  ProjectDocument,
+} from "@/builder/model/project-document";
 import type { ParentById } from "@/builder/project/tree";
 import { componentRegistry } from "@/builder/registry/component-registry";
 import type { RendererBaseProps } from "@/builder/registry/define-component-registry";
@@ -47,12 +47,12 @@ import {
 } from "@/builder/ui/visual-editing";
 
 type EditorCanvasProps = {
+  document: ProjectDocument;
   page: Readonly<PageDocument>;
   parentById: Readonly<ParentById>;
   viewport: Viewport;
   selectedNodeId: NodeId | null;
   dragSource: EditorDragSource | null;
-  activeDropTarget: EditorDropTarget | null;
   onSelectNode: (nodeId: NodeId) => void;
   onClearSelection: () => void;
   previewStyles: Readonly<Partial<Record<NodeId, CSSProperties>>>;
@@ -192,31 +192,30 @@ function resolveNodeInteractionRect(
   };
 }
 
-function sameTarget(
-  left: EditorDropTarget | null,
-  right: EditorDropTarget,
-): boolean {
-  return left !== null && dropTargetId(left) === dropTargetId(right);
-}
-
 function CanvasDropZone({
+  document,
   page,
   parentById,
+  selectedNodeId,
   source,
   anchor,
   rect,
-  activeDropTarget,
 }: {
+  document: ProjectDocument;
   page: Readonly<PageDocument>;
   parentById: Readonly<ParentById>;
+  selectedNodeId: NodeId | null;
   source: EditorDragSource;
   anchor: DropAnchor;
   rect: CanvasRect;
-  activeDropTarget: EditorDropTarget | null;
 }) {
   const resolution = resolveEditorDropTarget(
-    page,
-    parentById,
+    {
+      document,
+      parentById: parentById as ParentById,
+      activePageId: page.id,
+      selectedNodeId,
+    },
     source,
     anchor,
     "canvas",
@@ -230,15 +229,14 @@ function CanvasDropZone({
 
   if (!target) return null;
 
-  const active = isDropTarget || sameTarget(activeDropTarget, target);
   return (
     <div
       aria-label={target.label}
-      className={`canvas-drop-zone canvas-drop-${anchor.intent}${active ? " is-active" : ""}`}
+      className={`canvas-drop-zone canvas-drop-${anchor.intent}${isDropTarget ? " is-active" : ""}`}
       ref={ref}
       style={rectStyle(rect)}
     >
-      {active ? <span>{target.label}</span> : null}
+      {isDropTarget ? <span>{target.label}</span> : null}
     </div>
   );
 }
@@ -850,11 +848,11 @@ function CanvasLayoutGuides({
 }
 
 function CanvasInteractionOverlay({
+  document,
   page,
   parentById,
   selectedNodeId,
   dragSource,
-  activeDropTarget,
   rects,
   boxModels,
   artboardWidth,
@@ -869,11 +867,11 @@ function CanvasInteractionOverlay({
   onCancelVisualEdit,
 }: Pick<
   EditorCanvasProps,
+  | "document"
   | "page"
   | "parentById"
   | "selectedNodeId"
   | "dragSource"
-  | "activeDropTarget"
   | "viewport"
   | "spacingModes"
   | "visualMode"
@@ -1038,19 +1036,20 @@ function CanvasInteractionOverlay({
             if (!rect) return [];
             return (["before", "inside", "after"] as const).map((intent) => (
               <CanvasDropZone
-                activeDropTarget={activeDropTarget}
                 anchor={{ intent, nodeId: node.id }}
+                document={document}
                 key={`${node.id}:${intent}`}
                 page={page}
                 parentById={parentById}
                 rect={nodeDropRect(rect, intent)}
+                selectedNodeId={selectedNodeId}
                 source={dragSource}
               />
             ));
           })}
           <CanvasDropZone
-            activeDropTarget={activeDropTarget}
             anchor={{ intent: "root", nodeId: null }}
+            document={document}
             page={page}
             parentById={parentById}
             rect={{
@@ -1059,6 +1058,7 @@ function CanvasInteractionOverlay({
               width: artboardWidth,
               height: page.rootIds.length === 0 ? 672 : 24,
             }}
+            selectedNodeId={selectedNodeId}
             source={dragSource}
           />
         </>
@@ -1068,12 +1068,12 @@ function CanvasInteractionOverlay({
 }
 
 export function EditorCanvas({
+  document: projectDocument,
   page,
   parentById,
   viewport,
   selectedNodeId,
   dragSource,
-  activeDropTarget,
   onSelectNode,
   onClearSelection,
   previewStyles,
@@ -1487,10 +1487,10 @@ export function EditorCanvas({
           )}
 
           <CanvasInteractionOverlay
-            activeDropTarget={activeDropTarget}
             artboardContentSize={artboardContentSize}
             artboardWidth={artboardWidth}
             boxModels={boxModels}
+            document={projectDocument}
             dragSource={dragSource}
             page={page}
             parentById={parentById}

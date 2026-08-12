@@ -69,8 +69,12 @@ describe("commandForEditorDrop", () => {
       surface: "canvas",
     };
     const resolution = resolveEditorDropTarget(
-      page,
-      before.parentById,
+      {
+        document: before.document!,
+        parentById: before.parentById,
+        activePageId: before.activePageId!,
+        selectedNodeId: before.selectedNodeId,
+      },
       source,
       { intent: "after", nodeId: asNodeId("node-section") },
       "canvas",
@@ -100,6 +104,12 @@ function preparedTree() {
   const prepared = prepareProjectHydration(createTestProject());
   if (!prepared.success) throw new Error(prepared.error.reason);
   return {
+    snapshot: {
+      document: prepared.value.document,
+      parentById: prepared.value.parentById,
+      activePageId: prepared.value.document.homePageId,
+      selectedNodeId: null,
+    },
     page: prepared.value.document.pages[prepared.value.document.homePageId],
     parentById: prepared.value.parentById,
   };
@@ -107,11 +117,10 @@ function preparedTree() {
 
 describe("resolveEditorDropTarget", () => {
   it("should append a library component at the page root", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot } = preparedTree();
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "component", componentType: "button" },
       { intent: "root", nodeId: null },
       "canvas",
@@ -127,11 +136,10 @@ describe("resolveEditorDropTarget", () => {
   });
 
   it("should resolve a Navbar block drop using its Section root type", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot } = preparedTree();
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "block", blockType: "navbar" },
       { intent: "root", nodeId: null },
       "canvas",
@@ -147,15 +155,14 @@ describe("resolveEditorDropTarget", () => {
   });
 
   it("should translate sibling reordering to final-index semantics", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot, page, parentById } = preparedTree();
     const heading = createTestNode("heading", "node-heading");
     page.nodes[heading.id] = heading;
     page.nodes[asNodeId("node-section")].childIds.push(heading.id);
     parentById[heading.id] = asNodeId("node-section");
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "node", nodeId: asNodeId("node-card"), surface: "layers" },
       { intent: "after", nodeId: heading.id },
       "layers",
@@ -168,11 +175,10 @@ describe("resolveEditorDropTarget", () => {
   });
 
   it("should allow reparenting a node inside an unlocked container", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot } = preparedTree();
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "node", nodeId: asNodeId("node-text"), surface: "canvas" },
       { intent: "inside", nodeId: asNodeId("node-section") },
       "canvas",
@@ -185,11 +191,10 @@ describe("resolveEditorDropTarget", () => {
   });
 
   it("should allow moving a nested node out beside its parent", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot } = preparedTree();
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "node", nodeId: asNodeId("node-text"), surface: "canvas" },
       { intent: "after", nodeId: asNodeId("node-section") },
       "canvas",
@@ -202,11 +207,10 @@ describe("resolveEditorDropTarget", () => {
   });
 
   it("should reject moving a node inside one of its descendants", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot } = preparedTree();
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "node", nodeId: asNodeId("node-section"), surface: "canvas" },
       { intent: "inside", nodeId: asNodeId("node-card") },
       "canvas",
@@ -214,16 +218,15 @@ describe("resolveEditorDropTarget", () => {
 
     expect(result).toEqual({
       valid: false,
-      reason: "A node cannot move inside itself or a descendant",
+      reason: "A node cannot move inside itself or one of its descendants",
     });
   });
 
   it("should reject a drop that resolves to the current final index", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot } = preparedTree();
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "node", nodeId: asNodeId("node-section"), surface: "canvas" },
       { intent: "root", nodeId: null },
       "canvas",
@@ -242,7 +245,7 @@ describe("resolveEditorDropTarget", () => {
   ])(
     "should reject a drag when the %s is locked",
     (_caseName, lockedId, sourceId) => {
-      const { page, parentById } = preparedTree();
+      const { snapshot, page } = preparedTree();
       page.nodes[asNodeId(lockedId)].meta.locked = true;
       const source: EditorDragSource = {
         kind: "node",
@@ -251,8 +254,7 @@ describe("resolveEditorDropTarget", () => {
       };
 
       const result = resolveEditorDropTarget(
-        page,
-        parentById,
+        snapshot,
         source,
         { intent: "inside", nodeId: asNodeId("node-section") },
         "layers",
@@ -263,11 +265,10 @@ describe("resolveEditorDropTarget", () => {
   );
 
   it("should reject a destination that cannot accept children", () => {
-    const { page, parentById } = preparedTree();
+    const { snapshot } = preparedTree();
 
     const result = resolveEditorDropTarget(
-      page,
-      parentById,
+      snapshot,
       { kind: "component", componentType: "card" },
       { intent: "inside", nodeId: asNodeId("node-text") },
       "canvas",
@@ -275,7 +276,7 @@ describe("resolveEditorDropTarget", () => {
 
     expect(result).toEqual({
       valid: false,
-      reason: "The destination rejects this component type",
+      reason: "card cannot be placed inside text",
     });
   });
 });

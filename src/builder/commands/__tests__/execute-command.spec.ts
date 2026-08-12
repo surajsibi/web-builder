@@ -6,6 +6,7 @@ import {
 } from "@/builder/commands/execute-command";
 import { asNodeId, asPageId } from "@/builder/model/ids";
 import { prepareProjectHydration } from "@/builder/project/hydration";
+import { componentRegistry } from "@/builder/registry/component-registry";
 import { createTestProject } from "@/builder/testing/project-fixtures";
 
 function createSnapshot(options?: {
@@ -125,6 +126,31 @@ describe("executeEditorCommand", () => {
     });
     expect(result.candidate.parentById[node.id]).toBeNull();
     expect(result.candidate.selectedNodeId).toBe(node.id);
+  });
+
+  it("should report invalid style defaults as a styles error", () => {
+    const snapshot = createSnapshot();
+    const defaults = componentRegistry.card.defaults;
+    const originalStyles = defaults.styles;
+    defaults.styles = {
+      base: { color: 42 },
+    } as unknown as typeof defaults.styles;
+
+    try {
+      const result = executeEditorCommand(snapshot, {
+        kind: "node.insert",
+        pageId: asPageId("page-home"),
+        componentType: "card",
+        destination: { parentId: null, index: 1 },
+      });
+
+      expect(result).toMatchObject({
+        status: "rejected",
+        error: { code: "styles-invalid", pageId: "page-home" },
+      });
+    } finally {
+      defaults.styles = originalStyles;
+    }
   });
 
   it("should preserve active-page selection when inserting on an inactive page", () => {

@@ -66,6 +66,13 @@ export type CommandPreparationResult =
   | { status: "noop"; reason: CommandNoopReason }
   | { status: "rejected"; error: CommandValidationError };
 
+export type CommandDryRunResult =
+  | { status: "valid" }
+  | Extract<CommandPreparationResult, { status: "noop" | "rejected" }>;
+
+type CommandExecutionResult = CommandPreparationResult | { status: "valid" };
+type CommandExecutionMode = "apply" | "dry-run";
+
 export type CommandExecutorServices = {
   candidateValidation?: "full" | "scoped";
   idGenerator: IdGenerator;
@@ -718,7 +725,8 @@ function insertNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.insert" }>,
   services: CommandExecutorServices,
-): CommandPreparationResult {
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
     return rejected({
@@ -750,16 +758,25 @@ function insertNode(
   const props = structuredClone(definition.defaults.props) as JsonObject;
   const styles = structuredClone(definition.defaults.styles);
 
-  try {
-    definition.propsSchema.parse(props);
-    responsiveStylesSchema.parse(styles);
-  } catch (error) {
+  const parsedProps = definition.propsSchema.safeParse(props);
+  if (!parsedProps.success) {
     return rejected({
-      code: error instanceof z.ZodError ? "props-invalid" : "styles-invalid",
+      code: "props-invalid",
       pageId: page.id,
-      reason: error instanceof Error ? error.message : "Defaults are invalid",
+      reason: parsedProps.error.message,
     });
   }
+
+  const parsedStyles = responsiveStylesSchema.safeParse(styles);
+  if (!parsedStyles.success) {
+    return rejected({
+      code: "styles-invalid",
+      pageId: page.id,
+      reason: parsedStyles.error.message,
+    });
+  }
+
+  if (mode === "dry-run") return { status: "valid" };
 
   const nodeId = reserveUniqueNodeId(
     collectProjectNodeIds(snapshot.document),
@@ -813,7 +830,8 @@ function insertBlock(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "block.insert" }>,
   services: CommandExecutorServices,
-): CommandPreparationResult {
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
     return rejected({
@@ -855,6 +873,8 @@ function insertBlock(
     command.destination,
   );
   if (placement) return placement;
+
+  if (mode === "dry-run") return { status: "valid" };
 
   const templates: (typeof template)[] = [];
   const collectTemplates = (node: typeof template) => {
@@ -1001,7 +1021,8 @@ function moveNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.move" }>,
   services: CommandExecutorServices,
-): CommandPreparationResult {
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
   const { page, node } = resolved;
@@ -1062,6 +1083,8 @@ function moveNode(
   ) {
     return noop("already-at-destination");
   }
+
+  if (mode === "dry-run") return { status: "valid" };
 
   const candidate = cloneProjectDocument(snapshot.document);
   const candidatePage = candidate.pages[page.id];
@@ -1445,11 +1468,12 @@ function hideNode(
   );
 }
 
-export function executeEditorCommand(
+function executeEditorCommandInternal(
   snapshot: CommandSnapshot,
   command: EditorCommand,
-  services: CommandExecutorServices = DEFAULT_SERVICES,
-): CommandPreparationResult {
+  services: CommandExecutorServices,
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const commandResult = editorCommandEnvelopeSchema.safeParse(command);
   if (!commandResult.success) {
     const issue = commandResult.error.issues[0];
@@ -1471,11 +1495,11 @@ export function executeEditorCommand(
     case "page.delete":
       return deletePage(snapshot, validatedCommand, services);
     case "node.insert":
-      return insertNode(snapshot, validatedCommand, services);
+      return insertNode(snapshot, validatedCommand, services, mode);
     case "node.remove":
       return removeNode(snapshot, validatedCommand, services);
     case "node.move":
-      return moveNode(snapshot, validatedCommand, services);
+      return moveNode(snapshot, validatedCommand, services, mode);
     case "node.duplicate":
       return duplicateNode(snapshot, validatedCommand, services);
     case "node.rename":
@@ -1489,6 +1513,37 @@ export function executeEditorCommand(
     case "node.updateStyles":
       return updateStyles(snapshot, validatedCommand, services);
     case "block.insert":
-      return insertBlock(snapshot, validatedCommand, services);
+      return insertBlock(snapshot, validatedCommand, services, mode);
   }
+}
+
+export function executeEditorCommand(
+  snapshot: CommandSnapshot,
+  command: EditorCommand,
+  services: CommandExecutorServices = DEFAULT_SERVICES,
+): CommandPreparationResult {
+  const result = executeEditorCommandInternal(snapshot, command, services, "apply");
+  if (result.status === "valid") {
+    throw new Error("Command validation returned without applying a candidate");
+  }
+  return result;
+}
+
+export function dryRunEditorCommand(
+  snapshot: CommandSnapshot,
+  command: Extract<
+    EditorCommand,
+    { kind: "node.insert" | "node.move" | "block.insert" }
+  >,
+): CommandDryRunResult {
+  const result = executeEditorCommandInternal(
+    snapshot,
+    command,
+    DEFAULT_SERVICES,
+    "dry-run",
+  );
+  if (result.status === "applied") {
+    throw new Error("Dry-run command unexpectedly applied a candidate");
+  }
+  return result;
 }

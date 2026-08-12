@@ -327,7 +327,7 @@ describe("PreviewShell", () => {
     );
   });
 
-  it("should hydrate and consume a transferred preview snapshot", async () => {
+  it("should hydrate and retain a transferred preview snapshot", async () => {
     const project = createTestProject();
     const snapshotId = "current-editor-state";
     const previewStorage = createMemoryPreviewStorage();
@@ -352,7 +352,7 @@ describe("PreviewShell", () => {
     expect(screen.getByRole("article")).toContainElement(screen.getByText("Text"));
     expect(
       previewStorage.getItem("web-builder:preview:" + snapshotId),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
   it("should reject a missing transferred preview snapshot", async () => {
