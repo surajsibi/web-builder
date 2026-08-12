@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-07 passed remotely and SRR-08 passed its focused and full local verification gates on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after SRR-08 passed locally and remotely on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after SRR-07 passed remotely and SRR-08 passed its focused an
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-07 are complete. SRR-08 is locally complete and awaiting checkpoint/remote CI verification.
+SRR-00 through SRR-08 are complete. SRR-09 risk-based coverage and repository-readiness work is next.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -81,11 +81,11 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - GitHub Actions run `31563682967` passed every SRR-07 workflow step in 1 minute 29 seconds on commit `01d58a13b783c5c320f48b53bad9f40a5f9fcbe9`.
 - SRR-08 focused verification passes 92 command, project, preview, drag, layers, and shell tests.
 - SRR-08 full Node 24.19.0 verification passes lint, typecheck, 28 files / 375 tests, and production build.
+- GitHub Actions run `31565406088` passed every SRR-08 workflow step in 1 minute 13 seconds on commit `96ed9760e7f0d20e26fcb5f80469f0750944e3e0`.
 
 **Remaining:**
 
-- Checkpoint SRR-08 and verify it in GitHub Actions.
 - Begin risk-based direct coverage and repository-readiness work under SRR-09.
 
 **Last left off:**
-2026-08-12 — SRR-08 is locally complete and fully green. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: checkpoint and remotely verify SRR-08, then begin SRR-09.
+2026-08-12 — SRR-08 is complete locally and remotely. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: begin SRR-09 risk-based coverage and repository readiness.

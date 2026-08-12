@@ -5,7 +5,7 @@ scope: Project-wide remediation of the 2026-08-11 senior review for the web-buil
 authority: Selected execution-state authority for senior-review remediation; the execution plan owns intended work, while code, configuration, tests, and verified runtime behavior own implemented behavior
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-12 after SRR-07 passed remotely and SRR-08 passed its focused and full local verification gates; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
+freshness: Updated on 2026-08-12 after SRR-08 passed locally and remotely; invalidated by an approved scope change, branch change, implementation progress, or new verification evidence
 ---
 
 # Senior review remediation workspace
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-12 after SRR-07 passed remotely and SRR-08 passed 
 
 **Feature directory identifier:** `senior-review-remediation`
 
-**Overall status:** SRR-00 through SRR-07 are complete. SRR-08 focused correctness and interaction work is locally complete and awaiting checkpoint/remote CI verification.
+**Overall status:** SRR-00 through SRR-08 are complete. SRR-09 risk-based coverage and repository-readiness work is next.
 
 **Participating repositories:** `web-builder`
 
@@ -22,7 +22,7 @@ freshness: Updated on 2026-08-12 after SRR-07 passed remotely and SRR-08 passed 
 
 **Branch history:** Planning was saved on `main` at `b159f15aef531819538ccc32a877d27f7061a64f`; implementation moved to the dedicated feature branch from that commit.
 
-**Current milestone:** Checkpoint and remotely verify SRR-08, then begin the risk-based coverage and repository-readiness work in SRR-09.
+**Current milestone:** Begin the risk-based coverage and repository-readiness work in SRR-09.
 
 **Feature summary:** Convert the 2026-08-11 senior review into independently verifiable remediation phases. Restore a reliable Node and CI baseline first, measure and improve command-path performance without weakening validation, bound history memory, make form-submission behavior honest and safe, and then address targeted correctness, coverage, preview-storage, and repository-readiness findings.
 
@@ -44,11 +44,11 @@ freshness: Updated on 2026-08-12 after SRR-07 passed remotely and SRR-08 passed 
 - Verified form behavior: the API rejects without body parsing, Preview never sends or logs visitor values, and each preview form displays a non-persistence notice instead of its configured success message.
 - Verified remotely: GitHub Actions run `31563682967` passed the complete SRR-07 matrix on commit `01d58a13b783c5c320f48b53bad9f40a5f9fcbe9`.
 - Verified focused corrections: active drop-target churn does not rerender the shell, Backspace deletes outside editable controls, defaults errors and structural equality are precise, preview snapshots are reusable and capped at 10, and drag validation uses the command executor's validation-only path.
-- Not yet verified in this workspace: the SRR-08 remote CI result.
+- Verified remotely: GitHub Actions run `31565406088` passed the complete SRR-08 matrix on commit `96ed9760e7f0d20e26fcb5f80469f0750944e3e0`.
 
 ## Current execution state
 
 - **Done:** SRR-00 through SRR-07 established reliability, performance, bounded history, and honest fail-closed form behavior. SRR-08 scopes the shell subscription, supports Mac Backspace deletion, distinguishes invalid registry style defaults, compares JSON values structurally, retains at most 10 reusable preview snapshots, consolidates drag validation with the command executor, and documents the deterministic singleton initialization requirement.
 - **Verification:** Node 24.19.0 passes lint, typecheck, 28 files / 375 tests, and the production build after SRR-08. Focused SRR-08 tests pass 92 cases.
-- **Remaining:** Remotely verify SRR-08, then execute SRR-09 and SRR-10.
-- **Last left off:** 2026-08-12 — SRR-08 is locally complete and fully green. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is the SRR-08 checkpoint/CI run followed by SRR-09.
+- **Remaining:** Execute SRR-09 and SRR-10.
+- **Last left off:** 2026-08-12 — SRR-08 is complete locally and remotely. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is SRR-09 risk-based coverage and repository readiness.

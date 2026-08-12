@@ -5,7 +5,7 @@ scope: Repository-specific implementation differences for web-builder chore/seni
 authority: Repository-specific overlay for the linked feature; code, configuration, tests, and verified runtime behavior remain authoritative
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-08 focused corrections passed their focused and full local verification gates on 2026-08-12; invalidated by an implementation, dependency, configuration, or verification change
+freshness: Updated after SRR-08 passed locally and remotely on 2026-08-12; invalidated by an implementation, dependency, configuration, or verification change
 ---
 
 # Repository overlay — web-builder / chore/senior-review-remediation
@@ -37,6 +37,7 @@ freshness: Updated after SRR-08 focused corrections passed their focused and ful
 - GitHub Actions run `31493250145` passed the SRR-05 checkpoint on commit `20c3497d641abf8b59e82aee8e022685a269f81b`.
 - GitHub Actions run `31563217075` passed the SRR-06 checkpoint on commit `c42d562fc1805ec4666a61a14577a0f6044dc1fe`.
 - GitHub Actions run `31563682967` passed the SRR-07 checkpoint on commit `01d58a13b783c5c320f48b53bad9f40a5f9fcbe9`.
+- GitHub Actions run `31565406088` passed the SRR-08 checkpoint on commit `96ed9760e7f0d20e26fcb5f80469f0750944e3e0`.
 
 ## Constraints
 
