@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: in_review
-freshness: Updated after SRR-11 through SRR-15 implementation and the local SRR-16 matrix on 2026-08-12; invalidated by a commit, push, remote CI result, review response, blocker, or resume-point change
+freshness: Updated after GitHub Actions run 31583752506 passed follow-up commit 278d0e2 on 2026-08-12; invalidated by a new commit, review response, blocker, or resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after SRR-11 through SRR-15 implementation and the local SRR-
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-15 are implemented and locally verified. Publication is approved; one pull-request CI run and the review response remain before a merge decision.
+SRR-00 through SRR-16 are implemented, published, and verified. The prepared review response and reviewer follow-up remain before a merge decision.
 
 **Approach:**
 Preserve the verified SRR-00 through SRR-10 work, then resolve the confirmed pre-merge review findings in isolated stages: drag complexity, preview quota recovery, test timeout margin, CI event duplication, compatibility-preserving form cleanup, and final verification.
@@ -72,6 +72,7 @@ Preserve the verified SRR-00 through SRR-10 work, then resolve the confirmed pre
 - Preserved persisted form success/error fields in the strict schema and defaults; forms cancel native submission, Preview retains its unavailable notice, and the route remains fail-closed at `503`.
 - Updated `Project.md` to remove the stale working-submission architecture and record the fail-closed contract.
 - Added the D2 drag-validation investigation and updated the selected plan, workspace, overlay, and implementation report with local evidence.
+- Committed the scoped follow-up as `278d0e2505d691e231f5698e03be8a5abec6d5a1` and pushed it to `origin/chore/senior-review-remediation` without staging the unrelated API-data workspace changes.
 
 **Verification:**
 
@@ -116,12 +117,12 @@ Preserve the verified SRR-00 through SRR-10 work, then resolve the confirmed pre
 - `.github/workflows/ci.yml` parses successfully as YAML with `push.branches: [main]`, `pull_request`, and `workflow_dispatch`.
 - Final consolidated focused verification passes 6 files / 127 tests after the optimized move path and exact-size benchmark fixture were restored.
 - Final post-audit lint and typecheck pass; documentation relative links resolve and `git diff --check` reports no whitespace errors.
+- GitHub Actions run `31583752506` was the only automatic run for `278d0e2`; frozen installation, lint, typecheck, all tests, and the production build passed in 1 minute 28 seconds.
 
 **Remaining:**
 
-- After push, verify that the new pull-request SHA receives one automatic CI run and that its full matrix passes.
 - Post the prepared evidence-based response to review 4913695775 only with approval, then make the merge decision.
 - Decide the software license and whether to pursue a separately tested CSP as separate owner/security gates.
 
 **Last left off:**
-2026-08-12 — SRR-11 through SRR-15 and the local SRR-16 evidence matrix are complete and approved for publication. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action after publication: remote PR validation, then seek approval before posting the prepared review response.
+2026-08-12 — SRR-11 through SRR-16 are published and verified locally and remotely. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: obtain approval to post the prepared review response, then wait for reviewer follow-up before any merge decision.

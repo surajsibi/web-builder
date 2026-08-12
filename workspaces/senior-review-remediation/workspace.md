@@ -5,7 +5,7 @@ scope: Project-wide remediation of the 2026-08-11 senior review for the web-buil
 authority: Selected execution-state authority for senior-review remediation; the execution plan owns intended work, while code, configuration, tests, and verified runtime behavior own implemented behavior
 owner: Project owner
 lifecycle: in_review
-freshness: Updated on 2026-08-12 after SRR-11 through SRR-15 implementation and the local SRR-16 matrix; invalidated by a branch change, remote CI result, review response, merge decision, or new verification evidence
+freshness: Updated on 2026-08-12 after GitHub Actions run 31583752506 passed the published SRR-11 through SRR-16 follow-up; invalidated by a branch change, review response, merge decision, or new verification evidence
 ---
 
 # Senior review remediation workspace
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-12 after SRR-11 through SRR-15 implementation and 
 
 **Feature directory identifier:** `senior-review-remediation`
 
-**Overall status:** SRR-00 through SRR-15 are implemented and locally verified. The SRR-16 local matrix and evidence update are complete; one pull-request CI run, review response, and merge decision remain.
+**Overall status:** SRR-00 through SRR-16 are implemented and verified locally and remotely. The evidence-based review response, reviewer follow-up, and merge decision remain.
 
 **Participating repositories:** `web-builder`
 
@@ -22,7 +22,7 @@ freshness: Updated on 2026-08-12 after SRR-11 through SRR-15 implementation and 
 
 **Branch history:** Planning was saved on `main` at `b159f15aef531819538ccc32a877d27f7061a64f`; implementation moved to the dedicated feature branch from that commit.
 
-**Current milestone:** Remote validation and accountable review of the implemented SRR-11 through SRR-16 pre-merge review follow-up.
+**Current milestone:** Accountable review of the verified SRR-11 through SRR-16 pre-merge follow-up.
 
 **Feature summary:** Convert the 2026-08-11 senior review into independently verifiable remediation phases. Restore a reliable Node and CI baseline first, measure and improve command-path performance without weakening validation, bound history memory, make form-submission behavior honest and safe, and then address targeted correctness, coverage, preview-storage, and repository-readiness findings.
 
@@ -60,10 +60,11 @@ freshness: Updated on 2026-08-12 after SRR-11 through SRR-15 implementation and 
 - Verified SRR-14 locally: the CI workflow retains `pull_request` and `workflow_dispatch`, limits `push` to `main`, and parses as YAML. Remote event-count validation requires the final branch push.
 - Verified SRR-15: the renderer runtime, value converter, submission state machine, status styles, and inactive Inspector controls are removed; preview guidance, native submission cancellation, fail-closed `503`, and persisted success/error schema compatibility remain covered.
 - Verified local SRR-16 matrix on Node 24.19.0: frozen installation, focused suites, lint, typecheck, two complete 31-file / 416-test runs, production build, and the drag benchmark pass.
+- Verified remotely: GitHub Actions run `31583752506` was the only automatic run for follow-up commit `278d0e2505d691e231f5698e03be8a5abec6d5a1`; its frozen installation, lint, typecheck, tests, and production build all passed in 1 minute 28 seconds.
 
 ## Current execution state
 
-- **Done:** SRR-11 through SRR-15 are implemented; the SRR-16 local matrix, drag investigation, implementation-report update, and review-response evidence are complete. The unrelated modifications under `workspaces/api-data-bindings/` remain untouched.
-- **Verification:** Node 24.19.0 passes frozen installation, focused regression suites, lint, typecheck, two complete 31-file / 416-test runs, the production build, and exact-size drag benchmarks. Workflow syntax parses locally.
-- **Remaining:** Verify one automatic pull-request CI run for the published follow-up SHA, post the prepared evidence-based review response only with approval, and then make the merge decision. License and CSP decisions remain separate owner/security gates.
-- **Last left off:** 2026-08-12 — the pre-merge follow-up is implemented, locally verified, and approved for publication. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action after publication is remote PR validation.
+- **Done:** SRR-11 through SRR-16 are implemented, published, and verified locally and remotely. The drag investigation, implementation report, and prepared review response cover every review item. The unrelated modifications under `workspaces/api-data-bindings/` remain untouched.
+- **Verification:** Node 24.19.0 passes frozen installation, focused regression suites, lint, typecheck, two complete 31-file / 416-test runs, the production build, and exact-size drag benchmarks. GitHub Actions run `31583752506` passed the same code matrix, with one automatic `pull_request` event and no duplicate branch `push` event.
+- **Remaining:** Post the prepared evidence-based review response only with approval, obtain reviewer follow-up, and then make the merge decision. License and CSP decisions remain separate owner/security gates.
+- **Last left off:** 2026-08-12 — the pre-merge follow-up is published and verified. Preserve the unrelated modifications under `workspaces/api-data-bindings/`. Next action is project-owner approval to post the prepared review response.

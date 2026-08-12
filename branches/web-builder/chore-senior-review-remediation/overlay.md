@@ -5,7 +5,7 @@ scope: Repository-specific implementation differences for web-builder chore/seni
 authority: Repository-specific overlay for the linked feature; code, configuration, tests, and verified runtime behavior remain authoritative
 owner: Project owner
 lifecycle: in_review
-freshness: Updated after local implementation and verification of SRR-11 through SRR-15 on 2026-08-12; invalidated by a code, dependency, configuration, benchmark, remote CI, or review-state change
+freshness: Updated after GitHub Actions run 31583752506 verified follow-up commit 278d0e2 on 2026-08-12; invalidated by a code, dependency, configuration, benchmark, or review-state change
 ---
 
 # Repository overlay — web-builder / chore/senior-review-remediation
@@ -42,7 +42,7 @@ freshness: Updated after local implementation and verification of SRR-11 through
 - The confirmed node-move complexity finding is locally resolved: exact-size largest-fixture mean fell from 267.57 ms to 10.8092 ms while centralized move/drop behavior tests pass.
 - The confirmed preview quota finding is locally resolved with builder-namespace-only pre-pruning and one bounded retry; the cap and failure surfacing remain covered.
 - The confirmed equivalence timing-margin finding is locally resolved with a 30-second timeout on only the maximum-node correctness case; two complete 416-test runs pass.
-- The confirmed duplicate-CI configuration finding is implemented locally by scoping `push` to `main`; one-run remote confirmation remains pending.
+- The confirmed duplicate-CI configuration finding is resolved: follow-up commit `278d0e2` received one automatic `pull_request` run and no duplicate branch `push` run.
 - The confirmed unreachable form-runtime finding is locally resolved. Persisted success/error fields remain schema-compatible until a versioned migration is approved.
 - JSON object validation already ignores symbol-keyed descriptors because `Object.values` enumerates only string-keyed descriptor properties.
 - Block templates validate internal placement while resolving registry definitions, so scoped block insertion does not admit a template with an invalid internal parent/child edge.
@@ -62,6 +62,7 @@ freshness: Updated after local implementation and verification of SRR-11 through
 - GitHub Actions run `31563682967` passed the SRR-07 checkpoint on commit `01d58a13b783c5c320f48b53bad9f40a5f9fcbe9`.
 - GitHub Actions run `31565406088` passed the SRR-08 checkpoint on commit `96ed9760e7f0d20e26fcb5f80469f0750944e3e0`.
 - GitHub Actions run `31566812922` passed the SRR-09 and final implemented-code checkpoint on commit `abaf022a1a58a725e675dc75363a7fa0877acbd9`.
+- GitHub Actions run `31583752506` passed the published SRR-11 through SRR-16 follow-up on commit `278d0e2505d691e231f5698e03be8a5abec6d5a1` in 1 minute 28 seconds; it was the only automatic run for that SHA.
 
 ## Constraints
 
@@ -79,4 +80,4 @@ freshness: Updated after local implementation and verification of SRR-11 through
 - The preview snapshot cap bounds orphan count, not byte size; browser storage quotas can still reject a large snapshot and the editor reports that failure without opening Preview.
 - The retained Phase 2 validation harness adds maintenance/test surface until its linked draft reports are archived or migrated.
 - The preview quota recovery scans and parses existing builder snapshot entries; a separate metadata index would require a versioned storage design and is not justified by the 10-entry cap.
-- Remote CI event de-duplication is configuration-correct locally but remains unverified until the published follow-up run completes.
+- The requested-changes review remains active until its prepared evidence response is posted and follow-up review is recorded.

@@ -5,7 +5,7 @@ scope: Implemented remediation and verification for the 2026-08-11 senior review
 authority: Source, configuration, tests, benchmark artifacts, and GitHub Actions own implemented behavior and results; this report is the derived delivery record
 owner: Project owner
 lifecycle: in_review
-freshness: Verified locally on 2026-08-12 through SRR-11 through SRR-15 and the local SRR-16 matrix; invalidated by changes to the remediated code, configuration, tests, benchmark fixtures, supported runtime, remote CI results, or reviewed product decisions
+freshness: Verified on 2026-08-12 through follow-up commit 278d0e2 and GitHub Actions run 31583752506; invalidated by changes to the remediated code, configuration, tests, benchmark fixtures, supported runtime, review state, or product decisions
 ---
 
 # Implementation report: Senior-review remediation
@@ -14,7 +14,7 @@ freshness: Verified locally on 2026-08-12 through SRR-11 through SRR-15 and the 
 
 The remediation restores a reproducible Node 24 contributor baseline, makes CI executable, removes the reported Node web-storage test failure, materially reduces large-document command and drag-validation time, bounds undo history by edit count, makes preview forms fail closed, recovers eligible preview writes from quota pressure, and resolves the focused interaction and correctness findings selected by the approved plan.
 
-Direct security and invariant tests now cover JSON value guards, page slugs, document-version migration handling, and project tree validation. The requested-changes follow-up is implemented and locally verified. The branch still requires one pull-request CI run, the evidence-based review response, and accountable merge approval; it is not automatically merged or archived.
+Direct security and invariant tests now cover JSON value guards, page slugs, document-version migration handling, and project tree validation. The requested-changes follow-up is implemented and verified locally and remotely. The branch still requires the evidence-based review response, reviewer follow-up, and accountable merge approval; it is not automatically merged or archived.
 
 ## Scope and versions
 
@@ -81,12 +81,12 @@ The [selected remediation plan](../plan/Senior-Review-Remediation-Plan.md) owns 
 | Correct focused interactions | 92 focused tests and run `31565406088` | Selector, Backspace, defaults error, equality, reusable snapshots, and consolidated drag checks passed. | Preview storage is bounded by count rather than bytes. |
 | Remove drag subtree multiplier | [drag-validation investigation](../research/drag-drop-validation-performance.md) | Exact-size 200/500/1,000-node fixtures fell from 13.3770/66.0623/267.57 ms to 4.2840/5.6562/10.8092 ms; focused move/drop tests pass. | Comparative local benchmark with five measured samples per case. |
 | Recover preview quota failures | Four quota and ordering regressions in the preview snapshot suite | Cleanup precedes capped new writes; recoverable quota failure retries once; unrelated storage and current overwrite snapshots are preserved; terminal errors still throw. | Browser storage remains byte-quota dependent and one oversized snapshot can still fail. |
-| Stabilize the maximum-node oracle | Isolated equivalence case plus two complete local suite runs | Only the generated 10,000-node case has a 30-second timeout; both full runs passed 31 files / 416 tests. | Remote runner confirmation remains pending. |
-| Remove duplicate PR CI configuration | Local YAML parse of [ci.yml](../../../.github/workflows/ci.yml) | Workflow retains `pull_request` and `workflow_dispatch`; `push` is limited to `main`. | Event-count behavior requires the next pushed PR SHA. |
+| Stabilize the maximum-node oracle | Isolated equivalence case, two complete local suite runs, and run `31583752506` | Only the generated 10,000-node case has a 30-second timeout; both local full runs and remote tests passed. | The timeout is intentionally isolated from global test settings. |
+| Remove duplicate PR CI configuration | Local YAML parse and GitHub Actions history for `278d0e2` | Workflow retains `pull_request` and `workflow_dispatch`; `push` is limited to `main`; the follow-up SHA received one automatic PR run. | Protected-branch pushes still run after merge as intended. |
 | Remove unreachable form runtime | Renderer, Preview, route, schema/Inspector, and hydration coverage | Focused form/Preview/route verification passed 3 files / 74 tests; full suites pass; no production `submitForm` or value-conversion import remains. | Persisted response-message fields remain until a versioned migration. |
 | Cover security/invariants directly | 4 focused files / 39 tests | JSON, slug, migration, and tree contracts passed, including node/depth caps and malformed relationships. | Component/UI files remain covered by behavior suites rather than line-count-driven direct specs. |
 | Final implemented code matrix | Node 24.19.0 local run and GitHub Actions run `31566812922` on `abaf022` | Lint and typecheck passed; 32 files / 414 tests passed; production build passed. | The local build reports an unrelated ancestor-lockfile warning; output is still successful. |
-| Local requested-changes matrix | Node 24.19.0 SRR-16 run on the requested-changes follow-up | Frozen install, focused regressions, lint, typecheck, two 31-file / 416-test runs, production build, YAML parse, and drag benchmark passed. | Final GitHub Actions PR run is pending. |
+| Requested-changes matrix | Node 24.19.0 local SRR-16 matrix and GitHub Actions run `31583752506` | Frozen install, focused regressions, lint, typecheck, two local 31-file / 416-test runs, production build, YAML parse, drag benchmark, and the remote code matrix passed. | The remote runner does not execute optional benchmarks. |
 
 ## Rollout and rollback
 
@@ -108,7 +108,7 @@ Before merging, review the residual risks below and run the CI workflow against 
 - Persistent submissions, rate limiting, bounded streaming/body parsing, authentication, and durable storage remain unimplemented. Preview accurately communicates this state.
 - Preview snapshots are capped at 10 entries, not a byte quota; one large document can still exhaust browser storage.
 - Preview quota recovery parses at most the retained builder snapshot entries during cleanup; a metadata index remains deferred unless the storage cap or lifecycle becomes materially larger.
-- The CI trigger change is locally syntax-verified but cannot be considered remotely complete until one pushed pull-request SHA produces one automatic run.
+- The requested-changes review remains active until the prepared response is posted and the reviewer or repository owner records follow-up approval.
 - General CSS color/font-family strings and `safeHrefSchema` policy consistency were not expanded in this remediation. Invalid CSS can still disappear through CSSOM feedback, and link protocol/length policy needs a separate product/security decision.
 - The Phase 2 validation harness remains maintenance surface until its linked draft reports are archived or migrated.
 - The repository still requires an owner-selected license and a security-reviewed CSP decision before those findings can close.

@@ -5,7 +5,7 @@ scope: Execution plan for reliability, performance, history, form, preview, corr
 authority: Selected execution plan for senior-review remediation; workspace.md owns execution state, and code, configuration, tests, and verified runtime behavior own current implementation facts
 owner: Project owner
 lifecycle: approved
-freshness: Updated on 2026-08-12 after local implementation and verification of SRR-11 through SRR-15; invalidated by new implementation evidence, dependency changes, remote CI results, or an approved scope change
+freshness: Updated on 2026-08-12 after GitHub Actions run 31583752506 verified the published pre-merge follow-up; invalidated by new implementation evidence, dependency changes, review results, or an approved scope change
 ---
 
 # Plan: Remediate the senior review findings
@@ -85,9 +85,9 @@ Excluded unless separately approved:
 | SRR-11 | Replace per-drop-zone moving-subtree cycle scans with an upward ancestor walk inside the centralized command dry run | SRR-10, PR review baseline | Existing move/drop semantics pass; parent-into-descendant moves remain rejected; before/after 200, 500, and 1,000-node drag-overlay measurements no longer scale as subtree size times drop-zone count | Implementer and technical verifier | Complete locally: largest fixture fell from 267.57 ms to 10.8092 ms |
 | SRR-12 | Make preview snapshot storage recover from quota pressure by pruning eligible builder snapshots before writing and retrying one failed write once | SRR-10, PR review baseline | Quota-simulating tests prove stale builder snapshots are pruned, unrelated storage is preserved, the cap remains 10, retry occurs at most once, and unrecoverable writes still surface the existing error | Implementer and technical verifier | Complete locally: four quota and ordering regressions pass |
 | SRR-13 | Isolate the maximum-node equivalence case and give only that correctness test an explicit 30-second timeout | SRR-10, PR review baseline | The isolated equivalence file passes; the complete suite passes twice on Node 24.19.0 without changing global Vitest timeouts | Implementer and technical verifier | Complete locally: targeted timeout and two 416-test runs pass |
-| SRR-14 | Scope the CI `push` trigger to `main` while retaining `pull_request` and manual dispatch coverage | SRR-10, PR review baseline | Workflow syntax is valid; the next PR branch SHA receives one automatic validation run rather than separate push and pull-request runs | Implementer and repository maintainer | Implemented; local YAML parse passes, remote event verification pending |
+| SRR-14 | Scope the CI `push` trigger to `main` while retaining `pull_request` and manual dispatch coverage | SRR-10, PR review baseline | Workflow syntax is valid; the next PR branch SHA receives one automatic validation run rather than separate push and pull-request runs | Implementer and repository maintainer | Complete: one `pull_request` run and no duplicate branch `push` run for `278d0e2` |
 | SRR-15 | Remove unreachable production `submitForm` and form-status machinery, hide parked success/error fields from the inspector, and preserve their schema compatibility until a versioned document migration | SRR-10, persisted form documents | No production runtime or import exposes submission values; editor/preview form tests pass; preview notice and fail-closed `503` route remain; existing documents still hydrate | Implementer, editor architecture owner, and product reviewer | Complete locally: focused and full suites pass |
-| SRR-16 | Run the pre-merge verification matrix, update the implementation report and execution state, and prepare an evidence-based response to every review item | SRR-11 through SRR-15 | Focused tests, lint, typecheck, full tests, build, drag measurements, and one GitHub Actions PR run pass; deferred and rejected comments have concise evidence | Technical verifier and project owner | Local matrix and evidence complete; GitHub Actions PR run and posted review response pending |
+| SRR-16 | Run the pre-merge verification matrix, update the implementation report and execution state, and prepare an evidence-based response to every review item | SRR-11 through SRR-15 | Focused tests, lint, typecheck, full tests, build, drag measurements, and one GitHub Actions PR run pass; deferred and rejected comments have concise evidence | Technical verifier and project owner | Complete: local matrix, run `31583752506`, and prepared response pass the gate |
 
 ## Quality and approval gates
 
@@ -124,6 +124,6 @@ Excluded unless separately approved:
 
 ## Completion
 
-SRR-00 through SRR-15 are implemented and locally verified. SRR-16's local matrix and evidence record are complete; one automatic pull-request CI run and posting the prepared review response remain outside this local checkpoint. The branch is not merge-ready until those remote gates pass and the project owner makes the merge decision.
+SRR-00 through SRR-16 are implemented and verified locally and remotely. Posting the prepared review response, obtaining reviewer follow-up, and the project-owner merge decision remain outside this execution plan. The branch is not merge-ready while the requested-changes review remains active.
 
 Promote only verified durable knowledge to the appropriate project authority. Archive the feature and branch workspaces after accountable review and completion; do not archive or delete them automatically.
