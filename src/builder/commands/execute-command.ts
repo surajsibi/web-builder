@@ -43,6 +43,7 @@ import {
   normalizeExplicitPageSlug,
 } from "../project/slug";
 import {
+  buildProjectParentIndex,
   collectSubtreeNodeIds,
   type ParentById,
 } from "../project/tree";
@@ -65,7 +66,15 @@ export type CommandPreparationResult =
   | { status: "noop"; reason: CommandNoopReason }
   | { status: "rejected"; error: CommandValidationError };
 
+export type CommandDryRunResult =
+  | { status: "valid" }
+  | Extract<CommandPreparationResult, { status: "noop" | "rejected" }>;
+
+type CommandExecutionResult = CommandPreparationResult | { status: "valid" };
+type CommandExecutionMode = "apply" | "dry-run";
+
 export type CommandExecutorServices = {
+  candidateValidation?: "full" | "scoped";
   idGenerator: IdGenerator;
 };
 
@@ -380,24 +389,33 @@ function uniquePageId(
 ): PageId | null {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const pageId = asPageId(idGenerator("page"));
-    if (!Object.hasOwn(document.pages, pageId)) return pageId;
+    if (pageId.length > 0 && !Object.hasOwn(document.pages, pageId)) {
+      return pageId;
+    }
   }
   return null;
 }
 
-function uniqueNodeId(
+function collectProjectNodeIds(
   document: Readonly<ProjectDocument>,
-  idGenerator: IdGenerator,
-  reservedIds: ReadonlySet<NodeId> = new Set(),
-): NodeId | null {
-  const existing = new Set<NodeId>();
+): Set<NodeId> {
+  const nodeIds = new Set<NodeId>();
   for (const page of Object.values(document.pages)) {
-    for (const nodeId of Object.keys(page.nodes) as NodeId[]) existing.add(nodeId);
+    for (const nodeId of Object.keys(page.nodes) as NodeId[]) nodeIds.add(nodeId);
   }
+  return nodeIds;
+}
 
+function reserveUniqueNodeId(
+  reservedIds: Set<NodeId>,
+  idGenerator: IdGenerator,
+): NodeId | null {
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const nodeId = asNodeId(idGenerator("node"));
-    if (!existing.has(nodeId) && !reservedIds.has(nodeId)) return nodeId;
+    if (nodeId.length > 0 && !reservedIds.has(nodeId)) {
+      reservedIds.add(nodeId);
+      return nodeId;
+    }
   }
   return null;
 }
@@ -500,19 +518,45 @@ function mapHydrationErrorToCommand(
 function finalizeCandidate(
   candidate: CommandCandidate,
   value: CommandAppliedValue,
+  mutationScope: "local" | "tree",
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
-  const validation = prepareProjectHydration(candidate.document);
-  if (!validation.success) {
-    return rejected(mapHydrationErrorToCommand(validation.error));
+  // Store snapshots are fully hydrated before command execution. Full mode is
+  // retained as the equivalence oracle; hydrate, initial load, undo, and redo
+  // continue to validate untrusted or reconstructed documents in full.
+  if (services.candidateValidation === "full") {
+    const validation = prepareProjectHydration(candidate.document);
+    if (!validation.success) {
+      return rejected(mapHydrationErrorToCommand(validation.error));
+    }
+
+    return {
+      status: "applied",
+      candidate: {
+        ...candidate,
+        document: validation.value.document,
+        parentById: validation.value.parentById,
+      },
+      value,
+    };
+  }
+
+  if (mutationScope === "tree") {
+    const tree = buildProjectParentIndex(candidate.document);
+    if (!tree.success) {
+      return rejected({
+        code: "tree-invalid",
+        pageId: tree.issue.pageId,
+        nodeId: tree.issue.nodeId,
+        reason: tree.issue.reason,
+      });
+    }
+    candidate = { ...candidate, parentById: tree.parentById };
   }
 
   return {
     status: "applied",
-    candidate: {
-      ...candidate,
-      document: validation.value.document,
-      parentById: validation.value.parentById,
-    },
+    candidate,
     value,
   };
 }
@@ -576,12 +620,15 @@ function createPage(
       selectedNodeId: null,
     },
     { pageId, index: candidate.pageOrder.length - 1 },
+    "tree",
+    services,
   );
 }
 
 function renamePage(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "page.rename" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
@@ -607,12 +654,15 @@ function renamePage(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { pageId: command.pageId },
+    "local",
+    services,
   );
 }
 
 function deletePage(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "page.delete" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
@@ -666,6 +716,8 @@ function deletePage(
       selectedNodeId,
     },
     { pageId: command.pageId, removedNodeIds },
+    "tree",
+    services,
   );
 }
 
@@ -673,7 +725,8 @@ function insertNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.insert" }>,
   services: CommandExecutorServices,
-): CommandPreparationResult {
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
     return rejected({
@@ -705,18 +758,30 @@ function insertNode(
   const props = structuredClone(definition.defaults.props) as JsonObject;
   const styles = structuredClone(definition.defaults.styles);
 
-  try {
-    definition.propsSchema.parse(props);
-    responsiveStylesSchema.parse(styles);
-  } catch (error) {
+  const parsedProps = definition.propsSchema.safeParse(props);
+  if (!parsedProps.success) {
     return rejected({
-      code: error instanceof z.ZodError ? "props-invalid" : "styles-invalid",
+      code: "props-invalid",
       pageId: page.id,
-      reason: error instanceof Error ? error.message : "Defaults are invalid",
+      reason: parsedProps.error.message,
     });
   }
 
-  const nodeId = uniqueNodeId(snapshot.document, services.idGenerator);
+  const parsedStyles = responsiveStylesSchema.safeParse(styles);
+  if (!parsedStyles.success) {
+    return rejected({
+      code: "styles-invalid",
+      pageId: page.id,
+      reason: parsedStyles.error.message,
+    });
+  }
+
+  if (mode === "dry-run") return { status: "valid" };
+
+  const nodeId = reserveUniqueNodeId(
+    collectProjectNodeIds(snapshot.document),
+    services.idGenerator,
+  );
   if (!nodeId) {
     return rejected({
       code: "id-collision",
@@ -756,6 +821,8 @@ function insertNode(
           : snapshot.selectedNodeId,
     },
     { nodeId, destination: command.destination },
+    "tree",
+    services,
   );
 }
 
@@ -763,7 +830,8 @@ function insertBlock(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "block.insert" }>,
   services: CommandExecutorServices,
-): CommandPreparationResult {
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const page = getPage(snapshot.document, command.pageId);
   if (!page) {
     return rejected({
@@ -806,6 +874,8 @@ function insertBlock(
   );
   if (placement) return placement;
 
+  if (mode === "dry-run") return { status: "valid" };
+
   const templates: (typeof template)[] = [];
   const collectTemplates = (node: typeof template) => {
     templates.push(node);
@@ -813,14 +883,10 @@ function insertBlock(
   };
   collectTemplates(template);
 
-  const reservedIds = new Set<NodeId>();
+  const reservedIds = collectProjectNodeIds(snapshot.document);
   const idByTemplate = new Map<typeof template, NodeId>();
   for (const node of templates) {
-    const nodeId = uniqueNodeId(
-      snapshot.document,
-      services.idGenerator,
-      reservedIds,
-    );
+    const nodeId = reserveUniqueNodeId(reservedIds, services.idGenerator);
     if (!nodeId) {
       return rejected({
         code: "id-collision",
@@ -828,7 +894,6 @@ function insertBlock(
         reason: "Could not generate unique IDs for the block subtree",
       });
     }
-    reservedIds.add(nodeId);
     idByTemplate.set(node, nodeId);
   }
 
@@ -881,12 +946,15 @@ function insertBlock(
       nodeIds,
       destination: command.destination,
     },
+    "tree",
+    services,
   );
 }
 
 function removeNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.remove" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -944,13 +1012,34 @@ function removeNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate, selectedNodeId },
     { nodeId: node.id, removedNodeIds },
+    "tree",
+    services,
   );
+}
+
+function containsAncestor(
+  parentById: Readonly<ParentById>,
+  ancestorId: NodeId,
+  candidateId: NodeId,
+): boolean {
+  const visited = new Set<NodeId>();
+  let current: NodeId | null = candidateId;
+
+  while (current !== null && !visited.has(current)) {
+    if (current === ancestorId) return true;
+    visited.add(current);
+    current = parentById[current] ?? null;
+  }
+
+  return false;
 }
 
 function moveNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.move" }>,
-): CommandPreparationResult {
+  services: CommandExecutorServices,
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
   const { page, node } = resolved;
@@ -980,14 +1069,13 @@ function moveNode(
   const lockedDestination = assertDestinationEditable(page, command.destination);
   if (lockedDestination) return lockedDestination;
 
-  const subtreeIds = collectSubtreeNodeIds(
-    snapshot.document,
-    page.id,
-    node.id,
-  );
   if (
     command.destination.parentId !== null &&
-    subtreeIds.includes(command.destination.parentId)
+    containsAncestor(
+      snapshot.parentById,
+      node.id,
+      command.destination.parentId,
+    )
   ) {
     return rejected({
       code: "cycle",
@@ -1011,6 +1099,8 @@ function moveNode(
   ) {
     return noop("already-at-destination");
   }
+
+  if (mode === "dry-run") return { status: "valid" };
 
   const candidate = cloneProjectDocument(snapshot.document);
   const candidatePage = candidate.pages[page.id];
@@ -1037,6 +1127,8 @@ function moveNode(
       previousDestination,
       destination: command.destination,
     },
+    "tree",
+    services,
   );
 }
 
@@ -1061,15 +1153,11 @@ function duplicateNode(
   if (placement) return placement;
 
   const sourceIds = collectSubtreeNodeIds(snapshot.document, page.id, node.id);
-  const reservedIds = new Set<NodeId>();
+  const reservedIds = collectProjectNodeIds(snapshot.document);
   const idMap = Object.create(null) as Record<NodeId, NodeId>;
 
   for (const sourceId of sourceIds) {
-    const duplicateId = uniqueNodeId(
-      snapshot.document,
-      services.idGenerator,
-      reservedIds,
-    );
+    const duplicateId = reserveUniqueNodeId(reservedIds, services.idGenerator);
     if (!duplicateId) {
       return rejected({
         code: "id-collision",
@@ -1078,7 +1166,6 @@ function duplicateNode(
         reason: "Could not generate unique IDs for the duplicated subtree",
       });
     }
-    reservedIds.add(duplicateId);
     idMap[sourceId] = duplicateId;
   }
 
@@ -1124,12 +1211,15 @@ function duplicateNode(
       idMap,
       destination: command.destination,
     },
+    "tree",
+    services,
   );
 }
 
 function renameNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.rename" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1157,12 +1247,15 @@ function renameNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
 function lockNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.lock" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1176,12 +1269,15 @@ function lockNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
 function updateProps(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.updateProps" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1228,6 +1324,8 @@ function updateProps(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
@@ -1277,6 +1375,7 @@ function applyStyleChange(
 function updateStyles(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.updateStyles" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1327,12 +1426,15 @@ function updateStyles(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
 function hideNode(
   snapshot: CommandSnapshot,
   command: Extract<EditorCommand, { kind: "node.hide" }>,
+  services: CommandExecutorServices,
 ): CommandPreparationResult {
   const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
   if (isPreparationResult(resolved)) return resolved;
@@ -1377,14 +1479,17 @@ function hideNode(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
+    "local",
+    services,
   );
 }
 
-export function executeEditorCommand(
+function executeEditorCommandInternal(
   snapshot: CommandSnapshot,
   command: EditorCommand,
-  services: CommandExecutorServices = DEFAULT_SERVICES,
-): CommandPreparationResult {
+  services: CommandExecutorServices,
+  mode: CommandExecutionMode,
+): CommandExecutionResult {
   const commandResult = editorCommandEnvelopeSchema.safeParse(command);
   if (!commandResult.success) {
     const issue = commandResult.error.issues[0];
@@ -1402,28 +1507,59 @@ export function executeEditorCommand(
     case "page.create":
       return createPage(snapshot, validatedCommand, services);
     case "page.rename":
-      return renamePage(snapshot, validatedCommand);
+      return renamePage(snapshot, validatedCommand, services);
     case "page.delete":
-      return deletePage(snapshot, validatedCommand);
+      return deletePage(snapshot, validatedCommand, services);
     case "node.insert":
-      return insertNode(snapshot, validatedCommand, services);
+      return insertNode(snapshot, validatedCommand, services, mode);
     case "node.remove":
-      return removeNode(snapshot, validatedCommand);
+      return removeNode(snapshot, validatedCommand, services);
     case "node.move":
-      return moveNode(snapshot, validatedCommand);
+      return moveNode(snapshot, validatedCommand, services, mode);
     case "node.duplicate":
       return duplicateNode(snapshot, validatedCommand, services);
     case "node.rename":
-      return renameNode(snapshot, validatedCommand);
+      return renameNode(snapshot, validatedCommand, services);
     case "node.lock":
-      return lockNode(snapshot, validatedCommand);
+      return lockNode(snapshot, validatedCommand, services);
     case "node.hide":
-      return hideNode(snapshot, validatedCommand);
+      return hideNode(snapshot, validatedCommand, services);
     case "node.updateProps":
-      return updateProps(snapshot, validatedCommand);
+      return updateProps(snapshot, validatedCommand, services);
     case "node.updateStyles":
-      return updateStyles(snapshot, validatedCommand);
+      return updateStyles(snapshot, validatedCommand, services);
     case "block.insert":
-      return insertBlock(snapshot, validatedCommand, services);
+      return insertBlock(snapshot, validatedCommand, services, mode);
   }
+}
+
+export function executeEditorCommand(
+  snapshot: CommandSnapshot,
+  command: EditorCommand,
+  services: CommandExecutorServices = DEFAULT_SERVICES,
+): CommandPreparationResult {
+  const result = executeEditorCommandInternal(snapshot, command, services, "apply");
+  if (result.status === "valid") {
+    throw new Error("Command validation returned without applying a candidate");
+  }
+  return result;
+}
+
+export function dryRunEditorCommand(
+  snapshot: CommandSnapshot,
+  command: Extract<
+    EditorCommand,
+    { kind: "node.insert" | "node.move" | "block.insert" }
+  >,
+): CommandDryRunResult {
+  const result = executeEditorCommandInternal(
+    snapshot,
+    command,
+    DEFAULT_SERVICES,
+    "dry-run",
+  );
+  if (result.status === "applied") {
+    throw new Error("Dry-run command unexpectedly applied a candidate");
+  }
+  return result;
 }

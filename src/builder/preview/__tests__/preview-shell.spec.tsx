@@ -12,6 +12,7 @@ import { asNodeId } from "@/builder/model/ids";
 import { PreviewShell } from "@/builder/preview/preview-shell";
 import { storePreviewSnapshot } from "@/builder/preview/preview-snapshot";
 import { createBuilderStore } from "@/builder/store/builder-store";
+import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
 import {
   createTestNode,
   createTestProject,
@@ -19,7 +20,6 @@ import {
 
 afterEach(() => {
   cleanup();
-  window.localStorage.clear();
   vi.unstubAllGlobals();
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
@@ -74,7 +74,7 @@ describe("PreviewShell", () => {
     expect(screen.getByRole("article")).toHaveStyle({ padding: "24px" });
   });
 
-  it("should log and send named form values through the preview submission route", async () => {
+  it("should label forms non-persistent without sending or logging visitor values", () => {
     const project = createTestProject();
     const page = project.pages[project.homePageId];
     const input = createTestNode("input", "node-email");
@@ -149,9 +149,7 @@ describe("PreviewShell", () => {
     page.nodes[checkbox.id] = checkbox;
     page.nodes[checkboxGroup.id] = checkboxGroup;
     page.nodes[button.id] = button;
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ accepted: true })));
+    const fetchMock = vi.fn();
     const consoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
     vi.stubGlobal("fetch", fetchMock);
 
@@ -175,36 +173,14 @@ describe("PreviewShell", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "Development" }));
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(consoleLog).toHaveBeenCalledWith("Form submission values:", {
-      email: "ada@example.com",
-      message: "Please send more information.",
-      country: "Canada",
-      contactMethod: "Phone",
-      terms: "accepted",
-      interests: ["Design", "Development"],
-    });
-    expect(fetchMock).toHaveBeenCalledWith("/api/form-submissions", {
-      body: JSON.stringify({
-        projectId: project.projectId,
-        pageId: page.id,
-        formId: form.id,
-        formName: "contactForm",
-        values: {
-          email: "ada@example.com",
-          message: "Please send more information.",
-          country: "Canada",
-          contactMethod: "Phone",
-          terms: "accepted",
-          interests: ["Design", "Development"],
-        },
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Thanks! Your submission was received.",
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Preview only: submissions are not saved or sent.",
     );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(consoleLog).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("Thanks! Your submission was received."),
+    ).not.toBeInTheDocument();
   });
 
   it("should let visitors reveal and hide a password without losing its value", () => {
@@ -351,17 +327,22 @@ describe("PreviewShell", () => {
     );
   });
 
-  it("should hydrate and consume a transferred preview snapshot", async () => {
+  it("should hydrate and retain a transferred preview snapshot", async () => {
     const project = createTestProject();
     const snapshotId = "current-editor-state";
-    storePreviewSnapshot(window.localStorage, snapshotId, {
+    const previewStorage = createMemoryPreviewStorage();
+    storePreviewSnapshot(previewStorage, snapshotId, {
       document: project,
       activePageId: project.homePageId,
     });
 
     render(
       <StrictMode>
-        <PreviewShell snapshotId={snapshotId} store={createBuilderStore()} />
+        <PreviewShell
+          previewStorage={previewStorage}
+          snapshotId={snapshotId}
+          store={createBuilderStore()}
+        />
       </StrictMode>,
     );
 
@@ -370,13 +351,17 @@ describe("PreviewShell", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("article")).toContainElement(screen.getByText("Text"));
     expect(
-      window.localStorage.getItem("web-builder:preview:" + snapshotId),
-    ).toBeNull();
+      previewStorage.getItem("web-builder:preview:" + snapshotId),
+    ).not.toBeNull();
   });
 
   it("should reject a missing transferred preview snapshot", async () => {
     render(
-      <PreviewShell snapshotId="missing" store={createBuilderStore()} />,
+      <PreviewShell
+        previewStorage={createMemoryPreviewStorage()}
+        snapshotId="missing"
+        store={createBuilderStore()}
+      />,
     );
 
     expect(

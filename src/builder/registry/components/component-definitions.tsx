@@ -1,7 +1,6 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useState } from "react";
 import { z } from "zod";
 
-import { formDataToValues } from "@/builder/forms/form-values";
 import { isJsonObject } from "@/builder/model/json";
 import type {
   ComponentDefinition,
@@ -1217,70 +1216,21 @@ export function FormRenderer({
   runtime,
   children,
 }: ContainerRendererProps<FormProps>) {
-  const [status, setStatus] = useState<
-    "idle" | "submitting" | "success" | "error"
-  >("idle");
-  const submittingRef = useRef(false);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-
-    if (
-      runtime?.mode !== "preview" ||
-      runtime.submitForm === undefined ||
-      submittingRef.current ||
-      !form.checkValidity()
-    ) {
-      return;
-    }
-
-    submittingRef.current = true;
-    setStatus("submitting");
-
-    try {
-      await runtime.submitForm({
-        formId: runtime.nodeId,
-        formName: props.name,
-        values: formDataToValues(new FormData(form)),
-      });
-      setStatus("success");
-    } catch {
-      setStatus("error");
-    } finally {
-      submittingRef.current = false;
-    }
-  };
-
-  const statusMessage =
-    status === "submitting"
-      ? "Submitting…"
-      : status === "success"
-        ? props.successMessage
-        : status === "error"
-          ? props.errorMessage
-          : null;
-
   return (
     <form
       {...rootAttributes}
-      aria-busy={status === "submitting" || undefined}
       aria-label={props.label}
       className={className}
       method="post"
       name={props.name}
-      onSubmit={handleSubmit}
+      onSubmit={(event) => event.preventDefault()}
       ref={rootRef}
       style={style}
     >
       {children}
-      {statusMessage ? (
-        <p
-          aria-live={status === "error" ? "assertive" : "polite"}
-          className="form-submission-status"
-          role={status === "error" ? "alert" : "status"}
-        >
-          {statusMessage}
+      {runtime?.mode === "preview" && runtime.formSubmissionNotice ? (
+        <p className="form-submission-notice" role="note">
+          {runtime.formSubmissionNotice}
         </p>
       ) : null}
     </form>
@@ -1343,8 +1293,6 @@ export const formDefinition = {
     props: [
       { path: "label", label: "Accessible label", control: "text" },
       { path: "name", label: "Form name", control: "text" },
-      { path: "successMessage", label: "Success message", control: "text" },
-      { path: "errorMessage", label: "Error message", control: "text" },
     ],
     styles: [
       "sizing",

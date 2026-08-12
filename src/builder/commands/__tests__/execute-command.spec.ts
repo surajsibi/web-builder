@@ -6,6 +6,7 @@ import {
 } from "@/builder/commands/execute-command";
 import { asNodeId, asPageId } from "@/builder/model/ids";
 import { prepareProjectHydration } from "@/builder/project/hydration";
+import { componentRegistry } from "@/builder/registry/component-registry";
 import { createTestProject } from "@/builder/testing/project-fixtures";
 
 function createSnapshot(options?: {
@@ -127,6 +128,31 @@ describe("executeEditorCommand", () => {
     expect(result.candidate.selectedNodeId).toBe(node.id);
   });
 
+  it("should report invalid style defaults as a styles error", () => {
+    const snapshot = createSnapshot();
+    const defaults = componentRegistry.card.defaults;
+    const originalStyles = defaults.styles;
+    defaults.styles = {
+      base: { color: 42 },
+    } as unknown as typeof defaults.styles;
+
+    try {
+      const result = executeEditorCommand(snapshot, {
+        kind: "node.insert",
+        pageId: asPageId("page-home"),
+        componentType: "card",
+        destination: { parentId: null, index: 1 },
+      });
+
+      expect(result).toMatchObject({
+        status: "rejected",
+        error: { code: "styles-invalid", pageId: "page-home" },
+      });
+    } finally {
+      defaults.styles = originalStyles;
+    }
+  });
+
   it("should preserve active-page selection when inserting on an inactive page", () => {
     const snapshot = createSnapshot({
       includeAboutPage: true,
@@ -148,6 +174,28 @@ describe("executeEditorCommand", () => {
     if (result.status !== "applied") return;
     expect(result.candidate.activePageId).toBe("page-home");
     expect(result.candidate.selectedNodeId).toBe("node-text");
+  });
+
+  it("should retry an empty generated node ID before inserting", () => {
+    const snapshot = createSnapshot();
+    const generatedIds = ["", "node-created"];
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.insert",
+        pageId: asPageId("page-home"),
+        componentType: "card",
+        destination: { parentId: null, index: 1 },
+      },
+      { idGenerator: () => generatedIds.shift() ?? "node-collision" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(
+      result.candidate.document.pages[asPageId("page-home")].rootIds,
+    ).toContain("node-created");
   });
 
   it("should insert form controls inside a Form and reject unsupported children", () => {
@@ -445,6 +493,40 @@ describe("executeEditorCommand", () => {
         "node-text": "node-text-copy",
       },
     });
+  });
+
+  it("should keep duplicated subtree IDs unique when the generator repeats a fresh ID", () => {
+    const snapshot = createSnapshot();
+    const generatedIds = [
+      "node-card-copy",
+      "node-card-copy",
+      "node-text-copy",
+    ];
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.duplicate",
+        pageId: asPageId("page-home"),
+        nodeId: asNodeId("node-card"),
+        destination: { parentId: asNodeId("node-section"), index: 1 },
+      },
+      { idGenerator: () => generatedIds.shift() ?? "node-collision" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.value).toMatchObject({
+      idMap: {
+        "node-card": "node-card-copy",
+        "node-text": "node-text-copy",
+      },
+    });
+    expect(
+      Object.keys(
+        result.candidate.document.pages[asPageId("page-home")].nodes,
+      ),
+    ).toHaveLength(5);
   });
 
   it("should reject duplication into a locked destination without changing the source", () => {

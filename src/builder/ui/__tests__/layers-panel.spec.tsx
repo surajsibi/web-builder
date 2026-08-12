@@ -22,7 +22,7 @@ describe("LayersPanel", () => {
     render(
       <DragDropProvider>
         <LayersPanel
-          activeDropTarget={null}
+          document={project}
           dragSource={null}
           onSelectNode={onSelectNode}
           page={page}

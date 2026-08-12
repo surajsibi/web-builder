@@ -94,7 +94,15 @@ type CreateBuilderStoreOptions = {
   idGenerator?: IdGenerator;
 };
 
+export const MAX_HISTORY_ENTRIES = 50;
+
 const EMPTY_HISTORY: HistoryState = { past: [], future: [] };
+
+function limitHistoryEntries(entries: HistoryEntry[]): HistoryEntry[] {
+  return entries.length <= MAX_HISTORY_ENTRIES
+    ? entries
+    : entries.slice(-MAX_HISTORY_ENTRIES);
+}
 
 function contentSnapshot(
   document: Readonly<ProjectDocument>,
@@ -140,7 +148,7 @@ function nextHistory(
     past.push({ before, after, historyGroupId });
   }
 
-  return { past, future: [] };
+  return { past: limitHistoryEntries(past), future: [] };
 }
 
 function chooseSurvivingActivePage(
@@ -433,7 +441,7 @@ export function createBuilderStore(
         commitId,
         history: {
           past: state.history.past.slice(0, -1),
-          future: [...state.history.future, entry],
+          future: limitHistoryEntries([...state.history.future, entry]),
         },
       });
 
@@ -477,7 +485,7 @@ export function createBuilderStore(
         dirty: true,
         commitId,
         history: {
-          past: [...state.history.past, entry],
+          past: limitHistoryEntries([...state.history.past, entry]),
           future: state.history.future.slice(0, -1),
         },
       });

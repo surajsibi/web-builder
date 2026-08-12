@@ -1,24 +1,14 @@
-import { formSubmissionPayloadSchema } from "@/builder/forms/submission-contract";
+export function POST(request: Request) {
+  void request;
 
-export async function POST(request: Request) {
-  let input: unknown;
-
-  try {
-    input = await request.json();
-  } catch {
-    return Response.json(
-      { accepted: false, error: "The request body must contain valid JSON." },
-      { status: 400 },
-    );
-  }
-
-  const result = formSubmissionPayloadSchema.safeParse(input);
-  if (!result.success) {
-    return Response.json(
-      { accepted: false, error: "The form submission is invalid." },
-      { status: 422 },
-    );
-  }
-
-  return Response.json({ accepted: true });
+  return Response.json(
+    {
+      accepted: false,
+      error: "Form submissions are unavailable. Preview submissions are not saved.",
+    },
+    {
+      headers: { "Cache-Control": "no-store" },
+      status: 503,
+    },
+  );
 }

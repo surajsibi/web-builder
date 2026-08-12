@@ -1,6 +1,5 @@
 import type React from "react";
 
-import type { RuntimeFormSubmission } from "@/builder/forms/form-values";
 import { isJsonObject } from "@/builder/model/json";
 import type { JsonObject, JsonValue } from "@/builder/model/json";
 import { responsiveStylesSchema } from "@/builder/styles/schema";
@@ -89,9 +88,9 @@ export type RendererBaseProps<Props extends JsonObject> = {
 };
 
 export type ComponentRendererRuntime = {
+  formSubmissionNotice?: string;
   mode: "editor" | "preview";
   nodeId: string;
-  submitForm?: (submission: RuntimeFormSubmission) => Promise<void>;
 };
 
 export type LeafRendererProps<Props extends JsonObject> =

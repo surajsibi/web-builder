@@ -487,20 +487,11 @@ export function prepareProjectHydration(input: unknown): HydrationResult {
     return { success: false, error: placementError, rawPayload };
   }
 
-  const finalTree = buildProjectParentIndex(document);
-  if (!finalTree.success) {
-    return {
-      success: false,
-      error: asTreeError(finalTree.issue),
-      rawPayload,
-    };
-  }
-
   return {
     success: true,
     value: {
       document: cloneProjectDocument(document),
-      parentById: finalTree.parentById,
+      parentById: initialTree.parentById,
       migrated: migrationResult.migrated || componentResult.migrated,
     },
     rawPayload,

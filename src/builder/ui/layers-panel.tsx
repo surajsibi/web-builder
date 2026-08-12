@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/react";
 
-import type {
-  EditorDragSource,
-  EditorDropTarget,
-} from "@/builder/interaction/types";
+import type { EditorDragSource } from "@/builder/interaction/types";
 import type { NodeId } from "@/builder/model/ids";
-import type { PageDocument } from "@/builder/model/project-document";
+import type {
+  PageDocument,
+  ProjectDocument,
+} from "@/builder/model/project-document";
 import type { ParentById } from "@/builder/project/tree";
 import { componentRegistry } from "@/builder/registry/component-registry";
 import { resolveResponsiveStyles } from "@/builder/styles/resolve";
@@ -19,38 +19,37 @@ import {
 } from "@/builder/ui/drag-and-drop";
 
 type LayersPanelProps = {
+  document: ProjectDocument;
   page: Readonly<PageDocument>;
   parentById: Readonly<ParentById>;
   viewport: Viewport;
   selectedNodeId: NodeId | null;
   dragSource: EditorDragSource | null;
-  activeDropTarget: EditorDropTarget | null;
   onSelectNode: (nodeId: NodeId) => void;
 };
 
-function sameTarget(
-  left: EditorDropTarget | null,
-  right: EditorDropTarget,
-): boolean {
-  return left !== null && dropTargetId(left) === dropTargetId(right);
-}
-
 function LayerDropZone({
+  document,
   page,
   parentById,
+  selectedNodeId,
   source,
   anchor,
-  activeDropTarget,
 }: {
+  document: ProjectDocument;
   page: Readonly<PageDocument>;
   parentById: Readonly<ParentById>;
+  selectedNodeId: NodeId | null;
   source: EditorDragSource;
   anchor: DropAnchor;
-  activeDropTarget: EditorDropTarget | null;
 }) {
   const resolution = resolveEditorDropTarget(
-    page,
-    parentById,
+    {
+      document,
+      parentById: parentById as ParentById,
+      activePageId: page.id,
+      selectedNodeId,
+    },
     source,
     anchor,
     "layers",
@@ -64,11 +63,10 @@ function LayerDropZone({
 
   if (!target) return null;
 
-  const active = isDropTarget || sameTarget(activeDropTarget, target);
   return (
     <div
       aria-label={target.label}
-      className={`layer-drop-zone layer-drop-${anchor.intent}${active ? " is-active" : ""}`}
+      className={`layer-drop-zone layer-drop-${anchor.intent}${isDropTarget ? " is-active" : ""}`}
       ref={ref}
     />
   );
@@ -117,24 +115,27 @@ function LayerNode({
         {props.dragSource ? (
           <>
             <LayerDropZone
-              activeDropTarget={props.activeDropTarget}
               anchor={{ intent: "before", nodeId: node.id }}
+              document={props.document}
               page={props.page}
               parentById={props.parentById}
+              selectedNodeId={props.selectedNodeId}
               source={props.dragSource}
             />
             <LayerDropZone
-              activeDropTarget={props.activeDropTarget}
               anchor={{ intent: "inside", nodeId: node.id }}
+              document={props.document}
               page={props.page}
               parentById={props.parentById}
+              selectedNodeId={props.selectedNodeId}
               source={props.dragSource}
             />
             <LayerDropZone
-              activeDropTarget={props.activeDropTarget}
               anchor={{ intent: "after", nodeId: node.id }}
+              document={props.document}
               page={props.page}
               parentById={props.parentById}
+              selectedNodeId={props.selectedNodeId}
               source={props.dragSource}
             />
           </>
@@ -238,10 +239,11 @@ export function LayersPanel(props: LayersPanelProps) {
 
       {props.dragSource ? (
         <LayerDropZone
-          activeDropTarget={props.activeDropTarget}
           anchor={{ intent: "root", nodeId: null }}
+          document={props.document}
           page={props.page}
           parentById={props.parentById}
+          selectedNodeId={props.selectedNodeId}
           source={props.dragSource}
         />
       ) : null}

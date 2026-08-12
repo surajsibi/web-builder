@@ -1,22 +1,24 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   within,
 } from "@testing-library/react";
+import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { asNodeId, asPageId } from "@/builder/model/ids";
 import { createNewProject } from "@/builder/project/factory";
 import { createBuilderStore } from "@/builder/store/builder-store";
 import { editorStore } from "@/builder/store/editor-store";
+import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
 import { takePreviewSnapshot } from "@/builder/preview/preview-snapshot";
 import { EditorShell } from "@/builder/ui/editor-shell";
 
 afterEach(() => {
   cleanup();
-  window.localStorage.clear();
 });
 
 function createEditorTestStore() {
@@ -41,6 +43,34 @@ function createEditorTestStore() {
 }
 
 describe("EditorShell", () => {
+  it("should not rerender the shell when only the active drop target changes", () => {
+    const store = createEditorTestStore();
+    let commits = 0;
+    render(
+      <Profiler id="editor-shell" onRender={() => commits++}>
+        <EditorShell store={store} />
+      </Profiler>,
+    );
+    act(() => {
+      store.getState().setDragSession({
+        source: { kind: "component", componentType: "text" },
+      });
+    });
+    commits = 0;
+
+    act(() => {
+      store.getState().setActiveDropTarget({
+        surface: "canvas",
+        intent: "root",
+        targetNodeId: null,
+        destination: { parentId: null, index: 0 },
+        label: "Page root",
+      });
+    });
+
+    expect(commits).toBe(0);
+  });
+
   it("should render the intended default project name in the toolbar", () => {
     render(<EditorShell store={editorStore} />);
 
@@ -48,7 +78,14 @@ describe("EditorShell", () => {
   });
 
   it("should render the toolbar, component library, empty canvas, and empty Inspector", () => {
-    render(<EditorShell store={createEditorTestStore()} />);
+    const previewStorage = createMemoryPreviewStorage();
+
+    render(
+      <EditorShell
+        previewStorage={previewStorage}
+        store={createEditorTestStore()}
+      />,
+    );
 
     expect(screen.getByText("Canvas Studio")).toBeInTheDocument();
     expect(screen.getByText("Editor Test Project")).toBeInTheDocument();
@@ -76,13 +113,35 @@ describe("EditorShell", () => {
     fireEvent.click(previewLink);
     expect(
       takePreviewSnapshot(
-        window.localStorage,
+        previewStorage,
         "project-editor-test:page-editor-test:0",
       ),
     ).toMatchObject({
       activePageId: "page-editor-test",
       document: { projectId: "project-editor-test" },
     });
+  });
+
+  it("should keep the editor open and announce when preview storage is unavailable", () => {
+    render(
+      <EditorShell
+        previewStorage={{
+          setItem: () => {
+            throw new Error("Storage unavailable");
+          },
+        }}
+        store={createEditorTestStore()}
+      />,
+    );
+
+    const previewLink = screen.getByRole("link", { name: "Preview" });
+
+    expect(fireEvent.click(previewLink)).toBe(false);
+    expect(
+      screen.getByText(
+        "Preview could not open because browser storage is unavailable.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("should filter Button presets and insert a Raised 3D preset as one editable Button", () => {
@@ -1396,7 +1455,7 @@ describe("EditorShell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Deleted Text 1.");
   });
 
-  it("should ignore Backspace and keep removal shortcuts inactive in text controls", () => {
+  it("should delete with Backspace outside text controls and keep removal shortcuts inactive inside them", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);
     fireEvent.click(screen.getByRole("button", { name: "Add Text" }));
@@ -1419,17 +1478,7 @@ describe("EditorShell", () => {
 
     fireEvent.keyDown(window, { key: "Backspace" });
 
-    expect(store.getState().history.past).toHaveLength(historyBefore);
-    expect(
-      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
-        deleteTargetId!
-      ],
-    ).toBeDefined();
-    expect(store.getState().selectedNodeId).toBe(deleteTargetId);
-    expect(screen.getByRole("button", { name: "Delete Text 1" })).toBeEnabled();
-
-    fireEvent.keyDown(window, { key: "Delete" });
-
+    expect(store.getState().history.past).toHaveLength(historyBefore + 1);
     expect(
       store.getState().document?.pages[asPageId("page-editor-test")].nodes[
         deleteTargetId!
