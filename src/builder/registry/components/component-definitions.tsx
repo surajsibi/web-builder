@@ -544,7 +544,7 @@ export const labelDefinition = {
   version: 1,
   library: {
     label: "Label",
-    category: "Forms",
+    category: "Typography",
     icon: LabelIcon,
     searchTerms: ["field label", "form label", "caption"],
   },
@@ -1472,7 +1472,7 @@ export const inputDefinition = {
   version: 3,
   library: {
     label: "Input",
-    category: "Forms",
+    category: "Inputs",
     icon: InputIcon,
   },
   defaults: {
@@ -1637,7 +1637,7 @@ export const textareaDefinition = {
   version: 2,
   library: {
     label: "Textarea",
-    category: "Forms",
+    category: "Inputs",
     icon: TextareaIcon,
     searchTerms: ["multiline", "text area"],
   },
@@ -1822,7 +1822,7 @@ export const dropdownDefinition = {
   version: 2,
   library: {
     label: "Dropdown",
-    category: "Forms",
+    category: "Selectors",
     icon: DropdownIcon,
     searchTerms: ["select"],
   },
@@ -1988,7 +1988,7 @@ export const radioGroupDefinition = {
   version: 1,
   library: {
     label: "Radio Group",
-    category: "Forms",
+    category: "Choices",
     icon: RadioGroupIcon,
     searchTerms: ["radio", "choice", "options"],
   },
@@ -2116,7 +2116,7 @@ export const checkboxDefinition = {
   version: 1,
   library: {
     label: "Checkbox",
-    category: "Forms",
+    category: "Choices",
     icon: CheckboxIcon,
     searchTerms: ["check", "boolean", "consent"],
   },
@@ -2290,7 +2290,7 @@ export const checkboxGroupDefinition = {
   version: 1,
   library: {
     label: "Checkbox Group",
-    category: "Forms",
+    category: "Choices",
     icon: CheckboxGroupIcon,
     searchTerms: ["checkboxes", "multiple", "multi-select", "choice", "options"],
   },

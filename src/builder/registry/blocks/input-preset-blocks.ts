@@ -12,7 +12,7 @@ export const INPUT_PRESET_CATALOG = [
 
 export const passwordRevealInputBlockDefinition: BlockDefinition = {
   label: "Password reveal",
-  category: "Input presets",
+  category: "Inputs",
   icon: InputIcon,
   createTemplate: (): ComponentTemplate => ({
     type: "input",

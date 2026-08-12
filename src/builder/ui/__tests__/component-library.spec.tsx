@@ -84,7 +84,7 @@ describe("ComponentLibrary", () => {
   it("should expose Input presets backed by the shared Input primitive", () => {
     renderComponentLibrary();
 
-    fireEvent.click(screen.getByRole("button", { name: /Forms/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Inputs/ }));
 
     expect(INPUT_PRESET_CATALOG).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Add Input" })).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("ComponentLibrary", () => {
       screen.getByRole("button", { name: "Add Password reveal input" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Native controls, editable behavior."),
+      screen.getByText("Collect free-form text and password values."),
     ).toBeInTheDocument();
     expect(resolveBlockTemplate("input-password-reveal")).toMatchObject({
       type: "input",
@@ -126,20 +126,51 @@ describe("ComponentLibrary", () => {
     expect(screen.getByRole("button", { name: "Add Image" })).toBeInTheDocument();
   });
 
-  it("should filter the Forms family by component type", () => {
+  it("should expose purpose-based form families in their configured order with dynamic counts", () => {
     renderComponentLibrary();
-
-    fireEvent.click(screen.getByRole("button", { name: /Forms/ }));
-    const filters = screen.getByRole("group", {
-      name: "Form component filters",
+    const familyNavigation = screen.getByRole("navigation", {
+      name: "Component families",
+    });
+    const familyButtons = within(familyNavigation).getAllByRole("button");
+    const forms = within(familyNavigation).getByRole("button", {
+      name: "Forms (1)",
+    });
+    const inputs = within(familyNavigation).getByRole("button", {
+      name: "Inputs (3)",
+    });
+    const choices = within(familyNavigation).getByRole("button", {
+      name: "Choices (3)",
+    });
+    const selectors = within(familyNavigation).getByRole("button", {
+      name: "Selectors (1)",
     });
 
-    expect(within(filters).getByRole("button", { name: "All" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    expect(familyButtons.indexOf(forms)).toBeLessThan(familyButtons.indexOf(inputs));
+    expect(familyButtons.indexOf(inputs)).toBeLessThan(familyButtons.indexOf(choices));
+    expect(familyButtons.indexOf(choices)).toBeLessThan(
+      familyButtons.indexOf(selectors),
+    );
+  });
+
+  it("should display only the entries assigned to each purpose-based family", () => {
+    renderComponentLibrary();
+    const familyNavigation = screen.getByRole("navigation", {
+      name: "Component families",
+    });
+
+    fireEvent.click(
+      within(familyNavigation).getByRole("button", { name: /Forms/ }),
     );
 
-    fireEvent.click(within(filters).getByRole("button", { name: "Inputs" }));
+    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Add Form" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add Label" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(familyNavigation).getByRole("button", { name: /Inputs/ }),
+    );
 
     expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(3);
     expect(screen.getByRole("button", { name: "Add Input" })).toBeInTheDocument();
@@ -157,10 +188,11 @@ describe("ComponentLibrary", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText("3 shown")).toBeInTheDocument();
 
-    fireEvent.click(within(filters).getByRole("button", { name: "Choices" }));
+    fireEvent.click(
+      within(familyNavigation).getByRole("button", { name: /Choices/ }),
+    );
 
-    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(4);
-    expect(screen.getByRole("button", { name: "Add Dropdown" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(3);
     expect(
       screen.getByRole("button", { name: "Add Radio Group" }),
     ).toBeInTheDocument();
@@ -171,29 +203,18 @@ describe("ComponentLibrary", () => {
       screen.getByRole("button", { name: "Add Checkbox Group" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(within(filters).getByRole("button", { name: "Forms" }));
-
-    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Add Form" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add Label" })).toBeInTheDocument();
-  });
-
-  it("should reset the Forms filter after leaving and reopening the family", () => {
-    renderComponentLibrary();
-
-    fireEvent.click(screen.getByRole("button", { name: /Forms/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Inputs" }));
-    fireEvent.click(screen.getByRole("button", { name: /Buttons/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Forms/ }));
-
-    const filters = screen.getByRole("group", {
-      name: "Form component filters",
-    });
-    expect(within(filters).getByRole("button", { name: "All" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
+    fireEvent.click(
+      within(familyNavigation).getByRole("button", { name: /Selectors/ }),
     );
-    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(9);
+
+    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Add Dropdown" })).toBeInTheDocument();
+
+    fireEvent.click(
+      within(familyNavigation).getByRole("button", { name: /Typography/ }),
+    );
+
+    expect(screen.getByRole("button", { name: "Add Label" })).toBeInTheDocument();
   });
 
   it("should collect every prebuilt Navbar block in a dedicated Navbar section", () => {
@@ -388,35 +409,23 @@ describe("ComponentLibrary", () => {
       expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(2);
     });
 
-    it("should filter components and blocks by category without case or surrounding-space sensitivity", () => {
+    it("should filter moved entries by their new category without case or surrounding-space sensitivity", () => {
       renderComponentLibrary();
 
       fireEvent.change(screen.getByRole("searchbox", { name: "Search components" }), {
-        target: { value: "  FORMS  " },
+        target: { value: "  INPUTS  " },
       });
 
-      expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(9);
-      expect(screen.getByRole("button", { name: "Add Form" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add Label" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(3);
       expect(screen.getByRole("button", { name: "Add Input" })).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Add Textarea" }),
-      ).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add Dropdown" })).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Add Radio Group" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Add Checkbox" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: "Add Checkbox Group" }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: "Add Password reveal input" }),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Add Section" }),
+        screen.queryByRole("button", { name: "Add Form" }),
       ).not.toBeInTheDocument();
     });
 

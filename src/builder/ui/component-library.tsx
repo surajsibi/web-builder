@@ -32,19 +32,7 @@ type ComponentLibraryProps = {
   onInsertBlock: (type: BlockType) => void;
 };
 
-type LibraryFamily =
-  | "all"
-  | "favorites"
-  | "blocks"
-  | "layout"
-  | "typography"
-  | "buttons"
-  | "media"
-  | "forms"
-  | "navbar"
-  | "navigation";
-
-type FormControlGroup = "inputs" | "choices" | "forms";
+type LibraryFamily = (typeof FAMILY_CONFIG)[number]["id"];
 
 type LibraryEntryBase = {
   id: string;
@@ -56,7 +44,6 @@ type LibraryEntryBase = {
   previewNode?: ResolvedComponentTemplate;
   presetGroup?: ButtonPresetGroup;
   presetKind?: "button" | "input";
-  formControlGroup?: FormControlGroup;
   isPreset?: boolean;
 };
 
@@ -90,15 +77,15 @@ const COMPONENT_FAMILY: Record<
   image: "media",
   heading: "typography",
   text: "typography",
-  label: "forms",
+  label: "typography",
   button: "buttons",
   form: "forms",
-  input: "forms",
-  textarea: "forms",
-  dropdown: "forms",
-  "radio-group": "forms",
-  checkbox: "forms",
-  "checkbox-group": "forms",
+  input: "inputs",
+  textarea: "inputs",
+  dropdown: "selectors",
+  "radio-group": "choices",
+  checkbox: "choices",
+  "checkbox-group": "choices",
   link: "navigation",
 };
 
@@ -134,21 +121,6 @@ const COMPONENT_ENTRIES: readonly ComponentLibraryEntry[] = COMPONENT_TYPES.map(
       ...(isInput && {
         presetKind: "input" as const,
       }),
-      ...((componentType === "input" || componentType === "textarea") && {
-        formControlGroup: "inputs" as const,
-      }),
-      ...((componentType === "dropdown" ||
-        componentType === "radio-group" ||
-        componentType === "checkbox" ||
-        componentType === "checkbox-group") && {
-        formControlGroup: "choices" as const,
-      }),
-      ...(componentType === "form" && {
-        formControlGroup: "forms" as const,
-      }),
-      ...(componentType === "label" && {
-        formControlGroup: "forms" as const,
-      }),
     };
   },
 );
@@ -180,11 +152,10 @@ const INPUT_PRESET_ENTRIES: readonly BlockLibraryEntry[] =
       blockType,
       label: blockRegistry[blockType].label,
       category: blockRegistry[blockType].category,
-      family: "forms",
+      family: "inputs",
       icon: blockRegistry[blockType].icon,
       previewNode: resolveBlockTemplate(blockType),
       presetKind: "input",
-      formControlGroup: "inputs",
       isPreset: true,
     };
   });
@@ -217,71 +188,93 @@ const LIBRARY_ENTRIES: readonly LibraryEntry[] = [
   ...BUTTON_PRESET_ENTRIES,
 ];
 
-const FAMILY_META: Record<LibraryFamily, { label: string; description: string; icon: string }> = {
-  all: {
+const FAMILY_CONFIG = [
+  {
+    id: "all",
     label: "All components",
     description: "Browse primitives, presets, and ready-made blocks.",
     icon: "⊞",
   },
-  favorites: {
+  {
+    id: "favorites",
     label: "Favorites",
     description: "Your saved components and visual presets.",
     icon: "☆",
   },
-  blocks: {
+  {
+    id: "blocks",
     label: "Blocks",
     description: "Ready-made editable sections composed from components.",
     icon: "▤",
   },
-  layout: {
+  {
+    id: "layout",
     label: "Layout",
     description: "Build page structure with sections and containers.",
     icon: "▦",
   },
-  typography: {
+  {
+    id: "typography",
     label: "Typography",
-    description: "Add headings and readable body copy.",
+    description: "Add headings, labels, and readable body copy.",
     icon: "T",
   },
-  buttons: {
+  {
+    id: "buttons",
     label: "Buttons",
     description: "Choose a visual preset, then customize it.",
     icon: "▭",
   },
-  media: {
+  {
+    id: "media",
     label: "Media",
     description: "Add images, logos, and visual assets.",
     icon: "▣",
   },
-  forms: {
+  {
+    id: "forms",
     label: "Forms",
-    description: "Collect information with form controls.",
+    description: "Group related controls in a semantic form container.",
     icon: "☷",
   },
-  navbar: {
+  {
+    id: "inputs",
+    label: "Inputs",
+    description: "Collect free-form text and password values.",
+    icon: "⌨",
+  },
+  {
+    id: "choices",
+    label: "Choices",
+    description: "Let visitors choose one or more options.",
+    icon: "☑",
+  },
+  {
+    id: "selectors",
+    label: "Selectors",
+    description: "Select a value from a compact list of options.",
+    icon: "⌄",
+  },
+  {
+    id: "navbar",
     label: "Navbar",
     description: "Browse prebuilt navbar blocks and customize every component.",
     icon: "\u2630",
   },
-  navigation: {
+  {
+    id: "navigation",
     label: "Navigation",
     description: "Help visitors move through the page and site.",
     icon: "↗",
   },
-};
+] as const;
 
-const FAMILY_ORDER: readonly LibraryFamily[] = [
-  "all",
-  "favorites",
-  "blocks",
-  "layout",
-  "typography",
-  "buttons",
-  "media",
-  "forms",
-  "navbar",
-  "navigation",
-];
+const FAMILY_META = Object.fromEntries(
+  FAMILY_CONFIG.map(({ id, ...metadata }) => [id, metadata]),
+) as Record<
+  LibraryFamily,
+  { label: string; description: string; icon: string }
+>;
 
 const BUTTON_FILTERS: readonly { value: "all" | ButtonPresetGroup; label: string }[] = [
   { value: "all", label: "All" },
@@ -289,16 +282,6 @@ const BUTTON_FILTERS: readonly { value: "all" | ButtonPresetGroup; label: string
   { value: "animated", label: "Animated" },
   { value: "3d", label: "3D" },
   { value: "special", label: "Special" },
-];
-
-const FORM_FILTERS: readonly {
-  value: "all" | FormControlGroup;
-  label: string;
-}[] = [
-  { value: "all", label: "All" },
-  { value: "inputs", label: "Inputs" },
-  { value: "choices", label: "Choices" },
-  { value: "forms", label: "Forms" },
 ];
 
 function entryMatchesFamily(
@@ -566,7 +549,6 @@ export function ComponentLibrary({
 }: ComponentLibraryProps) {
   const [family, setFamily] = useState<LibraryFamily>("all");
   const [buttonFilter, setButtonFilter] = useState<"all" | ButtonPresetGroup>("all");
-  const [formFilter, setFormFilter] = useState<"all" | FormControlGroup>("all");
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<ReadonlySet<string>>(
     () => new Set(["component:button", "block:button-raised-3d"]),
@@ -583,19 +565,12 @@ export function ComponentLibrary({
       ) {
         return false;
       }
-      if (
-        family === "forms" &&
-        formFilter !== "all" &&
-        entry.formControlGroup !== formFilter
-      ) {
-        return false;
-      }
       if (normalizedQuery === "") return true;
       return `${entry.label} ${entry.category} ${entry.family} ${entry.presetGroup ?? ""} ${entry.searchTerms?.join(" ") ?? ""}`
         .toLowerCase()
         .includes(normalizedQuery);
     });
-  }, [buttonFilter, family, favorites, formFilter, query]);
+  }, [buttonFilter, family, favorites, query]);
 
   const toggleFavorite = (entryId: string) => {
     setFavorites((current) => {
@@ -609,7 +584,6 @@ export function ComponentLibrary({
   const selectFamily = (nextFamily: LibraryFamily) => {
     setFamily(nextFamily);
     setButtonFilter("all");
-    setFormFilter("all");
   };
 
   const familyCount = (targetFamily: LibraryFamily) => {
@@ -637,7 +611,7 @@ export function ComponentLibrary({
           <input
             id="component-library-search"
             onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder="Search buttons, 3D, forms…"
+            placeholder="Search buttons, inputs, choices…"
             type="search"
             value={query}
           />
@@ -657,10 +631,11 @@ export function ComponentLibrary({
       <div className="component-browser-body">
         <nav aria-label="Component families" className="component-family-sidebar">
           <p>Library</p>
-          {FAMILY_ORDER.map((item) => {
-            const meta = FAMILY_META[item];
+          {FAMILY_CONFIG.map(({ id: item, ...meta }) => {
+            const count = familyCount(item);
             return (
               <button
+                aria-label={`${meta.label} (${count})`}
                 aria-pressed={family === item}
                 className={family === item ? "component-family active" : "component-family"}
                 key={item}
@@ -669,7 +644,7 @@ export function ComponentLibrary({
               >
                 <span aria-hidden="true" className="component-family-icon">{meta.icon}</span>
                 <span>{meta.label}</span>
-                <span className="component-family-count">{familyCount(item)}</span>
+                <span className="component-family-count">{count}</span>
               </button>
             );
           })}
@@ -702,33 +677,6 @@ export function ComponentLibrary({
                     aria-pressed={buttonFilter === filter.value}
                     key={filter.value}
                     onClick={() => setButtonFilter(filter.value)}
-                    type="button"
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null}
-
-          {family === "forms" ? (
-            <>
-              <div className="component-family-note">
-                <strong>Native controls, editable behavior.</strong>
-                <span>
-                  Build forms with inputs, choices, and semantic containers.
-                </span>
-              </div>
-              <div
-                aria-label="Form component filters"
-                className="component-filter-row"
-                role="group"
-              >
-                {FORM_FILTERS.map((filter) => (
-                  <button
-                    aria-pressed={formFilter === filter.value}
-                    key={filter.value}
-                    onClick={() => setFormFilter(filter.value)}
                     type="button"
                   >
                     {filter.label}

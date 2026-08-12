@@ -185,7 +185,7 @@ describe("EditorShell", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Forms/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Inputs/ }));
     fireEvent.click(
       screen.getByRole("button", { name: "Add Password reveal input" }),
     );
