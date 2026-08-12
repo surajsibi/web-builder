@@ -43,12 +43,26 @@ function isJsonValueInternal(
 
   ancestors.add(objectValue);
 
-  const valid = Array.isArray(value)
-    ? value.every((item) => isJsonValueInternal(item, ancestors))
-    : isPlainJsonObject(objectValue) &&
-      Object.values(objectValue).every((item) =>
-        isJsonValueInternal(item, ancestors),
+  let valid: boolean;
+  if (Array.isArray(value)) {
+    valid = Object.keys(value).length === value.length;
+    for (let index = 0; valid && index < value.length; index += 1) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, index);
+      valid =
+        descriptor !== undefined &&
+        "value" in descriptor &&
+        isJsonValueInternal(descriptor.value, ancestors);
+    }
+  } else {
+    valid =
+      isPlainJsonObject(objectValue) &&
+      Object.values(Object.getOwnPropertyDescriptors(objectValue)).every(
+        (descriptor) =>
+          !descriptor.enumerable ||
+          ("value" in descriptor &&
+            isJsonValueInternal(descriptor.value, ancestors)),
       );
+  }
 
   ancestors.delete(objectValue);
 
@@ -56,7 +70,11 @@ function isJsonValueInternal(
 }
 
 export function isJsonValue(value: unknown): value is JsonValue {
-  return isJsonValueInternal(value, new WeakSet<object>());
+  try {
+    return isJsonValueInternal(value, new WeakSet<object>());
+  } catch {
+    return false;
+  }
 }
 
 export function isJsonObject(value: unknown): value is JsonObject {

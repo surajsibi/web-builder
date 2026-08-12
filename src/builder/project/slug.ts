@@ -35,7 +35,7 @@ export function createGeneratedPageSlug(
 ): string {
   const base = normalizeExplicitPageSlug(name) ?? "/page";
 
-  if (!existingSlugs.has(base) && base !== "/") {
+  if (!existingSlugs.has(base)) {
     return base;
   }
 

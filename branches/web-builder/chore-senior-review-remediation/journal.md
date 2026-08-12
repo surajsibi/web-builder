@@ -5,7 +5,7 @@ scope: Execution state for web-builder chore/senior-review-remediation
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-08 passed locally and remotely on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after SRR-09 passed its focused and full local verification gates on 2026-08-12; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / chore/senior-review-remediation
@@ -14,7 +14,7 @@ freshness: Updated after SRR-08 passed locally and remotely on 2026-08-12; inval
 `workspaces/senior-review-remediation/`
 
 **Current step:**
-SRR-00 through SRR-08 are complete. SRR-09 risk-based coverage and repository-readiness work is next.
+SRR-00 through SRR-08 are complete. SRR-09 is locally complete; remote verification remains.
 
 **Approach:**
 Restore a reproducible green baseline first, then measure and optimize the command path, bound history, correct form behavior, address focused findings, and run the complete verification matrix.
@@ -54,6 +54,11 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - Made preview snapshots reusable and garbage-collected builder preview entries to the newest 10 snapshots.
 - Replaced duplicated drag validation rules with a command-executor validation-only path that stops before candidate allocation.
 - Documented why the module-level editor store must retain deterministic initial IDs and timestamps.
+- Added direct behavior coverage for JSON value guards, slug normalization/generation, document-version migration handling, and project tree invariants.
+- Hardened JSON value guards so accessors are not invoked and lossy sparse or extended arrays are rejected.
+- Removed the dead generated-slug root guard after direct normalization tests proved the base can never be `/`.
+- Added the maintained root contributor README with supported toolchain, setup, verification, repository orientation, preview/form boundaries, and explicit license/CSP status.
+- Retained the Phase 2 validation harness pending coordinated archival or link migration for the four draft reports that use it as historical evidence; confirmed it has no production import.
 
 **Verification:**
 
@@ -82,10 +87,13 @@ Restore a reproducible green baseline first, then measure and optimize the comma
 - SRR-08 focused verification passes 92 command, project, preview, drag, layers, and shell tests.
 - SRR-08 full Node 24.19.0 verification passes lint, typecheck, 28 files / 375 tests, and production build.
 - GitHub Actions run `31565406088` passed every SRR-08 workflow step in 1 minute 13 seconds on commit `96ed9760e7f0d20e26fcb5f80469f0750944e3e0`.
+- SRR-09 focused verification passes 4 files / 39 tests; lint and typecheck pass after the coverage and JSON-guard changes.
+- SRR-09 full Node 24.19.0 verification passes lint, typecheck, 32 files / 414 tests, and production build.
 
 **Remaining:**
 
-- Begin risk-based direct coverage and repository-readiness work under SRR-09.
+- Checkpoint SRR-09 and verify it in GitHub Actions.
+- Publish the SRR-10 implementation report after the final matrix.
 
 **Last left off:**
-2026-08-12 — SRR-08 is complete locally and remotely. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: begin SRR-09 risk-based coverage and repository readiness.
+2026-08-12 — SRR-09 is locally complete and fully green. The unrelated changes under `workspaces/api-data-bindings/` remain untouched. Next action: checkpoint it remotely, then publish the SRR-10 report.

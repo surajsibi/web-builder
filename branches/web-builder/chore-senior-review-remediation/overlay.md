@@ -5,7 +5,7 @@ scope: Repository-specific implementation differences for web-builder chore/seni
 authority: Repository-specific overlay for the linked feature; code, configuration, tests, and verified runtime behavior remain authoritative
 owner: Project owner
 lifecycle: draft
-freshness: Updated after SRR-08 passed locally and remotely on 2026-08-12; invalidated by an implementation, dependency, configuration, or verification change
+freshness: Updated after SRR-09 passed its focused and full local verification gates on 2026-08-12; invalidated by an implementation, dependency, configuration, or verification change
 ---
 
 # Repository overlay — web-builder / chore/senior-review-remediation
@@ -29,6 +29,14 @@ freshness: Updated after SRR-08 passed locally and remotely on 2026-08-12; inval
 - The command executor exposes a validation-only path for insert, block-insert, and move commands; drag target resolution uses it before any candidate clone or generated-ID allocation.
 - Preview snapshots remain reusable and storage is garbage-collected to the 10 newest builder preview entries.
 - JSON-value equality is structural and object-key-order-insensitive; arrays remain order-sensitive.
+- JSON value guards reject throwing/side-effecting accessors, sparse arrays, and arrays with enumerable values that JSON serialization would discard.
+- The root `README.md` is the maintained contributor setup and verification guide.
+
+## SRR-09 readiness decisions
+
+- Retain `PhaseTwoValidation` for now. It has no production import and therefore no runtime route or bundle role, while four draft phase-validation reports still link it as historical evidence. Remove it only with the report archival/link-migration decision so maintained links do not silently break.
+- Do not choose a software license on behalf of the project owner. `README.md` makes the missing grant explicit; closure requires an owner-selected license and new `LICENSE` file.
+- Do not enable an unverified CSP in this tranche. Closure requires a security reviewer to approve and test a policy against Next.js production behavior and the builder's controlled inline style rendering.
 
 ## Verified CI behavior
 
@@ -53,3 +61,4 @@ freshness: Updated after SRR-08 passed locally and remotely on 2026-08-12; inval
 - The 50-entry cap bounds growth by edit count, but the measured 1,000-node retained payload is still 89.72 MiB; patch-based or structurally shared history remains a separately gated follow-up.
 - Persistent form submissions, rate limiting, and bounded request parsing remain excluded until a durable backend is approved; the current endpoint fails before any body buffering or parsing.
 - The preview snapshot cap bounds orphan count, not byte size; browser storage quotas can still reject a large snapshot and the editor reports that failure without opening Preview.
+- The retained Phase 2 validation harness adds maintenance/test surface until its linked draft reports are archived or migrated.
