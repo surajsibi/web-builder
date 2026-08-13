@@ -36,7 +36,12 @@ export type ResizeContext = {
 export type SpacingProperty = "padding" | "margin";
 export type SpacingSide = keyof SpacingValue;
 export type SpacingMode = "axes" | "all";
-export type VisualOverlayMode = "none" | "padding" | "margin" | "layout";
+export type VisualOverlayMode =
+  | "none"
+  | "padding"
+  | "margin"
+  | "layout"
+  | "position";
 export type PositionPoint = { x: number; y: number };
 export type PositionPointerSample = {
   clientX: number;
