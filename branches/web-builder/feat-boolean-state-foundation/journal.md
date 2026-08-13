@@ -5,7 +5,7 @@ scope: Execution state for web-builder feat/boolean-state-foundation
 authority: Selected repository execution-state record for this branch and feature
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after accepted V1 refinements and 439-test verification on 2026-08-13; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after the Boolean State foundation commit and reconciled Drawer V1 implementation plan on 2026-08-13; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal - web-builder / feat/boolean-state-foundation
@@ -14,7 +14,7 @@ freshness: Updated after accepted V1 refinements and 439-test verification on 20
 `workspaces/navbar/`
 
 **Current step:**
-Boolean State V1 is complete, accepted, and verified. The foundation is ready for a separately requested Drawer implementation.
+Boolean State V1 is complete, accepted, verified, and committed. The recommended connected Drawer V1 architecture is documented and ready for a separately authorized implementation pass.
 
 **Approach:**
 Implement the approved V1 in bounded slices: shared Boolean contracts and typed references, page-scoped runtime, three component definitions, Editor/Preview integration, Inspector and Layers authoring, reference-safe duplication, then focused and full verification.
@@ -35,6 +35,10 @@ Implement the approved V1 in bounded slices: shared Boolean contracts and typed 
 - Added the shareable Boolean State implementation report with the complete change inventory, verification evidence, rollout state, and follow-up boundaries.
 - Added behavior-first coverage for authored default changes, runtime state deletion, reference reconnection, Enter and Space activation, and unrelated page edits preserving live state.
 - Recorded suppressed State Action Canvas manipulation overlays as an accepted, non-blocking Editor UX follow-up.
+- Committed the completed Boolean State foundation as `1764796` (`feat: add boolean state interaction foundation`).
+- Reconciled the historical connected Drawer proposal with the completed Boolean runtime: Trigger references Panel, Panel references Boolean State, Close uses nearest-panel context, and modal-layer coordination owns DOM lifecycle only.
+- Scoped Drawer V1 to four-side portal rendering, authored high z-index, backdrop/Escape, focus and scroll safety, immediate unmount with fresh reopen, and Editor Canvas portal/direct-interaction support.
+- Deferred Drawer animation, connected blocks, existing-component bindings, rich triggers, automatic link close, and responsive sizing.
 
 **Verification:**
 
@@ -49,8 +53,8 @@ Implement the approved V1 in bounded slices: shared Boolean contracts and typed 
 
 **Remaining:**
 
-- A separately requested Boolean-State-driven Drawer implementation.
+- A separately authorized implementation of the [Boolean-State-driven connected Drawer V1 plan](../../../workspaces/navbar/plan/Connected-Drawer-Components-Plan.md).
 - Separate follow-ups for authored transitions, variants, conditional styles, existing-component action bindings, connected templates, and improved State Action Canvas manipulation.
 
 **Last left off:**
-2026-08-13 - The user accepted the final V1 refinements; implementation and verification are complete. Next action: begin Drawer implementation only when separately requested, using Boolean State as its open/closed source.
+2026-08-13 - Boolean State is committed at `1764796`, and the reconciled Drawer V1 plan is ready. Next action: review or authorize a dedicated Drawer implementation pass; do not restore the historical stash or add a second state store.

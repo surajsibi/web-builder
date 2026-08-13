@@ -158,7 +158,7 @@ V1 does not need to expose authored animation controls. It must preserve this bo
 
 The Boolean State system controls desired open or closed state. It does not provide modal behavior.
 
-The later connected Drawer design should reuse Boolean State for open and closed state. Drawer Panel remains responsible for dialog semantics, portals, presence animation, focus containment, Escape and backdrop dismissal, body-scroll locking, and focus restoration. Drawer Trigger and Drawer Close should dispatch Boolean actions while retaining their specialized accessibility and focus responsibilities.
+The reconciled [Boolean-State-driven connected Drawer V1 plan](Connected-Drawer-Components-Plan.md) reuses Boolean State for open and closed state. Drawer Panel remains responsible for dialog semantics, portals, presence lifecycle, focus containment, Escape and backdrop dismissal, body-scroll locking, and focus restoration. Drawer Trigger and Drawer Close dispatch Boolean actions while retaining their specialized accessibility and focus responsibilities.
 
 A Drawer modal-layer manager may coordinate active DOM layers and focus, but it must not become a second authoritative open-state store.
 
@@ -231,10 +231,10 @@ A Drawer modal-layer manager may coordinate active DOM layers and focus, but it 
 | BVS-08 | Preserve an animation-compatible presence seam and define future entering, visible, exiting, and absent behavior without exposing authored animation controls in V1 | BVS-07 | V1 immediate-absence tests plus documented future transition contract; animation mechanics remain deferred | Implementer and accessibility reviewer | Complete for V1 boundary |
 | BVS-09 | Add the page-aware Inspector picker, diagnostics, inactive-content authoring reveal, and Layers access | BVS-05 through BVS-08 | Editor integration tests for connect, edit, reveal, select, reconnect, and runtime/persistence separation | Implementer | Complete |
 | BVS-10 | Extend document commands with typed reference discovery and atomic remapping for duplication, deletion diagnostics, and undo/redo | BVS-03 | Internal-reference remap, external-reference preservation, deletion-warning, and transaction tests | Implementer | Complete |
-| BVS-11 | Reconcile the connected Drawer proposal so it consumes Boolean State and owns only Drawer-specific modal and presence behavior | BVS-01 through BVS-10 | No competing state coordinator or connection contract remains in the follow-up proposal | Implementer and reviewer | Complete as architecture direction; Drawer implementation deferred |
+| BVS-11 | Reconcile the connected Drawer proposal so it consumes Boolean State and owns only Drawer-specific modal and presence behavior | BVS-01 through BVS-10 | No competing state coordinator or connection contract remains in the [follow-up proposal](Connected-Drawer-Components-Plan.md) | Implementer and reviewer | Complete; Drawer implementation deferred |
 | BVS-12 | Run focused and full verification and update durable documentation only for behavior proven by implementation | BVS-11 | TypeScript, ESLint, serialized tests, production build, keyboard semantics, and Editor/Preview rendering checks | Implementer and reviewer | Complete |
 
-Implementation must stop after a failed gate. The existing verified Navigation Drawer remains available until the generic state foundation and a later Drawer integration pass their own verification matrices.
+Implementation must stop after a failed gate. No Drawer primitive is registered on this branch; a later Drawer pass must remain separately removable until its own verification matrix passes.
 
 ## Quality and approval gates
 
@@ -249,7 +249,7 @@ Implementation must stop after a failed gate. The existing verified Navigation D
 - Confirm immediate absence when no animation is configured.
 - Confirm that reopening absent Conditional Content creates fresh descendant runtime instances from authored defaults without changing builder node identity or persisted data.
 - Before authored animations ship, prove noninteractive exit, reduced-motion behavior, rapid reversal, transition completion fallback, and final unmount.
-- Preserve existing Navbar, Commerce Navbar, Marketplace Navbar, and Navigation Drawer behavior until a separately verified migration is approved.
+- Preserve existing Navbar, Commerce Navbar, and Marketplace Navbar behavior during any later Drawer work.
 - Run focused tests during implementation, followed by `pnpm typecheck`, `pnpm lint`, `pnpm test -- --maxWorkers 1 --no-file-parallelism`, `pnpm build`, and rendered desktop/mobile verification.
 
 ## Risks, rollback, and containment
@@ -265,7 +265,7 @@ Implementation must stop after a failed gate. The existing verified Navigation D
 - **Accessibility ambiguity:** visibility does not define dialog, disclosure, tab, or menu semantics. Keep pattern-specific behavior in specialized components.
 - **State Action Canvas manipulation:** direct runtime activation currently suppresses Canvas drag, resize, and spacing overlays for State Action. V1 accepts Layers and Inspector as the manipulation paths; improve this in a separate Editor UX pass without changing the runtime contract.
 - **Unbounded interaction system:** additional variables, expressions, events, or workflows require a separate architecture decision.
-- **Rollback:** do not remove or refactor the verified Navigation Drawer while building the generic foundation. New components and runtime infrastructure can be removed if verification fails before supported documents depend on them.
+- **Rollback:** keep the Boolean foundation independent from later Drawer code. New Drawer components and modal helpers must remain removable as one bounded feature until supported documents depend on them.
 
 ## Completion
 

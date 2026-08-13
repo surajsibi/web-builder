@@ -5,7 +5,7 @@ scope: Repository branch workspace index for web-builder feat/boolean-state-foun
 authority: Discovery index for the linked branch context; workspace.md owns feature execution state
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after accepted and verified V1 refinements on 2026-08-13; invalidated by a branch, HEAD, workspace mapping, implementation, or verification change
+freshness: Updated after the Boolean State foundation commit and reconciled Drawer V1 implementation plan on 2026-08-13; invalidated by a branch, HEAD, workspace mapping, implementation, or verification change
 ---
 
 # Repository branch workspace — web-builder / feat/boolean-state-foundation
@@ -18,7 +18,7 @@ freshness: Updated after accepted and verified V1 refinements on 2026-08-13; inv
 
 **Feature workspace:** [`workspaces/navbar/`](../../../workspaces/navbar/workspace.md)
 
-**Summary:** Holds repository-specific context and the verified completion point for the reusable Boolean State interaction foundation, which is ready for separately scoped Drawer work.
+**Summary:** Holds repository-specific context and the verified completion point for the reusable Boolean State interaction foundation plus the reconciled plan for separately scoped, Boolean-State-driven Drawer work.
 
 ## Index
 
