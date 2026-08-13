@@ -38,6 +38,7 @@ import {
 import { cloneProjectDocument, valuesEqual } from "../project/clone";
 import { prepareProjectHydration } from "../project/hydration";
 import { createId, type IdGenerator } from "../project/id-generator";
+import { remapNodeReferences } from "../project/node-references";
 import {
   createGeneratedPageSlug,
   normalizeExplicitPageSlug,
@@ -1182,6 +1183,7 @@ function duplicateNode(
       ...structuredClone(source),
       id: duplicateId,
       childIds: source.childIds.map((childId) => idMap[childId]),
+      props: remapNodeReferences(source, idMap),
       meta: {
         name: nextReadableNodeName(source.type, reservedNames),
         locked: source.meta.locked,

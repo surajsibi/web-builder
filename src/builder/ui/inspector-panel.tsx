@@ -2,8 +2,19 @@ import { useState, type ReactNode } from "react";
 
 import type { StyleChange } from "@/builder/commands/types";
 import type { JsonObject, JsonValue } from "@/builder/model/json";
-import type { BuilderNode } from "@/builder/model/project-document";
-import { componentRegistry } from "@/builder/registry/component-registry";
+import type {
+  BuilderNode,
+  PageDocument,
+  ProjectDocument,
+} from "@/builder/model/project-document";
+import {
+  listNodeReferenceCandidates,
+  resolveNodeReference,
+} from "@/builder/project/node-references";
+import {
+  componentRegistry,
+  referencesForComponentType,
+} from "@/builder/registry/component-registry";
 import { resolveResponsiveStyles } from "@/builder/styles/resolve";
 import { isSafeBackgroundImageSource } from "@/builder/styles/schema";
 import type {
@@ -38,6 +49,8 @@ import {
 } from "@/builder/ui/visual-editing";
 
 type InspectorPanelProps = {
+  document: Readonly<ProjectDocument>;
+  page: Readonly<PageDocument>;
   node: Readonly<BuilderNode> | null;
   isRoot: boolean;
   viewport: Viewport;
@@ -138,10 +151,17 @@ type PropField = {
     | "boolean"
     | "number"
     | "select"
+    | "node-reference"
     | "string-list"
     | "string-multi-select";
   optionsPath?: string;
   options?: readonly { label: string; value: JsonValue }[];
+};
+
+type NodeReferenceControlData = {
+  invalid: boolean;
+  message?: string;
+  options: readonly { label: string; value: string }[];
 };
 
 function titleCase(value: string): string {
@@ -458,16 +478,61 @@ function StringMultiSelectControl({
   );
 }
 
+function NodeReferenceControl({
+  data,
+  disabled,
+  label,
+  onCommit,
+  value,
+}: {
+  data: NodeReferenceControlData;
+  disabled: boolean;
+  label: string;
+  onCommit: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="inspector-field">
+      <span>{label}</span>
+      <select
+        aria-invalid={data.invalid || undefined}
+        aria-label={label}
+        disabled={disabled}
+        onChange={(event) => onCommit(event.currentTarget.value)}
+        value={value}
+      >
+        {data.options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {data.message ? (
+        <span
+          className={
+            data.invalid ? "inspector-field-error" : "inspector-help"
+          }
+          role={data.invalid ? "alert" : undefined}
+        >
+          {data.message}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
 function PropDraftControl({
   field,
   value,
   dependentOptions,
+  nodeReference,
   disabled,
   onCommit,
 }: {
   field: PropField;
   value: JsonValue;
   dependentOptions?: readonly string[];
+  nodeReference?: NodeReferenceControlData;
   disabled: boolean;
   onCommit: (value: JsonValue) => void;
 }) {
@@ -514,6 +579,24 @@ function PropDraftControl({
           ))}
         </select>
       </label>
+    );
+  }
+
+  if (field.control === "node-reference") {
+    return (
+      <NodeReferenceControl
+        data={
+          nodeReference ?? {
+            invalid: true,
+            message: "Reference metadata is unavailable.",
+            options: [{ label: "Unavailable", value: String(value) }],
+          }
+        }
+        disabled={disabled}
+        label={visibleLabel}
+        onCommit={onCommit}
+        value={typeof value === "string" ? value : ""}
+      />
     );
   }
 
@@ -1625,6 +1708,8 @@ function EffectsControl({
 }
 
 export function InspectorPanel({
+  document,
+  page,
   node,
   isRoot,
   viewport,
@@ -1655,6 +1740,7 @@ export function InspectorPanel({
   const capabilities = new Set(definition.inspector.styles);
   const disabled = node.meta.locked;
   const propFields = definition.inspector.props as readonly PropField[];
+  const references = referencesForComponentType(node.type);
   const hasTextContent = propFields.some((field) => field.path === "text");
   const fontFamily =
     resolved.fontFamily ?? resolvedDefaults.fontFamily ?? DEFAULT_FONT_FAMILY;
@@ -1683,6 +1769,83 @@ export function InspectorPanel({
           disabled={disabled}
           field={field}
           key={`${node.id}:${field.path}:${JSON.stringify(node.props[field.path])}`}
+          nodeReference={(() => {
+            if (field.control !== "node-reference") return undefined;
+            const reference = references.find(
+              (candidate) => candidate.path === field.path,
+            );
+            if (!reference) return undefined;
+
+            const rawValue = node.props[field.path];
+            const value = typeof rawValue === "string" ? rawValue : "";
+            const targetLabel =
+              componentRegistry[reference.targetType].library.label;
+            const candidates = listNodeReferenceCandidates(
+              document,
+              page.id,
+              reference,
+            );
+            const nameCounts = new Map<string, number>();
+            for (const candidate of candidates) {
+              nameCounts.set(
+                candidate.meta.name,
+                (nameCounts.get(candidate.meta.name) ?? 0) + 1,
+              );
+            }
+            const options = [
+              { label: `Select ${targetLabel}`, value: "" },
+              ...candidates.map((candidate) => ({
+                label:
+                  (nameCounts.get(candidate.meta.name) ?? 0) > 1
+                    ? `${candidate.meta.name} (${candidate.id})`
+                    : candidate.meta.name,
+                value: candidate.id,
+              })),
+            ];
+            const resolution = resolveNodeReference(
+              document,
+              page.id,
+              value,
+              reference,
+            );
+
+            if (
+              value !== "" &&
+              !options.some((option) => option.value === value)
+            ) {
+              options.push({ label: `Unavailable (${value})`, value });
+            }
+
+            if (resolution.status === "empty") {
+              return {
+                invalid: false,
+                message: `Choose a ${targetLabel} on this page.`,
+                options,
+              };
+            }
+            if (resolution.status === "valid") {
+              return { invalid: false, options };
+            }
+            if (resolution.status === "cross-page") {
+              return {
+                invalid: true,
+                message: `The selected ${targetLabel} belongs to another page.`,
+                options,
+              };
+            }
+            if (resolution.status === "wrong-type") {
+              return {
+                invalid: true,
+                message: `The selected node is not a ${targetLabel}.`,
+                options,
+              };
+            }
+            return {
+              invalid: true,
+              message: `The selected ${targetLabel} no longer exists.`,
+              options,
+            };
+          })()}
           onCommit={(value) => {
             const nextProps = { ...node.props, [field.path]: value };
             const defaultValue = nextProps.defaultValue;

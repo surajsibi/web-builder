@@ -690,12 +690,14 @@ export function EditorShell({
         />
 
         <InspectorPanel
+          document={document}
           isRoot={
             selectedNode
               ? (state.parentById[selectedNode.id] ?? null) === null
               : false
           }
           node={selectedNode}
+          page={activePage}
           onDelete={deleteSelectedNode}
           onRename={renameSelectedNode}
           onUpdateProps={updateProps}

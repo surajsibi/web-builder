@@ -6,8 +6,12 @@ import {
 } from "@/builder/commands/execute-command";
 import { asNodeId, asPageId } from "@/builder/model/ids";
 import { prepareProjectHydration } from "@/builder/project/hydration";
+import { buildProjectParentIndex } from "@/builder/project/tree";
 import { componentRegistry } from "@/builder/registry/component-registry";
-import { createTestProject } from "@/builder/testing/project-fixtures";
+import {
+  createTestNode,
+  createTestProject,
+} from "@/builder/testing/project-fixtures";
 
 function createSnapshot(options?: {
   includeAboutPage?: boolean;
@@ -527,6 +531,109 @@ describe("executeEditorCommand", () => {
         result.candidate.document.pages[asPageId("page-home")].nodes,
       ),
     ).toHaveLength(5);
+  });
+
+  it("should remap Boolean State references when the connected subtree is duplicated", () => {
+    const snapshot = createSnapshot();
+    const page = snapshot.document.pages[asPageId("page-home")];
+    const state = createTestNode("boolean-state", "node-state");
+    const action = createTestNode("state-action", "node-state-action");
+    const conditional = createTestNode(
+      "conditional-content",
+      "node-conditional",
+    );
+    const group = createTestNode("container", "node-interaction-group", [
+      state.id,
+      action.id,
+      conditional.id,
+    ]);
+    action.props.targetStateNodeId = state.id;
+    conditional.props.targetStateNodeId = state.id;
+    Object.assign(page.nodes, {
+      [state.id]: state,
+      [action.id]: action,
+      [conditional.id]: conditional,
+      [group.id]: group,
+    });
+    page.nodes[asNodeId("node-section")].childIds.push(group.id);
+    const parentIndex = buildProjectParentIndex(snapshot.document);
+    if (!parentIndex.success) throw new Error(parentIndex.issue.reason);
+    snapshot.parentById = parentIndex.parentById;
+    const generatedIds = [
+      "node-group-copy",
+      "node-state-copy",
+      "node-action-copy",
+      "node-conditional-copy",
+    ];
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.duplicate",
+        pageId: page.id,
+        nodeId: group.id,
+        destination: {
+          parentId: asNodeId("node-section"),
+          index: 2,
+        },
+      },
+      { idGenerator: () => generatedIds.shift() ?? "node-collision" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    if (!("idMap" in result.value)) {
+      throw new Error("Expected duplication result metadata");
+    }
+    const duplicatedPage = result.candidate.document.pages[page.id];
+    const duplicatedStateId = result.value.idMap[state.id];
+    const duplicatedActionId = result.value.idMap[action.id];
+    const duplicatedConditionalId = result.value.idMap[conditional.id];
+    expect(
+      duplicatedPage.nodes[duplicatedActionId].props.targetStateNodeId,
+    ).toBe(duplicatedStateId);
+    expect(
+      duplicatedPage.nodes[duplicatedConditionalId].props.targetStateNodeId,
+    ).toBe(duplicatedStateId);
+    expect(page.nodes[action.id].props.targetStateNodeId).toBe(state.id);
+  });
+
+  it("should preserve an external Boolean State reference when only its action is duplicated", () => {
+    const snapshot = createSnapshot();
+    const page = snapshot.document.pages[asPageId("page-home")];
+    const state = createTestNode("boolean-state", "node-external-state");
+    const action = createTestNode("state-action", "node-external-action");
+    action.props.targetStateNodeId = state.id;
+    Object.assign(page.nodes, {
+      [state.id]: state,
+      [action.id]: action,
+    });
+    page.nodes[asNodeId("node-section")].childIds.push(state.id, action.id);
+    const parentIndex = buildProjectParentIndex(snapshot.document);
+    if (!parentIndex.success) throw new Error(parentIndex.issue.reason);
+    snapshot.parentById = parentIndex.parentById;
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.duplicate",
+        pageId: page.id,
+        nodeId: action.id,
+        destination: {
+          parentId: asNodeId("node-section"),
+          index: 3,
+        },
+      },
+      { idGenerator: () => "node-external-action-copy" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(
+      result.candidate.document.pages[page.id].nodes[
+        asNodeId("node-external-action-copy")
+      ].props.targetStateNodeId,
+    ).toBe(state.id);
   });
 
   it("should reject duplication into a locked destination without changing the source", () => {

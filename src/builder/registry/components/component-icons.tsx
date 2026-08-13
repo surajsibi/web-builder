@@ -35,6 +35,35 @@ export function ContainerIcon() {
   );
 }
 
+export function BooleanStateIcon() {
+  return (
+    <ComponentIcon>
+      <circle cx="6" cy="10" fill="none" r="3" stroke="currentColor" />
+      <circle cx="14" cy="10" fill="none" r="3" stroke="currentColor" />
+      <path d="M9 10h2" stroke="currentColor" strokeLinecap="round" />
+    </ComponentIcon>
+  );
+}
+
+export function StateActionIcon() {
+  return (
+    <ComponentIcon>
+      <path d="M3 10h10" stroke="currentColor" strokeLinecap="round" />
+      <path d="m10 6 4 4-4 4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="16" cy="10" fill="currentColor" r="1.5" />
+    </ComponentIcon>
+  );
+}
+
+export function ConditionalContentIcon() {
+  return (
+    <ComponentIcon>
+      <path d="M2.5 6h5l2.5 4 2.5-4h5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <rect fill="none" height="5" rx="1" stroke="currentColor" width="11" x="4.5" y="12" />
+    </ComponentIcon>
+  );
+}
+
 export function HeadingIcon() {
   return (
     <ComponentIcon>

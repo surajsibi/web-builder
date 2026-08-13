@@ -9,10 +9,13 @@ import {
 afterEach(cleanup);
 
 describe("componentRegistry", () => {
-  it("should expose the sixteen primitives with valid defaults and versions", () => {
+  it("should expose the nineteen primitives with valid defaults and versions", () => {
     expect(Object.keys(componentRegistry)).toEqual([
       "section",
       "container",
+      "boolean-state",
+      "state-action",
+      "conditional-content",
       "heading",
       "text",
       "label",
@@ -45,6 +48,9 @@ describe("componentRegistry", () => {
     ).toEqual({
       section: 1,
       container: 3,
+      "boolean-state": 1,
+      "state-action": 1,
+      "conditional-content": 1,
       heading: 1,
       text: 1,
       label: 1,
@@ -63,6 +69,46 @@ describe("componentRegistry", () => {
     expect(componentRegistry.link.defaults.styles.base.textDecoration).toBe(
       "underline",
     );
+  });
+
+  it("should declare page-scoped Boolean State references as registry metadata", () => {
+    expect(componentRegistry["state-action"].references).toEqual([
+      {
+        path: "targetStateNodeId",
+        targetType: "boolean-state",
+        scope: "page",
+        onDuplicate: "remap-if-target-cloned",
+      },
+    ]);
+    expect(componentRegistry["conditional-content"].references).toEqual(
+      componentRegistry["state-action"].references,
+    );
+    expect(
+      componentRegistry["state-action"].inspector.props.find(
+        (field) => field.path === "targetStateNodeId",
+      ),
+    ).toMatchObject({ control: "node-reference" });
+  });
+
+  it("should reject unsupported Boolean State and action values", () => {
+    expect(() =>
+      componentRegistry["boolean-state"].propsSchema.parse({
+        defaultValue: false,
+        persistedValue: true,
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry["state-action"].propsSchema.parse({
+        ...componentRegistry["state-action"].defaults.props,
+        action: "open",
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry["conditional-content"].propsSchema.parse({
+        ...componentRegistry["conditional-content"].defaults.props,
+        expression: "state && user",
+      }),
+    ).toThrow();
   });
 
   it("should render an accessible image with authored fitting", () => {

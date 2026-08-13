@@ -1,10 +1,15 @@
-import { defineComponentRegistry } from "./define-component-registry";
 import {
+  defineComponentRegistry,
+  type ComponentNodeReferenceMetadata,
+} from "./define-component-registry";
+import {
+  booleanStateDefinition,
   buttonDefinition,
   cardDefinition,
   checkboxGroupDefinition,
   checkboxDefinition,
   containerDefinition,
+  conditionalContentDefinition,
   dropdownDefinition,
   formDefinition,
   headingDefinition,
@@ -14,6 +19,7 @@ import {
   linkDefinition,
   radioGroupDefinition,
   sectionDefinition,
+  stateActionDefinition,
   textDefinition,
   textareaDefinition,
 } from "./components/component-definitions";
@@ -21,6 +27,9 @@ import {
 export const componentRegistry = defineComponentRegistry({
   section: sectionDefinition,
   container: containerDefinition,
+  "boolean-state": booleanStateDefinition,
+  "state-action": stateActionDefinition,
+  "conditional-content": conditionalContentDefinition,
   heading: headingDefinition,
   text: textDefinition,
   label: labelDefinition,
@@ -38,6 +47,19 @@ export const componentRegistry = defineComponentRegistry({
 });
 
 export type ComponentType = keyof typeof componentRegistry;
+
+export function referencesForComponentType(
+  type: ComponentType,
+): readonly ComponentNodeReferenceMetadata<string, ComponentType>[] {
+  const definition = componentRegistry[type] as {
+    references?: readonly ComponentNodeReferenceMetadata<
+      string,
+      ComponentType
+    >[];
+  };
+
+  return definition.references ?? [];
+}
 
 type PlacementDefinition = {
   allowedParents?: readonly ComponentType[];

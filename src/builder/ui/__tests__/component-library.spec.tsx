@@ -217,6 +217,30 @@ describe("ComponentLibrary", () => {
     expect(screen.getByRole("button", { name: "Add Label" })).toBeInTheDocument();
   });
 
+  it("should group the Boolean State foundation in one Interactions family", () => {
+    renderComponentLibrary();
+    const familyNavigation = screen.getByRole("navigation", {
+      name: "Component families",
+    });
+
+    fireEvent.click(
+      within(familyNavigation).getByRole("button", {
+        name: "Interactions (3)",
+      }),
+    );
+
+    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(3);
+    expect(
+      screen.getByRole("button", { name: "Add Boolean State" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add State Action" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add Conditional Content" }),
+    ).toBeInTheDocument();
+  });
+
   it("should collect every prebuilt Navbar block in a dedicated Navbar section", () => {
     renderComponentLibrary();
     const familyNavigation = screen.getByRole("navigation", {
@@ -373,7 +397,14 @@ describe("ComponentLibrary", () => {
         expect(
           screen.getByRole("button", { name: "Add Checkbox" }),
         ).toBeInTheDocument();
-        expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
+        expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(
+          query === "boolean" ? 2 : 1,
+        );
+        if (query === "boolean") {
+          expect(
+            screen.getByRole("button", { name: "Add Boolean State" }),
+          ).toBeInTheDocument();
+        }
       },
     );
 

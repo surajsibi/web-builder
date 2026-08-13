@@ -318,6 +318,130 @@ describe("EditorShell", () => {
     ).toBe("Section 1");
   });
 
+  it("should bind actions and conditional content to a named Boolean State", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Interactions/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add Boolean State" }),
+    );
+    const nameInput = screen.getByRole("textbox", { name: "Component name" });
+    fireEvent.change(nameInput, { target: { value: "Menu open" } });
+    fireEvent.blur(nameInput);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add State Action" }));
+    const actionReference = screen.getByRole("combobox", {
+      name: "Boolean State",
+    });
+    expect(actionReference).toHaveDisplayValue("Select Boolean State");
+    fireEvent.change(actionReference, { target: { value: "node-editor-1" } });
+    expect(actionReference).toHaveDisplayValue("Menu open");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add Conditional Content" }),
+    );
+    fireEvent.change(
+      screen.getByRole("combobox", { name: "Boolean State" }),
+      { target: { value: "node-editor-1" } },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Typography/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Text" }));
+    const conditional = document.querySelector(
+      ".conditional-content-root:has(.canvas-node)",
+    );
+    expect(conditional).toHaveAttribute(
+      "data-conditional-content-state",
+      "inactive",
+    );
+
+    const historyBeforeRuntimeAction = store.getState().history.past.length;
+    const revisionBeforeRuntimeAction = store.getState().document?.revision;
+    fireEvent.click(screen.getByRole("button", { name: "Toggle state" }));
+    expect(conditional).toHaveAttribute(
+      "data-conditional-content-state",
+      "visible",
+    );
+    expect(store.getState().history.past).toHaveLength(
+      historyBeforeRuntimeAction,
+    );
+    expect(store.getState().document?.revision).toBe(
+      revisionBeforeRuntimeAction,
+    );
+    expect(
+      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-editor-2")
+      ].props.targetStateNodeId,
+    ).toBe("node-editor-1");
+    expect(
+      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-editor-3")
+      ].props.targetStateNodeId,
+    ).toBe("node-editor-1");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select Menu open" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete Menu open" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select State Action 1" }),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The selected Boolean State no longer exists.",
+    );
+  });
+
+  it("should reconnect an action after its referenced Boolean State is deleted", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: /Interactions/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add Boolean State" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add State Action" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Boolean State" }), {
+      target: { value: "node-editor-1" },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select Boolean State 1" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete Boolean State 1" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select State Action 1" }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Components" }));
+    fireEvent.click(screen.getByRole("button", { name: /Interactions/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add Boolean State" }),
+    );
+    const replacementName = screen.getByRole("textbox", {
+      name: "Component name",
+    });
+    fireEvent.change(replacementName, { target: { value: "Replacement state" } });
+    fireEvent.blur(replacementName);
+    const replacementState = Object.values(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes,
+    ).find((node) => node.type === "boolean-state")!;
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select State Action 1" }),
+    );
+
+    const referencePicker = screen.getByRole("combobox", {
+      name: "Boolean State",
+    });
+
+    fireEvent.change(referencePicker, {
+      target: { value: replacementState.id },
+    });
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(referencePicker).toHaveDisplayValue("Replacement state");
+  });
+
   it("should insert and configure a linked SVG Image through the Inspector", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);

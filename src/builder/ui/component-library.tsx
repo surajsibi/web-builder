@@ -73,6 +73,9 @@ const COMPONENT_FAMILY: Record<
 > = {
   section: "layout",
   container: "layout",
+  "boolean-state": "interactions",
+  "state-action": "interactions",
+  "conditional-content": "interactions",
   card: "layout",
   image: "media",
   heading: "typography",
@@ -254,6 +257,12 @@ const FAMILY_CONFIG = [
     label: "Selectors",
     description: "Select a value from a compact list of options.",
     icon: "⌄",
+  },
+  {
+    id: "interactions",
+    label: "Interactions",
+    description: "Connect page-scoped state, actions, and conditional content.",
+    icon: "◇",
   },
   {
     id: "navbar",
