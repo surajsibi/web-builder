@@ -402,9 +402,26 @@ textarea:focus-visible {
 }
 
 .editor-workspace {
+  --editor-left-panel-expanded-width: 32rem;
+  --editor-left-panel-width: var(--editor-left-panel-expanded-width);
+  --editor-inspector-expanded-width: 20rem;
+  --editor-inspector-width: var(--editor-inspector-expanded-width);
+
   display: grid;
-  grid-template-columns: 32rem minmax(30rem, 1fr) 20rem;
+  grid-template-columns:
+    var(--editor-left-panel-width)
+    minmax(30rem, 1fr)
+    var(--editor-inspector-width);
   min-height: 0;
+  transition: grid-template-columns 160ms ease;
+}
+
+.editor-workspace[data-left-panel-collapsed="true"] {
+  --editor-left-panel-width: 4.5rem;
+}
+
+.editor-workspace[data-inspector-collapsed="true"] {
+  --editor-inspector-width: 3rem;
 }
 
 .editor-sidebar {
@@ -420,6 +437,11 @@ textarea:focus-visible {
   grid-template-columns: 4.5rem minmax(0, 1fr);
   overflow: hidden;
   padding: 0;
+  position: relative;
+}
+
+.library-panel.is-collapsed {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .left-panel-tabs {
@@ -428,7 +450,11 @@ textarea:focus-visible {
   border-right: 1px solid #2c3734;
   display: grid;
   gap: 0.4rem;
-  padding: 0.6rem 0.35rem;
+  padding: 0.6rem 0.35rem 3.6rem;
+}
+
+.library-panel.is-collapsed .left-panel-tabs {
+  border-right: 0;
 }
 
 .left-panel-tabs button {
@@ -473,6 +499,35 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.left-panel-collapse-toggle,
+.inspector-collapse-toggle {
+  align-items: center;
+  background: #f8f9fb;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 1.1rem;
+  height: 2rem;
+  justify-content: center;
+  width: 2rem;
+}
+
+.left-panel-collapse-toggle:hover,
+.inspector-collapse-toggle:hover,
+.inspector-rail-toggle:hover {
+  background: var(--accent-soft);
+  border-color: #c7c1ff;
+  color: var(--accent-strong);
+}
+
+.left-panel-collapse-toggle {
+  bottom: 0.7rem;
+  left: 1.25rem;
+  position: absolute;
+  z-index: 2;
+}
+
 .left-panel-content > .layers-panel {
   height: 100%;
   overflow-y: auto;
@@ -483,11 +538,53 @@ textarea:focus-visible {
   border-left: 1px solid var(--line);
 }
 
+.inspector-panel.is-collapsed {
+  overflow: hidden;
+  padding: 0;
+}
+
+.inspector-rail-toggle {
+  align-items: center;
+  background: var(--panel);
+  border: 0;
+  color: #475569;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  padding: 0.7rem 0.45rem;
+  width: 100%;
+}
+
+.inspector-rail-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.inspector-rail-label {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  font-size: 0.7rem;
+  font-weight: 800;
+  justify-content: center;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(180deg);
+  writing-mode: vertical-rl;
+}
+
 .panel-heading {
   align-items: center;
   display: flex;
   justify-content: space-between;
   margin-bottom: 0.65rem;
+}
+
+.panel-heading-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.45rem;
 }
 
 .panel-heading h2,
@@ -1115,6 +1212,10 @@ textarea:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .editor-workspace {
+    transition: none;
+  }
+
   [data-button-icon-animation="shift-right"] > .button-content-icon {
     transition: none;
   }
@@ -2445,7 +2546,13 @@ textarea:focus-visible {
 
 @media (max-width: 74rem) {
   .editor-workspace {
-    grid-template-columns: 14rem minmax(28rem, 1fr) 18rem;
+    --editor-left-panel-expanded-width: 14rem;
+    --editor-inspector-expanded-width: 18rem;
+
+    grid-template-columns:
+      var(--editor-left-panel-width)
+      minmax(28rem, 1fr)
+      var(--editor-inspector-width);
   }
 
   .editor-toolbar {

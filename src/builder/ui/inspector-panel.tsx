@@ -44,6 +44,7 @@ import {
 } from "@/builder/ui/visual-editing";
 
 type InspectorPanelProps = {
+  collapsed: boolean;
   node: Readonly<BuilderNode> | null;
   parentId: NodeId | null;
   isRoot: boolean;
@@ -56,6 +57,7 @@ type InspectorPanelProps = {
   onRename: (name: string) => void;
   onUpdateProps: (nextProps: JsonObject) => void;
   onUpdateStyles: (changes: readonly [StyleChange, ...StyleChange[]]) => void;
+  onCollapsedChange: (collapsed: boolean) => void;
 };
 
 type DimensionProperty = "width" | "height";
@@ -1667,6 +1669,7 @@ function EffectsControl({
 }
 
 export function InspectorPanel({
+  collapsed,
   node,
   parentId,
   isRoot,
@@ -1679,12 +1682,51 @@ export function InspectorPanel({
   onRename,
   onUpdateProps,
   onUpdateStyles,
+  onCollapsedChange,
 }: InspectorPanelProps) {
+  const panelRail = collapsed ? (
+    <button
+      aria-controls="inspector-panel-content"
+      aria-expanded="false"
+      aria-label="Expand Inspector"
+      className="inspector-rail-toggle"
+      onClick={() => onCollapsedChange(false)}
+      title="Expand Inspector"
+      type="button"
+    >
+      <span aria-hidden="true" className="inspector-rail-icon">‹</span>
+      <span aria-hidden="true" className="inspector-rail-label">Inspector</span>
+    </button>
+  ) : null;
+  const collapseButton = (
+    <button
+      aria-controls="inspector-panel-content"
+      aria-expanded="true"
+      aria-label="Collapse Inspector"
+      className="inspector-collapse-toggle"
+      onClick={() => onCollapsedChange(true)}
+      title="Collapse Inspector"
+      type="button"
+    >
+      <span aria-hidden="true">›</span>
+    </button>
+  );
+
   if (!node) {
     return (
-      <aside aria-labelledby="inspector-title" className="editor-sidebar inspector-panel">
-        <div className="panel-heading"><div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div></div>
-        <div className="inspector-empty"><span aria-hidden="true">◇</span><strong>No component selected</strong><p>Select a component on the canvas to edit its content and layout.</p></div>
+      <aside
+        aria-label={collapsed ? "Inspector" : undefined}
+        aria-labelledby={collapsed ? undefined : "inspector-title"}
+        className={`editor-sidebar inspector-panel${collapsed ? " is-collapsed" : ""}`}
+      >
+        {panelRail}
+        <div hidden={collapsed} id="inspector-panel-content">
+          <div className="panel-heading">
+            <div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div>
+            {collapseButton}
+          </div>
+          <div className="inspector-empty"><span aria-hidden="true">◇</span><strong>No component selected</strong><p>Select a component on the canvas to edit its content and layout.</p></div>
+        </div>
       </aside>
     );
   }
@@ -1777,8 +1819,20 @@ export function InspectorPanel({
   );
 
   return (
-    <aside aria-labelledby="inspector-title" className="editor-sidebar inspector-panel">
-      <div className="panel-heading"><div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div><span className="component-type-badge">{definition.library.label}</span></div>
+    <aside
+      aria-label={collapsed ? "Inspector" : undefined}
+      aria-labelledby={collapsed ? undefined : "inspector-title"}
+      className={`editor-sidebar inspector-panel${collapsed ? " is-collapsed" : ""}`}
+    >
+      {panelRail}
+      <div hidden={collapsed} id="inspector-panel-content">
+      <div className="panel-heading">
+        <div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div>
+        <div className="panel-heading-actions">
+          <span className="component-type-badge">{definition.library.label}</span>
+          {collapseButton}
+        </div>
+      </div>
 
       <section className="inspector-section inspector-selection">
         <div className="inspector-section-heading"><h3>Selection</h3><span>{viewport} values</span></div>
@@ -2007,6 +2061,7 @@ export function InspectorPanel({
       ) : null}
 
       {disabled ? <p className="inspector-lock-note">Unlock this component before changing its name, content, or styles.</p> : null}
+      </div>
     </aside>
   );
 }

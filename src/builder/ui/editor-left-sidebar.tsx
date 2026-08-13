@@ -14,6 +14,7 @@ import { ComponentLibrary } from "@/builder/ui/component-library";
 import { LayersPanel } from "@/builder/ui/layers-panel";
 
 type EditorLeftSidebarProps = {
+  collapsed: boolean;
   document: ProjectDocument;
   page: Readonly<PageDocument>;
   parentById: Readonly<ParentById>;
@@ -25,17 +26,25 @@ type EditorLeftSidebarProps = {
   onInsertComponent: (type: ComponentType) => void;
   onInsertBlock: (type: BlockType) => void;
   onSelectNode: (nodeId: NodeId) => void;
+  onCollapsedChange: (collapsed: boolean) => void;
 };
 
 export function EditorLeftSidebar(props: EditorLeftSidebarProps) {
   const [tab, setTab] = useState<"components" | "layers">("components");
+  const selectTab = (nextTab: "components" | "layers") => {
+    setTab(nextTab);
+    if (props.collapsed) props.onCollapsedChange(false);
+  };
 
   return (
-    <aside aria-label="Editor navigation" className="editor-sidebar library-panel">
+    <aside
+      aria-label="Editor navigation"
+      className={`editor-sidebar library-panel${props.collapsed ? " is-collapsed" : ""}`}
+    >
       <div aria-label="Left panel" className="left-panel-tabs" role="tablist">
         <button
           aria-selected={tab === "components"}
-          onClick={() => setTab("components")}
+          onClick={() => selectTab("components")}
           role="tab"
           type="button"
         >
@@ -44,7 +53,7 @@ export function EditorLeftSidebar(props: EditorLeftSidebarProps) {
         </button>
         <button
           aria-selected={tab === "layers"}
-          onClick={() => setTab("layers")}
+          onClick={() => selectTab("layers")}
           role="tab"
           type="button"
         >
@@ -53,7 +62,32 @@ export function EditorLeftSidebar(props: EditorLeftSidebarProps) {
         </button>
       </div>
 
-      <div className="left-panel-content" role="tabpanel">
+      <button
+        aria-controls="editor-left-panel-content"
+        aria-expanded={!props.collapsed}
+        aria-label={
+          props.collapsed
+            ? "Expand Component Library"
+            : "Collapse Component Library"
+        }
+        className="left-panel-collapse-toggle"
+        onClick={() => props.onCollapsedChange(!props.collapsed)}
+        title={
+          props.collapsed
+            ? "Expand Component Library"
+            : "Collapse Component Library"
+        }
+        type="button"
+      >
+        <span aria-hidden="true">{props.collapsed ? "›" : "‹"}</span>
+      </button>
+
+      <div
+        className="left-panel-content"
+        hidden={props.collapsed}
+        id="editor-left-panel-content"
+        role="tabpanel"
+      >
         {tab === "components" ? (
           <ComponentLibrary
             getBlockInsertionLabel={props.getBlockInsertionLabel}
