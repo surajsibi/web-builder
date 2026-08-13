@@ -5,7 +5,7 @@ scope: Execution state for web-builder feature/collapsible-editor-panels
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Verified on 2026-08-13 after static, automated, build, and rendered desktop checks; invalidated by further implementation or verification work
+freshness: Verified and published for review on 2026-08-13 after static, automated, build, rendered desktop, commit, push, and PR checks; invalidated by further implementation, review, or verification work
 ---
 
 # Progress Journal — web-builder / feature/collapsible-editor-panels
@@ -14,7 +14,7 @@ freshness: Verified on 2026-08-13 after static, automated, build, and rendered d
 `workspaces/collapsible-editor-panels/`
 
 **Current step:**
-Review the completed collapsible editor-panel implementation.
+Review [draft PR #5](https://github.com/surajsibi/web-builder/pull/5), which targets `main`.
 
 **Approach:**
 Keep visibility state in the existing client-side editor shell, preserve the current expanded panel components, render compact edge controls when collapsed, and let the existing CSS grid return the freed width to the Canvas.
@@ -30,6 +30,8 @@ Keep visibility state in the existing client-side editor shell, preserve the cur
 - Persisted both preferences through a hydration-safe browser external store with an expanded fallback.
 - Added integration coverage for independent collapse, tab-triggered restoration, Canvas continuity, Inspector restoration, and preference persistence across remounts.
 - Corrected the initial persistence approach after targeted lint identified a cascading mount render; the final external-store implementation removes that render.
+- Committed the verified feature as `781c305` (`feat: add collapsible editor panels`).
+- Pushed `feature/collapsible-editor-panels` to origin and opened draft PR #5 against `main`.
 
 **Verification:**
 
@@ -42,8 +44,7 @@ Keep visibility state in the existing client-side editor shell, preserve the cur
 
 **Remaining:**
 
-- Review the feature diff.
-- Commit only the related feature and workspace files if approved.
+- Complete PR review and make the merge decision.
 
 **Last left off:**
-2026-08-13 — Implementation and verification complete. Resume with review and an intentional commit; keep the unrelated untracked `canvas-first-laptop-prototype.html` file untouched.
+2026-08-13 — Implementation commit `781c305` is pushed and draft PR #5 targets `main`. Resume with PR review; keep the unrelated untracked `canvas-first-laptop-prototype.html` file untouched.
