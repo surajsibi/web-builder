@@ -7,6 +7,7 @@ import type {
   PageDocument,
   ProjectDocument,
 } from "@/builder/model/project-document";
+import { evaluatePositioningEligibility } from "@/builder/positioning/eligibility";
 import {
   blockRegistry,
   resolveBlockTemplate,
@@ -89,17 +90,27 @@ const commandDestinationSchema = z
     index: z.number(),
   })
   .strict();
-const commandStyleChangeSchema = z
+const commandStyleTargetSchema = z
   .object({
-    target: z
-      .object({
-        property: z.string().min(1),
-        field: z.string().min(1).optional(),
-      })
-      .strict(),
-    value: z.unknown(),
+    property: z.string().min(1),
+    field: z.string().min(1).optional(),
   })
   .strict();
+const commandStyleChangeSchema = z.union([
+  z
+    .object({
+      operation: z.literal("reset"),
+      target: commandStyleTargetSchema,
+    })
+    .strict(),
+  z
+    .object({
+      operation: z.literal("set").optional(),
+      target: commandStyleTargetSchema,
+      value: z.unknown(),
+    })
+    .strict(),
+]);
 const commandViewportSchema = z.enum(["desktop", "tablet", "mobile"]);
 const editorCommandEnvelopeSchema = z.discriminatedUnion("kind", [
   z
@@ -229,6 +240,7 @@ const STYLE_PROPERTIES = new Set<keyof StyleValues>([
   "boxShadow",
   "backdropBlur",
   "position",
+  "positionOffset",
   "zIndex",
   "grid",
   "flex",
@@ -1349,17 +1361,56 @@ function applyStyleChange(
   styles: ResponsiveStyles,
   viewport: Viewport,
   change: StyleChange,
-): boolean {
-  if (!validateStyleTarget(change.target) || !isJsonValue(change.value)) {
-    return false;
+): "applied" | "already-reset" | "invalid" {
+  if (!validateStyleTarget(change.target)) {
+    return "invalid";
   }
 
-  const layer = styleLayer(styles, viewport) as Record<string, unknown>;
   const { property, field } = change.target;
+
+  if (change.operation === "reset") {
+    const currentLayer =
+      viewport === "desktop" ? styles.base : styles[viewport];
+    if (!currentLayer) return "already-reset";
+
+    const layer = currentLayer as Record<string, unknown>;
+    if (field === undefined) {
+      if (!Object.hasOwn(layer, property)) return "already-reset";
+      delete layer[property];
+    } else {
+      const current = layer[property];
+      if (
+        typeof current !== "object" ||
+        current === null ||
+        Array.isArray(current) ||
+        !Object.hasOwn(current, field)
+      ) {
+        return "already-reset";
+      }
+
+      const nested = { ...current } as Record<string, unknown>;
+      delete nested[field];
+      if (Object.keys(nested).length === 0) delete layer[property];
+      else layer[property] = nested;
+    }
+
+    if (
+      viewport !== "desktop" &&
+      styles[viewport] &&
+      Object.keys(styles[viewport]).length === 0
+    ) {
+      delete styles[viewport];
+    }
+    return "applied";
+  }
+
+  if (!isJsonValue(change.value)) return "invalid";
+
+  const layer = styleLayer(styles, viewport) as Record<string, unknown>;
 
   if (field === undefined) {
     layer[property] = structuredClone(change.value);
-    return true;
+    return "applied";
   }
 
   const current = layer[property];
@@ -1369,7 +1420,7 @@ function applyStyleChange(
       : {};
   (nested as Record<string, unknown>)[field] = structuredClone(change.value);
   layer[property] = nested;
-  return true;
+  return "applied";
 }
 
 function updateStyles(
@@ -1396,8 +1447,10 @@ function updateStyles(
   }
 
   const nextStyles = structuredClone(resolved.node.styles);
+  let appliedChangeCount = 0;
   for (const change of command.changes) {
-    if (!applyStyleChange(nextStyles, command.viewport, change)) {
+    const result = applyStyleChange(nextStyles, command.viewport, change);
+    if (result === "invalid") {
       return rejected({
         code: "styles-invalid",
         pageId: resolved.page.id,
@@ -1405,7 +1458,10 @@ function updateStyles(
         reason: "Style change contains an invalid target or value",
       });
     }
+    if (result === "applied") appliedChangeCount += 1;
   }
+
+  if (appliedChangeCount === 0) return noop("style-already-reset");
 
   const parsed = responsiveStylesSchema.safeParse(nextStyles);
   if (!parsed.success) {
@@ -1418,6 +1474,29 @@ function updateStyles(
       ),
       reason: parsed.error.issues[0]?.message ?? "Styles are invalid",
     });
+  }
+
+  const setsPositionOffset = command.changes.some(
+    (change) =>
+      change.operation !== "reset" &&
+      change.target.property === "positionOffset",
+  );
+  if (setsPositionOffset) {
+    const eligibility = evaluatePositioningEligibility({
+      node: { ...resolved.node, styles: parsed.data },
+      parentId: snapshot.parentById[resolved.node.id],
+      viewport: command.viewport,
+      operation: "inspector-set",
+      rendered: true,
+    });
+    if (eligibility.status !== "allowed") {
+      return rejected({
+        code: "positioning-ineligible",
+        pageId: resolved.page.id,
+        nodeId: resolved.node.id,
+        reason: eligibility.reason,
+      });
+    }
   }
   if (valuesEqual(resolved.node.styles, parsed.data)) return noop("value-unchanged");
 

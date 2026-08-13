@@ -513,6 +513,7 @@ export function EditorShell({
   const previewVisualEdit = (session: VisualEditSession) => {
     visualEditSessionRef.current = session;
     dispatchVisualEditing({ type: "preview", session });
+    if (session.announcement) setAnnouncement(session.announcement);
   };
 
   const cancelVisualEdit = () => {
@@ -696,6 +697,7 @@ export function EditorShell({
               : false
           }
           node={selectedNode}
+          parentId={selectedNode ? (state.parentById[selectedNode.id] ?? null) : null}
           onDelete={deleteSelectedNode}
           onRename={renameSelectedNode}
           onUpdateProps={updateProps}

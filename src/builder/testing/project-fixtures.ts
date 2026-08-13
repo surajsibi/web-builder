@@ -1,9 +1,10 @@
 import { asNodeId, asPageId, asProjectId } from "@/builder/model/ids";
 import type { NodeId, PageId } from "@/builder/model/ids";
-import type {
-  BuilderNode,
-  PageDocument,
-  ProjectDocument,
+import {
+  CURRENT_PROJECT_SCHEMA_VERSION,
+  type BuilderNode,
+  type PageDocument,
+  type ProjectDocument,
 } from "@/builder/model/project-document";
 import {
   componentRegistry,
@@ -76,7 +77,7 @@ export function createTestProject(options?: {
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: CURRENT_PROJECT_SCHEMA_VERSION,
     projectId: asProjectId("project-fixture"),
     name: "Fixture Project",
     pages,

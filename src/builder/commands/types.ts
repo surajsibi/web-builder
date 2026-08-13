@@ -35,10 +35,17 @@ export type StyleTarget =
       field: keyof FlexConfig;
     };
 
-export type StyleChange = {
-  target: StyleTarget;
-  value: JsonValue;
-};
+export type StyleChange =
+  | {
+      operation?: "set";
+      target: StyleTarget;
+      value: JsonValue;
+    }
+  | {
+      operation: "reset";
+      target: StyleTarget;
+      value?: never;
+    };
 
 export type PageCommand =
   | {
@@ -147,6 +154,7 @@ export type CommandValidationError = {
     | "placement-rejected"
     | "props-invalid"
     | "styles-invalid"
+    | "positioning-ineligible"
     | "slug-invalid"
     | "slug-conflict"
     | "home-page-protected"

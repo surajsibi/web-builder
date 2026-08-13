@@ -6,7 +6,24 @@ export type DocumentMigration = {
   migrate: (value: unknown) => unknown;
 };
 
-export const documentMigrations: readonly DocumentMigration[] = [];
+function migrateVersion1ToVersion2(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("Version 1 document must be an object");
+  }
+
+  return {
+    ...value,
+    schemaVersion: 2,
+  };
+}
+
+export const documentMigrations: readonly DocumentMigration[] = [
+  {
+    fromVersion: 1,
+    toVersion: 2,
+    migrate: migrateVersion1ToVersion2,
+  },
+];
 
 export type DocumentMigrationResult =
   | { success: true; value: unknown; migrated: boolean }

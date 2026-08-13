@@ -3,6 +3,72 @@ import { describe, expect, it } from "vitest";
 import { parseResponsiveStyles } from "@/builder/styles/schema";
 
 describe("parseResponsiveStyles", () => {
+  it("should accept atomic signed pixel position offsets in every responsive layer", () => {
+    const parsed = parseResponsiveStyles({
+      base: {
+        positionOffset: {
+          x: { value: -24, unit: "px" },
+          y: { value: 12.5, unit: "px" },
+        },
+      },
+      tablet: {
+        positionOffset: {
+          x: { value: 0, unit: "px" },
+          y: { value: 0, unit: "px" },
+        },
+      },
+    });
+
+    expect(parsed).toMatchObject({
+      base: {
+        positionOffset: {
+          x: { value: -24, unit: "px" },
+          y: { value: 12.5, unit: "px" },
+        },
+      },
+      tablet: {
+        positionOffset: {
+          x: { value: 0, unit: "px" },
+          y: { value: 0, unit: "px" },
+        },
+      },
+    });
+  });
+
+  it.each([
+    [
+      { x: { value: 1, unit: "px" } },
+      "a missing axis",
+    ],
+    [
+      {
+        x: { value: 1, unit: "%" },
+        y: { value: 2, unit: "px" },
+      },
+      "a non-pixel unit",
+    ],
+    [
+      {
+        x: { keyword: "auto" },
+        y: { value: 2, unit: "px" },
+      },
+      "a length keyword",
+    ],
+    [
+      {
+        x: { value: Number.POSITIVE_INFINITY, unit: "px" },
+        y: { value: 2, unit: "px" },
+      },
+      "a non-finite value",
+    ],
+  ] as readonly [unknown, string][])("should reject a position offset with %s (%s)", (positionOffset) => {
+    expect(() =>
+      parseResponsiveStyles({
+        base: { positionOffset },
+      }),
+    ).toThrow();
+  });
+
   it("should accept complete base values and partial responsive patches", () => {
     const parsed = parseResponsiveStyles({
       base: {
