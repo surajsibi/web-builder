@@ -19,6 +19,9 @@ import { EditorShell } from "@/builder/ui/editor-shell";
 
 afterEach(() => {
   cleanup();
+  window.localStorage.removeItem(
+    "canvas-studio:editor-panel-preferences:v1",
+  );
 });
 
 function createEditorTestStore() {
@@ -120,6 +123,67 @@ describe("EditorShell", () => {
       activePageId: "page-editor-test",
       document: { projectId: "project-editor-test" },
     });
+  });
+
+  it("should independently collapse, restore, and remember both editor panels", async () => {
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    const workspace = document.querySelector(".editor-workspace");
+    expect(workspace).toHaveAttribute("data-left-panel-collapsed", "false");
+    expect(workspace).toHaveAttribute("data-inspector-collapsed", "false");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Collapse Component Library" }),
+    );
+    expect(workspace).toHaveAttribute("data-left-panel-collapsed", "true");
+    expect(
+      screen.getByRole("button", { name: "Expand Component Library" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("heading", { name: "Components" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Components" }));
+    expect(workspace).toHaveAttribute("data-left-panel-collapsed", "false");
+    expect(
+      screen.getByRole("heading", { name: "Components" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Collapse Component Library" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Inspector" }));
+    expect(workspace).toHaveAttribute("data-inspector-collapsed", "true");
+    expect(
+      screen.getByRole("button", { name: "Expand Inspector" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          "canvas-studio:editor-panel-preferences:v1",
+        ) ?? "null",
+      ),
+    ).toEqual({
+      inspectorCollapsed: true,
+      leftPanelCollapsed: true,
+    });
+
+    cleanup();
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    expect(
+      await screen.findByRole("button", { name: "Expand Component Library" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Expand Inspector" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand Inspector" }));
+    expect(
+      screen.getByRole("heading", { name: "Inspector" }),
+    ).toBeInTheDocument();
   });
 
   it("should keep the editor open and announce when preview storage is unavailable", () => {

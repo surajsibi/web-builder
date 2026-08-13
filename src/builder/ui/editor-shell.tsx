@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -63,6 +70,93 @@ type EditorShellProps = {
   previewStorage?: PreviewSnapshotWriter;
   store?: StoreApi<BuilderStoreState>;
 };
+
+const EDITOR_PANEL_PREFERENCES_STORAGE_KEY =
+  "canvas-studio:editor-panel-preferences:v1";
+const EDITOR_PANEL_PREFERENCES_EVENT =
+  "canvas-studio:editor-panel-preferences-change";
+
+type EditorPanelPreferences = {
+  leftPanelCollapsed: boolean;
+  inspectorCollapsed: boolean;
+};
+
+const DEFAULT_EDITOR_PANEL_PREFERENCES: EditorPanelPreferences = {
+  leftPanelCollapsed: false,
+  inspectorCollapsed: false,
+};
+const DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED = JSON.stringify(
+  DEFAULT_EDITOR_PANEL_PREFERENCES,
+);
+let unavailablePanelPreferencesSnapshot =
+  DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED;
+
+function parseEditorPanelPreferences(value: string | null): EditorPanelPreferences {
+  if (value === null) return DEFAULT_EDITOR_PANEL_PREFERENCES;
+  try {
+    const parsed = JSON.parse(value) as Partial<EditorPanelPreferences>;
+    if (
+      typeof parsed.leftPanelCollapsed === "boolean" &&
+      typeof parsed.inspectorCollapsed === "boolean"
+    ) {
+      return {
+        leftPanelCollapsed: parsed.leftPanelCollapsed,
+        inspectorCollapsed: parsed.inspectorCollapsed,
+      };
+    }
+  } catch {
+    // Ignore malformed preferences and use the accessible expanded default.
+  }
+  return DEFAULT_EDITOR_PANEL_PREFERENCES;
+}
+
+function readEditorPanelPreferencesSnapshot(): string {
+  try {
+    const stored = window.localStorage.getItem(
+      EDITOR_PANEL_PREFERENCES_STORAGE_KEY,
+    );
+    return stored === null
+      ? DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED
+      : JSON.stringify(parseEditorPanelPreferences(stored));
+  } catch {
+    return unavailablePanelPreferencesSnapshot;
+  }
+}
+
+function subscribeToEditorPanelPreferences(onStoreChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === EDITOR_PANEL_PREFERENCES_STORAGE_KEY) onStoreChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(EDITOR_PANEL_PREFERENCES_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(EDITOR_PANEL_PREFERENCES_EVENT, onStoreChange);
+  };
+}
+
+function useEditorPanelPreferences(): EditorPanelPreferences {
+  const snapshot = useSyncExternalStore(
+    subscribeToEditorPanelPreferences,
+    readEditorPanelPreferencesSnapshot,
+    () => DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED,
+  );
+  return parseEditorPanelPreferences(snapshot);
+}
+
+function saveEditorPanelPreferences(preferences: EditorPanelPreferences) {
+  const snapshot = JSON.stringify(preferences);
+  unavailablePanelPreferencesSnapshot = snapshot;
+  try {
+    window.localStorage.setItem(
+      EDITOR_PANEL_PREFERENCES_STORAGE_KEY,
+      snapshot,
+    );
+  } catch {
+    // Panel controls continue to work through the in-memory snapshot.
+  }
+  window.dispatchEvent(new Event(EDITOR_PANEL_PREFERENCES_EVENT));
+}
 
 type VisualEditingState = {
   session: VisualEditSession | null;
@@ -178,6 +272,7 @@ export function EditorShell({
   const [announcement, setAnnouncement] = useState(
     "Editor ready. Choose a component to begin.",
   );
+  const panelPreferences = useEditorPanelPreferences();
   const [visualEditing, dispatchVisualEditing] = useReducer(
     reduceVisualEditing,
     INITIAL_VISUAL_EDITING_STATE,
@@ -651,8 +746,13 @@ export function EditorShell({
         projectName={document.name}
       />
 
-      <div className="editor-workspace">
+      <div
+        className="editor-workspace"
+        data-inspector-collapsed={panelPreferences.inspectorCollapsed}
+        data-left-panel-collapsed={panelPreferences.leftPanelCollapsed}
+      >
         <EditorLeftSidebar
+          collapsed={panelPreferences.leftPanelCollapsed}
           document={document}
           dragSource={state.dragSession?.source ?? null}
           getBlockInsertionLabel={(type) =>
@@ -663,6 +763,15 @@ export function EditorShell({
           }
           onInsertBlock={insertBlock}
           onInsertComponent={insertComponent}
+          onCollapsedChange={(collapsed) => {
+            saveEditorPanelPreferences({
+              ...panelPreferences,
+              leftPanelCollapsed: collapsed,
+            });
+            setAnnouncement(
+              `Component Library ${collapsed ? "collapsed" : "expanded"}.`,
+            );
+          }}
           onSelectNode={selectNode}
           page={activePage}
           parentById={state.parentById}
@@ -691,6 +800,7 @@ export function EditorShell({
         />
 
         <InspectorPanel
+          collapsed={panelPreferences.inspectorCollapsed}
           isRoot={
             selectedNode
               ? (state.parentById[selectedNode.id] ?? null) === null
@@ -699,6 +809,13 @@ export function EditorShell({
           node={selectedNode}
           parentId={selectedNode ? (state.parentById[selectedNode.id] ?? null) : null}
           onDelete={deleteSelectedNode}
+          onCollapsedChange={(collapsed) => {
+            saveEditorPanelPreferences({
+              ...panelPreferences,
+              inspectorCollapsed: collapsed,
+            });
+            setAnnouncement(`Inspector ${collapsed ? "collapsed" : "expanded"}.`);
+          }}
           onRename={renameSelectedNode}
           onUpdateProps={updateProps}
           onUpdateStyles={updateStyles}
