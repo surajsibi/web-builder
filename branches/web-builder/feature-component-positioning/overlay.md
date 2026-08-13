@@ -27,6 +27,7 @@ freshness: Verified by bounded inspection at e15cd9f798ad7b90ee7a9526627af73d583
 - Available-Chrome Canvas/Preview checks verify exact eligible-leaf translation through five nested flex ancestors, five nested grid ancestors, and five mixed flex/grid ancestors; translated-leaf z-index paint order and hit testing; and translated Input focus, targeting, and text entry.
 - CP-09A has a restricted outcome: roots and all container-capable definitions remain centrally disabled because the required sticky/fixed, overlay, portal, nested-transform, and whole-subtree verification has not passed.
 - The CP-10 machine matrix passes on checksum-verified Node 24.19.0 with pnpm 10.33.0: lint, typecheck, 456 serial tests across 32 files, and the Next.js production build. The project owner approved the implementation report on 2026-08-13.
+- Feature implementation commit `10736b0` is pushed to `origin/feature/component-positioning`; no runtime deployment or Published-site release has occurred.
 
 ## Provisional assumptions
 

@@ -5,7 +5,7 @@ scope: Implementation and verification report for responsive visual positioning 
 authority: Consolidated delivery and verification record; code, tests, verified runtime behavior, and accountable review evidence remain authoritative for implemented behavior and release readiness
 owner: Project owner
 lifecycle: approved
-freshness: Verified on 2026-08-13 against the uncommitted feature/component-positioning working tree based at 57f35a4d57a51a26da3907e7662ce10f2a4fba72 using checksum-verified Node 24.19.0 and approved by the project owner on 2026-08-13; invalidated by a relevant code, test, dependency, runtime, browser-support, product-scope, eligibility, rendering, publishing, or review-evidence change
+freshness: Verified on 2026-08-13 against feature implementation commit 10736b0 on feature/component-positioning using checksum-verified Node 24.19.0, approved by the project owner, and pushed to origin on 2026-08-13; invalidated by a relevant code, test, dependency, runtime, browser-support, product-scope, eligibility, rendering, publishing, or review-evidence change
 ---
 
 # Implementation report: Responsive component positioning
@@ -22,7 +22,7 @@ The project owner approved this implementation report on 2026-08-13, completing 
 
 - Repository: `web-builder`.
 - Branch: `feature/component-positioning`.
-- Working-tree base: `57f35a4d57a51a26da3907e7662ce10f2a4fba72`; the reported feature changes are not staged, committed, pushed, deployed, or published.
+- Source-control state: feature implementation commit `10736b0` is pushed to `origin/feature/component-positioning`; no runtime deployment or Published-site release has occurred.
 - Verification runtime: Node `v24.19.0`, pnpm `10.33.0`, Next.js `16.3.0`, TypeScript `5.9.3`, and Vitest `4.1.10`.
 - Runtime provenance: the [official Node 24.19.0 Windows x64 archive and checksum manifest](https://nodejs.org/dist/v24.19.0/) matched at SHA-256 `57f71ab3652e797d84acddc79c81cc9ff1c6ddb2a1974cdb83f00fee9bff4c73`.
 - Browser scope: retained automated coverage plus rendered verification in available Chrome.
@@ -72,7 +72,7 @@ The project owner approved this implementation report on 2026-08-13, completing 
 
 ## Rollout and rollback
 
-No rollout has occurred. The feature exists only as unstaged working-tree changes on `feature/component-positioning`; it has not been committed, pushed, deployed, or published.
+Source-control publication is complete: feature implementation commit `10736b0` is pushed to `origin/feature/component-positioning`. No runtime deployment or Published-site release has occurred.
 
 The containment boundary is the central eligibility evaluator. High-risk node categories remain denied at the Inspector, Canvas gesture-start, and command-validation paths. If a later review finds a leaf-scope regression, keep the positioning affordance disabled and retain structural drag-and-drop; do not weaken validation or enable containers as a workaround. Once version-2 documents are durably written, use a forward migration or corrective release rather than attempting to load them in a version-1 reader.
 

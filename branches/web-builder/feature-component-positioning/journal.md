@@ -44,6 +44,7 @@ Keep structural node drag-and-drop unchanged. Store atomic X/Y offsets inside th
 - Completed the CP-10 supported-runtime machine matrix on checksum-verified Node 24.19.0 with pnpm 10.33.0: lint, typecheck, the complete 456-test serial suite, and production build pass.
 - Published the implementation report, promoted verified positioning behavior into `Project.md`, and synchronized the feature and branch execution records.
 - Received project-owner approval of the CP-10 implementation report on 2026-08-13, completing every engineering phase in the plan.
+- Committed the confirmed 38-file component-positioning and future-catalog scope as `10736b0` (`feat: add responsive component positioning`) and pushed it to `origin/feature/component-positioning`; unrelated `prompt.md` and API-data-binding changes remained unstaged.
 - Left the pre-existing API data-binding documentation changes untouched and outside this feature's scope.
 
 **Verification:**
@@ -70,4 +71,4 @@ Keep structural node drag-and-drop unchanged. Store atomic X/Y offsets inside th
 - Run and retain the CP-01A five-user, physical-touch, and supported screen-reader/browser evidence before public release.
 
 **Last left off:**
-2026-08-13 - CP-00 through CP-10 are complete and project-owner approved, and CP-09A keeps every high-risk category restricted. Resume with accountable public-release evidence; no component-positioning changes are staged or committed at this checkpoint.
+2026-08-13 - CP-00 through CP-10 are complete and project-owner approved, CP-09A keeps every high-risk category restricted, and feature implementation commit `10736b0` is pushed to origin. Resume with accountable public-release evidence; unrelated `prompt.md` and API-data-binding changes remain outside this feature.
