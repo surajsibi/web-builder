@@ -66,6 +66,7 @@ type EditorCanvasProps = {
   onPreviewVisualEdit: (session: VisualEditSession) => void;
   onCommitVisualEdit: (session: VisualEditSession) => void;
   onCancelVisualEdit: () => void;
+  onExitPositionMode: () => void;
   onStartTextEdit: (nodeId: NodeId) => void;
   onCommitTextEdit: (nodeId: NodeId, text: string) => boolean;
   onCancelTextEdit: (nodeId: NodeId) => void;
@@ -408,13 +409,16 @@ function CanvasPositionHandle({
   onPreviewVisualEdit,
   onCommitVisualEdit,
   onCancelVisualEdit,
+  onExitPositionMode,
 }: VisualEditCallbacks & {
   nodeId: NodeId;
   nodeName: string;
   nodeStyles: Readonly<ResponsiveStyles>;
   rect: CanvasRect;
   viewport: Viewport;
+  onExitPositionMode: () => void;
 }) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const pointerStart = useRef<{
     sample: ReturnType<typeof pointerSample>;
     offset: { x: number; y: number };
@@ -428,6 +432,10 @@ function CanvasPositionHandle({
     x: { value: 0, unit: "px" as const },
     y: { value: 0, unit: "px" as const },
   };
+
+  useEffect(() => {
+    buttonRef.current?.focus();
+  }, []);
 
   const sessionFor = (offset: Readonly<{ x: number; y: number }>) => ({
     nodeId,
@@ -468,7 +476,7 @@ function CanvasPositionHandle({
   return (
     <button
       aria-describedby={instructionsId}
-      aria-label={`Position ${nodeName}`}
+      aria-label={`Move ${nodeName} on canvas`}
       className="canvas-position-handle"
       data-editor-control="true"
       onClick={(event) => {
@@ -487,7 +495,8 @@ function CanvasPositionHandle({
           return;
         }
         if (action.kind === "cancel") {
-          onCancelVisualEdit();
+          if (latestSession.current) onCancelVisualEdit();
+          else onExitPositionMode();
           resetInteraction();
           return;
         }
@@ -548,14 +557,16 @@ function CanvasPositionHandle({
         if (session) onCommitVisualEdit(session);
         resetInteraction();
       }}
+      ref={buttonRef}
       style={{ left: rect.left, top: rect.top + rect.height / 2 }}
-      title="Drag to move visually. Arrow keys preview; Shift moves 10 pixels; Enter commits; Escape cancels."
+      title="Drag to move visually. Arrow keys preview; Shift moves 10 pixels; Enter commits; Escape cancels a preview or exits move mode."
       type="button"
     >
       <span aria-hidden="true">{"\u2194"}</span>
       <span className="canvas-position-instructions" id={instructionsId}>
         Drag to move visually. Use arrow keys for one pixel or Shift plus arrow
-        keys for ten pixels. Press Enter to commit or Escape to cancel.
+        keys for ten pixels. Press Enter to commit. Escape cancels a preview;
+        press Escape again to exit move mode.
       </span>
     </button>
   );
@@ -1049,6 +1060,7 @@ function CanvasInteractionOverlay({
   onPreviewVisualEdit,
   onCommitVisualEdit,
   onCancelVisualEdit,
+  onExitPositionMode,
 }: Pick<
   EditorCanvasProps,
   | "document"
@@ -1062,6 +1074,7 @@ function CanvasInteractionOverlay({
   | "onPreviewVisualEdit"
   | "onCommitVisualEdit"
   | "onCancelVisualEdit"
+  | "onExitPositionMode"
 > & {
   rects: NodeRects;
   boxModels: NodeBoxModels;
@@ -1151,7 +1164,7 @@ function CanvasInteractionOverlay({
           ) : null}
           {!dragSource &&
           textEditingNodeId === null &&
-          visualMode === "none" &&
+          visualMode === "position" &&
           selectedNode &&
           positioningEligibility?.status === "allowed" ? (
             <CanvasPositionHandle
@@ -1160,6 +1173,7 @@ function CanvasInteractionOverlay({
               nodeStyles={selectedNode.styles}
               onCancelVisualEdit={onCancelVisualEdit}
               onCommitVisualEdit={onCommitVisualEdit}
+              onExitPositionMode={onExitPositionMode}
               onPreviewVisualEdit={onPreviewVisualEdit}
               rect={selectedRect}
               viewport={viewport}
@@ -1291,6 +1305,7 @@ export function EditorCanvas({
   onPreviewVisualEdit,
   onCommitVisualEdit,
   onCancelVisualEdit,
+  onExitPositionMode,
   onStartTextEdit,
   onCommitTextEdit,
   onCancelTextEdit,
@@ -1714,6 +1729,7 @@ export function EditorCanvas({
             parentById={parentById}
             onCancelVisualEdit={onCancelVisualEdit}
             onCommitVisualEdit={onCommitVisualEdit}
+            onExitPositionMode={onExitPositionMode}
             onPreviewVisualEdit={onPreviewVisualEdit}
             rects={rects}
             resizeUnitMetrics={resizeUnitMetrics}

@@ -207,18 +207,57 @@ describe("Phase 5 editor UI", () => {
     expect(screen.getByLabelText("Offset X")).toBeDisabled();
     expect(screen.getByLabelText("Offset Y")).toBeDisabled();
     expect(
+      screen.getByRole("button", { name: "Move on canvas" }),
+    ).toBeDisabled();
+    expect(
       screen.getByText(/Root positioning remains disabled until container verification passes/),
     ).toBeVisible();
   });
 
-  it("should preview a touch-pointer position gesture and commit one history entry", () => {
+  it("should keep the position handle hidden until Move on canvas is activated", () => {
+    mockRootResizeGeometry();
+    render(<EditorShell store={createPhaseFiveStore()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    const moveMode = screen.getByRole("button", { name: "Move on canvas" });
+    expect(moveMode).toBeEnabled();
+    expect(moveMode).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(moveMode);
+
+    const handle = screen.getByRole("button", {
+      name: "Move Heading 1 on canvas",
+    });
+    expect(moveMode).toHaveAttribute("aria-pressed", "true");
+    expect(handle).toBeVisible();
+    expect(handle).toHaveFocus();
+
+    fireEvent.click(moveMode);
+
+    expect(moveMode).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("should preview a touch-pointer gesture in move mode and commit one history entry", () => {
     mockRootResizeGeometry();
     const store = createPhaseFiveStore();
     render(<EditorShell store={store} />);
     fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
     const historyBefore = store.getState().history.past.length;
-    const handle = screen.getByRole("button", { name: /Position Heading/ });
+    const handle = screen.getByRole("button", {
+      name: "Move Heading 1 on canvas",
+    });
 
     fireEvent.pointerDown(handle, {
       button: 0,
@@ -265,13 +304,17 @@ describe("Phase 5 editor UI", () => {
     expect(handle).toBeVisible();
   });
 
-  it("should keyboard-preview, commit, and cancel through the position handle", () => {
+  it("should keyboard-preview, commit, and cancel while move mode is active", () => {
     mockRootResizeGeometry();
     const store = createPhaseFiveStore();
     render(<EditorShell store={store} />);
     fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
     fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
-    const handle = screen.getByRole("button", { name: /Position Heading/ });
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
+    const handle = screen.getByRole("button", {
+      name: "Move Heading 1 on canvas",
+    });
     const historyBefore = store.getState().history.past.length;
 
     fireEvent.keyDown(handle, { key: "ArrowRight" });
@@ -301,9 +344,21 @@ describe("Phase 5 editor UI", () => {
       translate: "1px 10px",
     });
     expect(store.getState().history.past).toHaveLength(historyBefore + 1);
+
+    fireEvent.keyDown(handle, { key: "Escape" });
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move on canvas" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Move on canvas mode off.",
+    );
   });
 
-  it("should hide the position handle while another editor interaction owns the selection", () => {
+  it("should keep move mode mutually exclusive with other editor interactions", () => {
     mockRootResizeGeometry();
     const store = createPhaseFiveStore();
     render(<EditorShell store={store} />);
@@ -311,11 +366,18 @@ describe("Phase 5 editor UI", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
     const historyBefore = store.getState().history.past.length;
 
-    expect(screen.getByRole("button", { name: /Position Heading/ })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
+    expect(
+      screen.getByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).toBeVisible();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Edit on canvas" })[0]);
     expect(
-      screen.queryByRole("button", { name: /Position Heading/ }),
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Adjust Heading 1 padding left" }),
@@ -325,11 +387,18 @@ describe("Phase 5 editor UI", () => {
     fireEvent.doubleClick(screen.getByRole("heading", { level: 2, name: "Heading" }));
     const textEditor = screen.getByRole("textbox", { name: "Edit Heading 1 text" });
     expect(
-      screen.queryByRole("button", { name: /Position Heading/ }),
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
     ).not.toBeInTheDocument();
 
     fireEvent.keyDown(textEditor, { key: "Escape" });
-    expect(screen.getByRole("button", { name: /Position Heading/ })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
+    expect(
+      screen.getByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).toBeVisible();
 
     act(() => {
       store.getState().setDragSession({
@@ -337,13 +406,15 @@ describe("Phase 5 editor UI", () => {
       });
     });
     expect(
-      screen.queryByRole("button", { name: /Position Heading/ }),
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
     ).not.toBeInTheDocument();
 
     act(() => {
       store.getState().setDragSession(null);
     });
-    expect(screen.getByRole("button", { name: /Position Heading/ })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).toBeVisible();
     expect(
       store.getState().document?.pages[asPageId("page-phase-five")].nodes[
         SECOND_NODE_ID

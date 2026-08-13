@@ -45,6 +45,7 @@ An item may optionally link to a related feature workspace after that relationsh
 | --- | --- | --- | --- | --- |
 | FUT-001 | Move a Card or container as one visual unit while protecting its descendants from accidental independent movement. | Idea | None | Decide whether protection is a temporary gesture lock, an explicit group mode, or a persistent subtree lock. |
 | FUT-002 | Optionally keep a visually positioned leaf inside its parent bounds. | Idea | None | Define the parent boundary, persistence model, responsive behavior, and out-of-bounds recovery. |
+| FUT-003 | Add a Custom Code component that accepts user-authored code and renders its output at the component's position. | Idea | None | Define the supported code types and the security, isolation, permission, and publishing model. |
 
 ## FUT-001: Move a Card or container as one unit
 
@@ -111,6 +112,65 @@ The leaf remains structurally inside the same parent in both modes. Crossing a v
 - Existing offsets before enabling and after disabling the constraint.
 - Structural-drag separation, one-command history, cancellation, Reset, Undo, Redo, and recovery.
 - Canvas/Preview parity and future Published parity.
+
+## FUT-003: Custom Code component
+
+### Idea
+
+Add a **Custom Code** component that a user can place in the component tree and on the canvas. The user edits code in the component's Inspector or a dedicated code editor, and the rendered result appears inside that component's box at the same location in Canvas, Preview, and the published output.
+
+The builder must continue to own the component boundary so the user can select, move, resize, duplicate, delete, undo, and redo the Custom Code component without the rendered content taking control of the editor.
+
+### Proposed first version
+
+- Start with user-authored HTML and CSS rendered inside an isolated frame.
+- Keep user-authored JavaScript disabled until a separate runtime and permission model is approved.
+- Give the component explicit width, height, responsive, overflow, loading, and error behavior.
+- Store the source as versioned component data so normal project save, load, duplication, migration, and history behavior can apply.
+- Show a safe error state when the code cannot render without breaking the rest of the page or editor.
+
+### Proposed JavaScript and API access model
+
+If JavaScript is added in a later version, start its sandbox with network access denied. Do not expose unrestricted `fetch` as the supported integration path. Instead, provide a narrow bridge such as `componentApi.call(connectionId, operationId, input)`.
+
+- A project owner explicitly configures each available API connection and operation outside the user-authored code.
+- User code receives stable connection and operation identifiers, not arbitrary backend routes, URLs, tokens, or credentials.
+- The host validates the message from the sandbox before the backend receives it.
+- The backend verifies the project, published site, caller, tenant, allowed HTTP method, operation, input schema, response limits, and rate limits on every request.
+- Secrets remain on the server and are attached only after authorization; they are never returned to or embedded in the custom component.
+- Read and write operations can have different permissions, confirmation requirements, quotas, and audit records.
+- The sandbox receives only the minimum normalized response required by the approved operation.
+- Revoking or changing a connection takes effect without editing every Custom Code component that uses it.
+
+A backend allowlist alone is not the complete boundary because browser code can attempt direct requests that bypass our backend. The sandbox must also restrict outbound connections, and any approved proxy must validate exact schemes, hosts, ports, paths, methods, redirects, and resolved destinations to prevent request forgery or access to private infrastructure.
+
+### Guardrails
+
+- Never execute untrusted user code in the builder application's origin or give it direct access to the editor DOM, authentication state, cookies, storage, or internal APIs.
+- Do not use unrestricted `eval`, `new Function`, script injection, or unsandboxed HTML rendering in the builder runtime.
+- Treat sanitization as defense in depth, not as the isolation boundary when executable code is supported.
+- Use an isolated runtime with a restrictive content security policy and explicit permissions for scripts, network access, storage, forms, popups, downloads, navigation, clipboard, and other browser capabilities.
+- Do not treat CORS as an authorization or containment boundary; enforce permissions in the sandbox, host bridge, and backend.
+- Do not match allowed APIs using partial URLs or hostname suffixes. Use canonical connection and operation identifiers backed by exact server-controlled configuration.
+- Do not execute user code on the builder server or during server-side rendering unless a separately isolated and resource-limited server runtime is designed and approved.
+- Bound CPU, memory, output size, network activity, and repeated failures so one component cannot freeze the editor or published page.
+- Preserve selection controls and provide a deliberate interaction mode so clicking rendered content does not trap the user inside it.
+- Make Canvas, Preview, and Published differences explicit; do not silently grant broader permissions after publishing.
+
+### Decisions required before promotion
+
+- Which code types are supported in the first version: HTML, CSS, JavaScript, JSX, or a smaller declarative format?
+- Does the component render in a sandboxed iframe, on a separate origin, or through another isolated runtime?
+- Is JavaScript ever allowed, and which capabilities require explicit project-owner or visitor permission?
+- Can user code access project data bindings, URL parameters, theme tokens, assets, or external APIs? If so, through which narrow contract?
+- How are API connections approved, scoped by environment, revoked, audited, rate-limited, and separated between tenants?
+- Which operations can visitors trigger, especially writes, payments, messages, uploads, or other actions with external side effects?
+- How are width, height, intrinsic-size reporting, responsiveness, overflow, and nested scrolling handled?
+- How does the user switch between selecting the component and interacting with its rendered output?
+- How are syntax errors, runtime errors, infinite loops, excessive resource usage, and unsupported browser features contained and reported?
+- What validation, preview, review, and warning gates are required before publishing or exporting a project containing custom code?
+- How are code changes represented in Undo/Redo, autosave, collaboration, version history, import/export, and component migrations?
+- What security review and abuse controls are required for multi-user or hosted projects?
 
 ## Promotion workflow
 

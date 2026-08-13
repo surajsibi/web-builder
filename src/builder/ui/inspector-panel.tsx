@@ -1778,6 +1778,7 @@ export function InspectorPanel({
     rendered: resolved.display !== "none",
   });
   const offsetDisabled = disabled || offsetSetEligibility.status !== "allowed";
+  const positionMoveHelpId = `position-move-help-${node.id}`;
   const updateOne = (property: keyof StyleValues, value: JsonValue) =>
     onUpdateStyles([{ target: { property }, value }]);
   const contentControls = (
@@ -1977,8 +1978,30 @@ export function InspectorPanel({
         >
           <div className="inspector-control-stack">
             <div className="inspector-two-column position-controls">
-              <SelectField disabled={disabled} label="Position" onChange={(value) => updateOne("position", value)} options={["static", "relative", "absolute", "fixed", "sticky"].map((value) => ({ label: titleCase(value), value }))} value={resolved.position ?? "static"} />
+              <SelectField disabled={disabled} label="Position" onChange={(value) => {
+                if (visualMode === "position") onVisualModeChange("none");
+                updateOne("position", value);
+              }} options={["static", "relative", "absolute", "fixed", "sticky"].map((value) => ({ label: titleCase(value), value }))} value={resolved.position ?? "static"} />
               <label className="inspector-field compact"><span>Z index</span><NumberDraft disabled={disabled || resolved.zIndex === "auto"} label="Z index" onCommit={(value) => updateOne("zIndex", value)} value={typeof resolved.zIndex === "number" ? resolved.zIndex : undefined} /><button className="inline-value-button" disabled={disabled} onClick={() => updateOne("zIndex", resolved.zIndex === "auto" ? 0 : "auto")} type="button">{resolved.zIndex === "auto" ? "Use number" : "Use auto"}</button></label>
+            </div>
+            <div className="position-move-mode">
+              <p className="inspector-help" id={positionMoveHelpId}>
+                Activate the temporary canvas handle to drag or nudge this component.
+              </p>
+              <button
+                aria-describedby={positionMoveHelpId}
+                aria-pressed={visualMode === "position"}
+                className="inspector-overlay-toggle"
+                disabled={offsetDisabled}
+                onClick={() =>
+                  onVisualModeChange(
+                    visualMode === "position" ? "none" : "position",
+                  )
+                }
+                type="button"
+              >
+                Move on canvas
+              </button>
             </div>
             <div className="inspector-two-column position-offset-controls">
               <label className="inspector-field compact">

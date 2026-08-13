@@ -787,6 +787,11 @@ export function EditorShell({
           onCancelTextEdit={cancelTextEdit}
           onCommitVisualEdit={commitVisualEdit}
           onCommitTextEdit={commitTextEdit}
+          onExitPositionMode={() => {
+            visualEditSessionRef.current = null;
+            dispatchVisualEditing({ type: "set-mode", mode: "none" });
+            setAnnouncement("Move on canvas mode off.");
+          }}
           onPreviewVisualEdit={previewVisualEdit}
           onSelectNode={selectNode}
           onStartTextEdit={startTextEdit}
