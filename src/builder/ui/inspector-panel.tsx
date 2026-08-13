@@ -11,9 +11,11 @@ import {
   listNodeReferenceCandidates,
   resolveNodeReference,
 } from "@/builder/project/node-references";
+import type { ParentById } from "@/builder/project/tree";
 import {
   componentRegistry,
   referencesForComponentType,
+  requiredAncestorTypeForComponent,
 } from "@/builder/registry/component-registry";
 import { resolveResponsiveStyles } from "@/builder/styles/resolve";
 import { isSafeBackgroundImageSource } from "@/builder/styles/schema";
@@ -51,6 +53,7 @@ import {
 type InspectorPanelProps = {
   document: Readonly<ProjectDocument>;
   page: Readonly<PageDocument>;
+  parentById: Readonly<ParentById>;
   node: Readonly<BuilderNode> | null;
   isRoot: boolean;
   viewport: Viewport;
@@ -1710,6 +1713,7 @@ function EffectsControl({
 export function InspectorPanel({
   document,
   page,
+  parentById,
   node,
   isRoot,
   viewport,
@@ -1732,6 +1736,25 @@ export function InspectorPanel({
   }
 
   const definition = componentRegistry[node.type];
+  const requiredAncestorType = requiredAncestorTypeForComponent(node.type);
+  let requiredAncestorFound = requiredAncestorType === null;
+  let ancestorId = parentById[node.id] ?? null;
+  const visitedAncestorIds = new Set<string>();
+  while (
+    !requiredAncestorFound &&
+    ancestorId !== null &&
+    !visitedAncestorIds.has(ancestorId)
+  ) {
+    visitedAncestorIds.add(ancestorId);
+    const ancestor = page.nodes[ancestorId];
+    if (!ancestor) break;
+    requiredAncestorFound = ancestor.type === requiredAncestorType;
+    ancestorId = parentById[ancestor.id] ?? null;
+  }
+  const requiredAncestorLabel =
+    requiredAncestorType === null
+      ? null
+      : componentRegistry[requiredAncestorType].library.label;
   const resolved = resolveResponsiveStyles(node.styles, viewport);
   const resolvedDefaults = resolveResponsiveStyles(
     definition.defaults.styles,
@@ -1878,6 +1901,11 @@ export function InspectorPanel({
 
       <section className="inspector-section inspector-selection">
         <div className="inspector-section-heading"><h3>Selection</h3><span>{viewport} values</span></div>
+        {!requiredAncestorFound && requiredAncestorLabel !== null ? (
+          <p className="inspector-field-error" role="alert">
+            Place this {definition.library.label} inside a {requiredAncestorLabel}.
+          </p>
+        ) : null}
         <dl className="node-metadata">
           <div>
             <dt>Name</dt>

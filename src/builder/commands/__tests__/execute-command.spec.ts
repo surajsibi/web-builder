@@ -636,6 +636,68 @@ describe("executeEditorCommand", () => {
     ).toBe(state.id);
   });
 
+  it("should remap both Drawer connections when a complete subtree is duplicated", () => {
+    const snapshot = createSnapshot();
+    const page = snapshot.document.pages[asPageId("page-home")];
+    const state = createTestNode("boolean-state", "node-drawer-state");
+    const trigger = createTestNode("drawer-trigger", "node-drawer-trigger");
+    const close = createTestNode("drawer-close", "node-drawer-close");
+    const panel = createTestNode("drawer-panel", "node-drawer-panel", [
+      close.id,
+    ]);
+    const group = createTestNode("container", "node-drawer-group", [
+      state.id,
+      trigger.id,
+      panel.id,
+    ]);
+    trigger.props.targetDrawerNodeId = panel.id;
+    panel.props.targetStateNodeId = state.id;
+    Object.assign(page.nodes, {
+      [state.id]: state,
+      [trigger.id]: trigger,
+      [close.id]: close,
+      [panel.id]: panel,
+      [group.id]: group,
+    });
+    page.nodes[asNodeId("node-section")].childIds.push(group.id);
+    const parentIndex = buildProjectParentIndex(snapshot.document);
+    if (!parentIndex.success) throw new Error(parentIndex.issue.reason);
+    snapshot.parentById = parentIndex.parentById;
+    const generatedIds = [
+      "node-drawer-group-copy",
+      "node-drawer-state-copy",
+      "node-drawer-trigger-copy",
+      "node-drawer-panel-copy",
+      "node-drawer-close-copy",
+    ];
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.duplicate",
+        pageId: page.id,
+        nodeId: group.id,
+        destination: {
+          parentId: asNodeId("node-section"),
+          index: 2,
+        },
+      },
+      { idGenerator: () => generatedIds.shift() ?? "node-collision" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied" || !("idMap" in result.value)) return;
+    const duplicatedPage = result.candidate.document.pages[page.id];
+    expect(
+      duplicatedPage.nodes[result.value.idMap[trigger.id]].props
+        .targetDrawerNodeId,
+    ).toBe(result.value.idMap[panel.id]);
+    expect(
+      duplicatedPage.nodes[result.value.idMap[panel.id]].props
+        .targetStateNodeId,
+    ).toBe(result.value.idMap[state.id]);
+  });
+
   it("should reject duplication into a locked destination without changing the source", () => {
     const snapshot = createSnapshot();
     snapshot.document.pages[asPageId("page-home")].nodes[

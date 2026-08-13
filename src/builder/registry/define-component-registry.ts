@@ -87,6 +87,11 @@ export type ComponentInspectorConfig<Props extends JsonObject> = {
   styles: readonly StyleInspectorCapability[];
 };
 
+export type ComponentEditorMetadata<Type extends string = string> = {
+  directInteraction?: boolean;
+  requiredAncestorType?: Type;
+};
+
 export type ComponentMigrationValue = {
   props: JsonObject;
   styles: JsonObject;
@@ -146,6 +151,7 @@ type ComponentDefinitionBase<
   allowedParents?: NonEmptyReadonlyArray<Type>;
   propsSchema: RuntimeSchema<Props>;
   inspector: ComponentInspectorConfig<Props>;
+  editor?: ComponentEditorMetadata<Type>;
   references?: readonly ComponentNodeReference<Props, Type>[];
   migrations?: readonly ComponentMigration[];
 };
@@ -195,6 +201,7 @@ type RegistryEntry = {
     }[];
     styles: readonly StyleInspectorCapability[];
   };
+  editor?: ComponentEditorMetadata;
   references?: readonly ComponentNodeReferenceMetadata[];
   migrations?: readonly ComponentMigration[];
   render: unknown;
@@ -213,6 +220,11 @@ type ReferencedType<Definition> =
       references: readonly { targetType: infer Target }[];
     }
       ? Target
+      : never)
+  | (Definition extends {
+      editor: { requiredAncestorType: infer Ancestor };
+    }
+      ? Ancestor
       : never);
 
 type InvalidRegistryReference<Registry> = Exclude<
@@ -444,6 +456,21 @@ export function validateComponentRegistry(
 
     if (!isJsonObject(definition.defaults.props)) {
       throw new Error(`${type}.defaults.props must be a JSON object`);
+    }
+
+    if (
+      definition.editor?.directInteraction !== undefined &&
+      typeof definition.editor.directInteraction !== "boolean"
+    ) {
+      throw new Error(`${type}.editor.directInteraction must be boolean`);
+    }
+    if (
+      definition.editor?.requiredAncestorType !== undefined &&
+      !componentTypes.has(definition.editor.requiredAncestorType)
+    ) {
+      throw new Error(
+        `${type}.editor.requiredAncestorType references unknown component type: ${definition.editor.requiredAncestorType}`,
+      );
     }
 
     try {

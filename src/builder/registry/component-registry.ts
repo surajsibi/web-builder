@@ -1,5 +1,6 @@
 import {
   defineComponentRegistry,
+  type ComponentEditorMetadata,
   type ComponentNodeReferenceMetadata,
 } from "./define-component-registry";
 import {
@@ -23,6 +24,11 @@ import {
   textDefinition,
   textareaDefinition,
 } from "./components/component-definitions";
+import {
+  drawerCloseDefinition,
+  drawerPanelDefinition,
+  drawerTriggerDefinition,
+} from "./components/drawer-definitions";
 
 export const componentRegistry = defineComponentRegistry({
   section: sectionDefinition,
@@ -30,6 +36,9 @@ export const componentRegistry = defineComponentRegistry({
   "boolean-state": booleanStateDefinition,
   "state-action": stateActionDefinition,
   "conditional-content": conditionalContentDefinition,
+  "drawer-trigger": drawerTriggerDefinition,
+  "drawer-panel": drawerPanelDefinition,
+  "drawer-close": drawerCloseDefinition,
   heading: headingDefinition,
   text: textDefinition,
   label: labelDefinition,
@@ -47,6 +56,24 @@ export const componentRegistry = defineComponentRegistry({
 });
 
 export type ComponentType = keyof typeof componentRegistry;
+
+export function componentUsesDirectInteraction(type: ComponentType): boolean {
+  const definition = componentRegistry[type] as {
+    editor?: ComponentEditorMetadata;
+  };
+
+  return definition.editor?.directInteraction === true;
+}
+
+export function requiredAncestorTypeForComponent(
+  type: ComponentType,
+): ComponentType | null {
+  const definition = componentRegistry[type] as {
+    editor?: ComponentEditorMetadata<ComponentType>;
+  };
+
+  return definition.editor?.requiredAncestorType ?? null;
+}
 
 export function referencesForComponentType(
   type: ComponentType,

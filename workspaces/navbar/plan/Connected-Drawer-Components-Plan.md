@@ -4,13 +4,13 @@ type: D3
 scope: Recommended V1 implementation plan for Boolean-State-driven Drawer Trigger, Drawer Panel, and Drawer Close components
 authority: User-requested follow-up implementation plan; Project.md and code/tests remain authoritative for implemented behavior
 owner: Unassigned; accountable project owner required before promotion from draft
-lifecycle: draft
-freshness: Reconciled with the accepted Boolean State foundation at commit 1764796 on 2026-08-13; invalidated by a Boolean runtime, component registry, reference, rendering-boundary, editor-interaction, or Drawer implementation change
+lifecycle: active
+freshness: CDR-01 through CDR-10 completed with desktop and mobile rendered QA on feat/boolean-state-drawer on 2026-08-13; invalidated by a Boolean runtime, component registry, reference, rendering-boundary, editor-interaction, verification, or Drawer implementation change
 ---
 
 # Plan: Boolean-State-driven connected Drawer V1
 
-> **Status:** Recommended architecture is ready for implementation planning. This document does not claim that Drawer code exists and does not authorize restoring the historical monolithic Drawer implementation.
+> **Status:** CDR-01 through CDR-10 are complete on `feat/boolean-state-drawer`. Implementation, automated verification, and desktop/mobile rendered QA are green. The user-authorized local checkpoint is saved in branch history; no push or merge is authorized. This document does not authorize restoring the historical monolithic Drawer implementation.
 
 ## Goal, scope, and authority
 
@@ -214,15 +214,15 @@ Replace the current `selectedNode.type === "state-action"` Canvas assumption wit
 | ID | Deliverable/action | Depends on | Verification | Owner | Status |
 | --- | --- | --- | --- | --- | --- |
 | CDR-01 | Reconcile the historical connected-Drawer proposal with the completed Boolean runtime and select Panel node references instead of authored Drawer IDs | Boolean State foundation | This plan contains no Drawer-owned open value, `activeDrawerId`, or duplicate string-ID contract | Implementer and reviewer | Complete |
-| CDR-02 | Add validated registry metadata for direct-interaction components and replace State Action Canvas type checks | CDR-01 | Registry validation and Editor overlay/event-routing tests | Implementer | Not started |
-| CDR-03 | Define three component schemas, defaults, placement rules, icons, Inspector fields, and typed references | CDR-02 | Registry startup, strict-schema, defaults, placement, library-family, and reference tests | Implementer | Not started |
-| CDR-04 | Add the page-scoped Drawer adapter, static Panel-to-State resolver, portal-host contract, and bounded modal-layer bookkeeping | CDR-03 | page isolation, unresolved/reconnected references, no mirrored Boolean state, layer ordering, and cleanup tests | Implementer | Not started |
-| CDR-05 | Implement Drawer Trigger as a native button with Panel resolution, accessible state, activator capture, and Boolean Turn On dispatch | CDR-04 | pointer, Enter, Space, disabled, unresolved, multiple-trigger, generic-action-open, and `aria-*` tests | Implementer | Not started |
-| CDR-06 | Implement Drawer Panel presence, four-side portal layout, z-index, dialog semantics, backdrop, Escape, isolation, focus lifecycle, and body scroll lock | CDR-04 | default-open, immediate close/reopen, fresh descendants, top-layer, focus, cleanup, side, size, and z-index tests | Implementer | Not started |
-| CDR-07 | Implement nearest-panel Drawer Close context with native activation and safe orphan behavior | CDR-06 | close, Enter, Space, disabled, nested-descendant, orphan, and restoration tests | Implementer | Not started |
-| CDR-08 | Complete Editor Canvas host, portal-child selection, empty state, Layers access, Inspector diagnostics, and generic duplication coverage | CDR-05, CDR-06, CDR-07 | Editor integration and command tests for selection, direct interaction, deletion, reconnection, subtree clone, external references, and undo/redo | Implementer | Not started |
-| CDR-09 | Run focused and full automated verification | CDR-08 | component/runtime/Editor suites, `pnpm typecheck`, `pnpm lint`, serialized full tests, and `pnpm build` | Implementer | Not started |
-| CDR-10 | Run desktop/mobile Editor and Preview browser QA, then update durable docs and a single implementation report with verified behavior only | CDR-09 | keyboard-only flow, accessibility tree, focus restore, scroll restore, portal geometry, stacking, console, documentation links, and clean diff | Implementer and reviewer | Not started |
+| CDR-02 | Add validated registry metadata for direct-interaction components and replace State Action Canvas type checks | CDR-01 | Registry validation and Editor overlay/event-routing tests | Implementer | Complete |
+| CDR-03 | Define three component schemas, defaults, placement rules, icons, Inspector fields, and typed references | CDR-02 | Registry startup, strict-schema, defaults, placement, library-family, and reference tests | Implementer | Complete |
+| CDR-04 | Add the page-scoped Drawer adapter, static Panel-to-State resolver, portal-host contract, and bounded modal-layer bookkeeping | CDR-03 | page isolation, unresolved/reconnected references, no mirrored Boolean state, layer ordering, and cleanup tests | Implementer | Complete |
+| CDR-05 | Implement Drawer Trigger as a native button with Panel resolution, accessible state, activator capture, and Boolean Turn On dispatch | CDR-04 | pointer, Enter, Space, disabled, unresolved, multiple-trigger, generic-action-open, and `aria-*` tests | Implementer | Complete |
+| CDR-06 | Implement Drawer Panel presence, four-side portal layout, z-index, dialog semantics, backdrop, Escape, isolation, focus lifecycle, and body scroll lock | CDR-04 | default-open, immediate close/reopen, fresh descendants, top-layer, focus, cleanup, side, size, and z-index tests | Implementer | Complete |
+| CDR-07 | Implement nearest-panel Drawer Close context with native activation and safe orphan behavior | CDR-06 | close, Enter, Space, disabled, nested-descendant, orphan, and restoration tests | Implementer | Complete |
+| CDR-08 | Complete Editor Canvas host, portal-child selection, empty state, Layers access, Inspector diagnostics, and generic duplication coverage | CDR-05, CDR-06, CDR-07 | Editor integration and command tests for selection, direct interaction, deletion, reconnection, subtree clone, external references, and undo/redo | Implementer | Complete |
+| CDR-09 | Run focused and full automated verification | CDR-08 | component/runtime/Editor suites, `pnpm typecheck`, `pnpm lint`, serialized full tests, and `pnpm build` | Implementer | Complete |
+| CDR-10 | Run desktop/mobile Editor and Preview browser QA, then update durable docs and a single implementation report with verified behavior only | CDR-09 | keyboard-only flow, accessibility tree, focus restore, scroll restore, portal geometry, stacking, console, documentation links, and clean diff | Implementer and reviewer | Complete |
 
 ## Required automated scenarios
 

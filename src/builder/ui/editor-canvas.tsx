@@ -14,6 +14,7 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/react";
 
 import { BooleanStateRuntimeProvider } from "@/builder/interaction/boolean-state-runtime";
+import { DrawerRuntimeProvider } from "@/builder/interaction/drawer-runtime";
 import type { EditorDragSource } from "@/builder/interaction/types";
 import type { NodeId } from "@/builder/model/ids";
 import type {
@@ -21,7 +22,10 @@ import type {
   ProjectDocument,
 } from "@/builder/model/project-document";
 import type { ParentById } from "@/builder/project/tree";
-import { componentRegistry } from "@/builder/registry/component-registry";
+import {
+  componentRegistry,
+  componentUsesDirectInteraction,
+} from "@/builder/registry/component-registry";
 import type { RendererBaseProps } from "@/builder/registry/define-component-registry";
 import { NodeRenderingController } from "@/builder/rendering/node-rendering-controller";
 import { VIEWPORT_MIN_HEIGHT } from "@/builder/styles/compile";
@@ -899,7 +903,9 @@ function CanvasInteractionOverlay({
   const selectedDefinition = selectedNode
     ? componentRegistry[selectedNode.type]
     : null;
-  const selectedNodeUsesDirectInteraction = selectedNode?.type === "state-action";
+  const selectedNodeUsesDirectInteraction = selectedNode
+    ? componentUsesDirectInteraction(selectedNode.type)
+    : false;
   const selectedStyles = selectedNode
     ? resolveResponsiveStyles(selectedNode.styles, viewport)
     : null;
@@ -965,7 +971,9 @@ function CanvasInteractionOverlay({
           !selectedNodeUsesDirectInteraction &&
           resizeContext &&
           !selectedNode.meta.locked &&
-          selectedDefinition?.inspector.styles.includes("sizing") ? (
+          (selectedDefinition?.inspector.styles as readonly string[] | undefined)?.includes(
+            "sizing",
+          ) ? (
             <CanvasResizeHandles
               nodeId={selectedNode.id}
               nodeName={selectedNode.meta.name}
@@ -1113,6 +1121,8 @@ export function EditorCanvas({
       viewportWidth: null,
       viewportHeight: null,
     });
+  const [drawerPortalHost, setDrawerPortalHost] =
+    useState<HTMLDivElement | null>(null);
 
   const editableText = useCallback(
     (nodeId: NodeId): string | null => {
@@ -1485,25 +1495,37 @@ export function EditorCanvas({
           ref={artboardRef}
         >
           <BooleanStateRuntimeProvider page={page}>
-            {page.rootIds.length === 0 ? (
-              <div className="empty-page-placeholder">
-                <span aria-hidden="true">+</span>
-                <strong>Your page is empty</strong>
-                <p>Choose or drag a component from the library to begin.</p>
-              </div>
-            ) : (
-              page.rootIds.map((nodeId) => (
-                <CanvasNode
-                  getRootAttributes={rootAttributesFor}
-                  key={nodeId}
-                  nodeId={nodeId}
-                  page={page}
-                  previewStyles={previewStyles}
-                  registerRoot={registerRoot}
-                  viewport={viewport}
-                />
-              ))
-            )}
+            <DrawerRuntimeProvider
+              mode="editor"
+              page={page}
+              portalHost={drawerPortalHost}
+            >
+              {page.rootIds.length === 0 ? (
+                <div className="empty-page-placeholder">
+                  <span aria-hidden="true">+</span>
+                  <strong>Your page is empty</strong>
+                  <p>Choose or drag a component from the library to begin.</p>
+                </div>
+              ) : (
+                page.rootIds.map((nodeId) => (
+                  <CanvasNode
+                    getRootAttributes={rootAttributesFor}
+                    key={nodeId}
+                    nodeId={nodeId}
+                    page={page}
+                    previewStyles={previewStyles}
+                    registerRoot={registerRoot}
+                    viewport={viewport}
+                  />
+                ))
+              )}
+            </DrawerRuntimeProvider>
+
+            <div
+              aria-label="Drawer portal host"
+              className="canvas-drawer-portal-host"
+              ref={setDrawerPortalHost}
+            />
 
             <CanvasInteractionOverlay
               artboardContentSize={artboardContentSize}

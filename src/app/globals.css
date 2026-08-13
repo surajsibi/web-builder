@@ -25,6 +25,36 @@
   opacity: 0.58;
 }
 
+.drawer-trigger-control[aria-disabled="true"],
+.drawer-close-control[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.drawer-layer {
+  display: flex;
+  inset: 0;
+  pointer-events: auto;
+  position: fixed;
+}
+
+.drawer-layer[data-drawer-mode="editor"] {
+  position: absolute;
+}
+
+.drawer-backdrop {
+  background: rgb(16 24 40 / 52%);
+  inset: 0;
+  position: absolute;
+}
+
+.drawer-panel-surface {
+  flex: 0 0 auto;
+  max-height: 100%;
+  max-width: 100%;
+  z-index: 1;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1303,6 +1333,17 @@ textarea:focus-visible {
   --editor-viewport-height: 52.75rem;
 
   width: min(100%, 24.375rem);
+}
+
+.canvas-drawer-portal-host {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 9;
+}
+
+.canvas-drawer-portal-host > .drawer-layer {
+  pointer-events: auto;
 }
 
 .empty-page-placeholder {

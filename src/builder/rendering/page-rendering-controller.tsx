@@ -1,4 +1,5 @@
 import { BooleanStateRuntimeProvider } from "@/builder/interaction/boolean-state-runtime";
+import { DrawerRuntimeProvider } from "@/builder/interaction/drawer-runtime";
 import type { PageDocument } from "@/builder/model/project-document";
 import { NodeRenderingController } from "@/builder/rendering/node-rendering-controller";
 import type { ComponentRendererRuntime } from "@/builder/registry/define-component-registry";
@@ -15,17 +16,21 @@ export function PageRenderingController({
   viewport,
   runtime,
 }: PageRenderingControllerProps) {
+  const resolvedRuntime = runtime ?? { mode: "preview" as const };
+
   return (
     <BooleanStateRuntimeProvider page={page}>
-      {page.rootIds.map((nodeId) => (
-        <NodeRenderingController
-          key={nodeId}
-          nodeId={nodeId}
-          page={page}
-          runtime={runtime}
-          viewport={viewport}
-        />
-      ))}
+      <DrawerRuntimeProvider mode={resolvedRuntime.mode} page={page}>
+        {page.rootIds.map((nodeId) => (
+          <NodeRenderingController
+            key={nodeId}
+            nodeId={nodeId}
+            page={page}
+            runtime={resolvedRuntime}
+            viewport={viewport}
+          />
+        ))}
+      </DrawerRuntimeProvider>
     </BooleanStateRuntimeProvider>
   );
 }

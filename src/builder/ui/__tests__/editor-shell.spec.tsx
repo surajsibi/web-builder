@@ -4,8 +4,10 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -440,6 +442,68 @@ describe("EditorShell", () => {
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(referencePicker).toHaveDisplayValue("Replacement state");
+  });
+
+  it("should author and operate a connected Drawer inside the Canvas portal", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    await user.click(screen.getByRole("button", { name: /Interactions/ }));
+    await user.click(screen.getByRole("button", { name: "Add Boolean State" }));
+    await user.click(screen.getByRole("button", { name: "Add Drawer Trigger" }));
+    await user.click(screen.getByRole("button", { name: "Add Drawer Panel" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Boolean State" }),
+      "node-editor-1",
+    );
+    await user.click(screen.getByRole("button", { name: "Add Drawer Close" }));
+    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    await user.click(
+      screen.getByRole("button", { name: "Select Drawer Trigger 1" }),
+    );
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Drawer Panel" }),
+      "node-editor-3",
+    );
+    const historyBeforeRuntimeAction = store.getState().history.past.length;
+    const revisionBeforeRuntimeAction = store.getState().document?.revision;
+
+    await user.click(screen.getByRole("button", { name: "Open drawer" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Drawer" });
+    expect(screen.getByLabelText("Drawer portal host")).toContainElement(dialog);
+    expect(document.body).not.toHaveStyle({ overflow: "hidden" });
+    expect(
+      within(screen.getByRole("region", { name: "Page canvas" })).queryByRole(
+        "button",
+        { name: "Drag Drawer Trigger 1" },
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Close drawer" }),
+    );
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(store.getState().selectedNodeId).toBe("node-editor-4");
+    expect(store.getState().history.past).toHaveLength(historyBeforeRuntimeAction);
+    expect(store.getState().document?.revision).toBe(revisionBeforeRuntimeAction);
+  });
+
+  it("should explain when Drawer Close is outside a Drawer Panel without editing the page", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    await user.click(screen.getByRole("button", { name: /Interactions/ }));
+    await user.click(screen.getByRole("button", { name: "Add Drawer Close" }));
+    const historyBeforeDiagnostic = store.getState().history.past.length;
+    const revisionBeforeDiagnostic = store.getState().document?.revision;
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Place this Drawer Close inside a Drawer Panel.",
+    );
+    expect(store.getState().history.past).toHaveLength(historyBeforeDiagnostic);
+    expect(store.getState().document?.revision).toBe(revisionBeforeDiagnostic);
   });
 
   it("should insert and configure a linked SVG Image through the Inspector", () => {

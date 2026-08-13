@@ -11,7 +11,10 @@ import type {
   BuilderNode,
   PageDocument,
 } from "@/builder/model/project-document";
-import { componentRegistry } from "@/builder/registry/component-registry";
+import {
+  componentRegistry,
+  componentUsesDirectInteraction,
+} from "@/builder/registry/component-registry";
 import type {
   ComponentRendererRuntime,
   RendererBaseProps,
@@ -64,11 +67,17 @@ export function NodeRenderingController({
     ...compileStyleValues(resolveResponsiveStyles(node.styles, viewport)),
     ...getPreviewStyle?.(node),
   };
+  const rootAttributes = {
+    ...getRootAttributes?.(node),
+    ...(runtime?.mode === "editor" && componentUsesDirectInteraction(node.type)
+      ? { "data-editor-direct-interaction": "true" as const }
+      : {}),
+  };
   const rendererProps = {
     props: node.props,
     style,
     className: getClassName?.(node),
-    rootAttributes: getRootAttributes?.(node),
+    rootAttributes,
     rootRef: registerRoot
       ? (element: HTMLElement | null) => registerRoot(node.id, element)
       : undefined,

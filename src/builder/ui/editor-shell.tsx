@@ -691,6 +691,7 @@ export function EditorShell({
 
         <InspectorPanel
           document={document}
+          parentById={state.parentById}
           isRoot={
             selectedNode
               ? (state.parentById[selectedNode.id] ?? null) === null

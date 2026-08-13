@@ -44,6 +44,7 @@ import {
   ButtonContentIcon,
 } from "./button-icons";
 import { PasswordVisibilityIcon } from "./input-icons";
+import { nodeReferenceIdSchema } from "./reference-schemas";
 import { px, spacing } from "./style-defaults";
 
 export type V1ComponentType =
@@ -52,6 +53,9 @@ export type V1ComponentType =
   | "boolean-state"
   | "state-action"
   | "conditional-content"
+  | "drawer-trigger"
+  | "drawer-panel"
+  | "drawer-close"
   | "heading"
   | "text"
   | "label"
@@ -341,8 +345,6 @@ export const containerDefinition = {
   render: ContainerRenderer,
 } satisfies ComponentDefinition<ContainerProps, V1ComponentType>;
 
-const stateNodeIdSchema = z.string().trim().max(200);
-
 export const booleanStatePropsSchema = z
   .object({
     defaultValue: z.boolean(),
@@ -395,7 +397,7 @@ export const booleanStateDefinition = {
 export const stateActionPropsSchema = z
   .object({
     text: z.string().trim().min(1).max(100),
-    targetStateNodeId: stateNodeIdSchema,
+    targetStateNodeId: nodeReferenceIdSchema,
     action: z.enum(["turn-on", "turn-off", "toggle"]),
     disabled: z.boolean(),
   })
@@ -409,7 +411,6 @@ export function StateActionRenderer({
   className,
   rootRef,
   rootAttributes,
-  runtime,
 }: LeafRendererProps<StateActionProps>) {
   const stateRuntime = useBooleanStateRuntime();
   const stateNodeId = asNodeId(props.targetStateNodeId);
@@ -422,9 +423,6 @@ export function StateActionRenderer({
       {...rootAttributes}
       aria-disabled={props.disabled || unavailable}
       className={["state-action-control", className].filter(Boolean).join(" ")}
-      data-editor-direct-interaction={
-        runtime?.mode === "editor" ? "true" : undefined
-      }
       data-state-target-status={targetExists ? "resolved" : "unresolved"}
       disabled={props.disabled}
       onClick={() => {
@@ -486,6 +484,7 @@ export const stateActionDefinition = {
     styles: stateActionStyles,
   },
   children: { allowed: false },
+  editor: { directInteraction: true },
   propsSchema: stateActionPropsSchema,
   references: [
     {
@@ -529,7 +528,7 @@ export const stateActionDefinition = {
 
 export const conditionalContentPropsSchema = z
   .object({
-    targetStateNodeId: stateNodeIdSchema,
+    targetStateNodeId: nodeReferenceIdSchema,
     showWhen: z.boolean(),
   })
   .strict();

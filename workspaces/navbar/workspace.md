@@ -1,11 +1,11 @@
 ---
 doc_id: WEB-BUILDER-NAVBAR-WORKSPACE
 type: D4
-scope: Web builder reusable Boolean State interaction foundation plus reusable block infrastructure, Image primitive, editable Navbar logo surfaces, dedicated Navbar library section, responsive Navbar blocks, and All category mega-menu execution state
+scope: Web builder reusable Boolean State interaction foundation, connected Drawer V1, reusable block infrastructure, Image primitive, editable Navbar logo surfaces, dedicated Navbar library section, responsive Navbar blocks, and All category mega-menu execution state
 authority: Selected execution-state authority for the navbar feature; code and tests remain authoritative for implemented behavior
 owner: Unassigned; accountable project owner required before promotion from draft
 lifecycle: draft
-freshness: Updated with the reconciled Boolean-State-driven Drawer V1 implementation plan on 2026-08-13; Boolean State remains verified by 439 serialized automated tests, TypeScript, full ESLint, a production build, and applicable Editor/Preview browser QA and is invalidated by a related component, interaction, template, layout, verification, or review-status change
+freshness: Updated after connected Drawer CDR-01 through CDR-10, desktop/mobile rendered QA, and final automated verification completed on 2026-08-13; invalidated by a related component, interaction, template, layout, verification, or review-status change
 ---
 
 # Navbar block workspace
@@ -14,17 +14,17 @@ freshness: Updated with the reconciled Boolean-State-driven Drawer V1 implementa
 
 **Feature directory identifier:** `navbar`
 
-**Overall status:** Reusable Boolean State V1 is complete and accepted as the interaction foundation. The prior Image, Navbar, Commerce Navbar, template-thumbnail, content-rail, and responsive mega-menu work also remains implemented and verified.
+**Overall status:** Reusable Boolean State V1 is complete and accepted. Connected Drawer V1 implementation, automated verification, desktop/mobile rendered QA, and handoff documentation are complete on the feature branch and saved in a user-authorized local checkpoint. The branch remains unpushed and unmerged. The prior Image, Navbar, Commerce Navbar, template-thumbnail, content-rail, and responsive mega-menu work also remains implemented and verified.
 
 **Participating repositories:** `web-builder`
 
-**Active branches:** `web-builder`: `feat/boolean-state-foundation`
+**Active branches:** `web-builder`: `feat/boolean-state-drawer`
 
-**Current milestone:** Boolean State, State Action, and Conditional Content V1 are complete. The connected Drawer V1 architecture has been reconciled with that foundation and is ready for a separately authorized implementation pass.
+**Current milestone:** CDR-10, the final documentation-link/diff audit, and the local checkpoint are complete. Wait for separate push or merge direction.
 
 **Feature summary:** Extend the Component Library with reusable Blocks that materialize validated component subtrees as one undoable document transaction and a reusable Image primitive in the Media family. Image accepts safe root-relative or HTTPS sources, including SVG files, explicit alternative text, an optional safe destination, protected new-tab behavior, and authored fit. The original Navbar's Saturn Home mark is now a linked Image node, while the Commerce Navbar's bag mark is an editable decorative Image beside the existing Brandname link; search, menu, chevron, and action icons remain decorative surfaces. Both Navbar templates retain their 1232px rails, full-width commerce row surfaces, template-backed thumbnails, and responsive All category mega menu. File uploads, an asset library, real commerce/search wiring, location selection, the More dropdown, persistence, publishing, and additional blocks remain outside scope.
 
-**Boolean State V1 summary:** The Interactions family provides nonvisual page-scoped Boolean State, native State Action with Turn On/Turn Off/Toggle, and normally styled Conditional Content. One shared evaluator resolves Boolean conditions; runtime values remain outside the document and history; registry metadata drives page-aware candidate selection, diagnostics, and duplication policy; inactive Preview content unmounts and reopens with fresh descendant runtime state. Variants, conditional styling, existing-component bindings, connected templates, authored transitions, and Drawer conversion remain separate follow-up work.
+**Boolean State and Drawer summary:** The Interactions family provides nonvisual page-scoped Boolean State, native State Action with Turn On/Turn Off/Toggle, normally styled Conditional Content, and connected Drawer Trigger, Panel, and Close primitives. Boolean State remains the sole open/closed authority. Drawer adds typed Trigger-to-Panel and Panel-to-State references, immediate portal presence, Canvas-local authoring, Preview modal focus/isolation/scroll behavior, four placement sides, and authored z-index without a second state store. Variants, conditional styling, existing-component bindings, connected templates, authored transitions, automatic link close, and responsive Drawer sizing remain follow-up work.
 
 **Selected execution plan:** [Navbar block implementation plan](plan/Navbar-Block-Implementation-Plan.md)
 
@@ -38,9 +38,16 @@ freshness: Updated with the reconciled Boolean-State-driven Drawer V1 implementa
 
 **Boolean State implementation report:** [Boolean State interaction foundation implementation report](reports/Boolean-State-Foundation-Implementation-Report.md)
 
+**Connected Drawer implementation report:** [Connected Drawer V1 implementation report](reports/Connected-Drawer-V1-Implementation-Report.md)
+
+**Connected Drawer usage tutorial:** [Build and use a connected Drawer](notes/Connected-Drawer-Usage-Tutorial.md)
+
 ## Verification summary
 
 - Boolean State V1 passes all 32 test files and 439 tests with serialized file execution, plus TypeScript, full ESLint, and the Next.js production build.
+- Connected Drawer focused verification passed 217 tests across seven registry, rendering, runtime, command, library, and Editor files; the expanded runtime file passes 21 tests; the final full branch passes 33 files and 469 tests, TypeScript, full ESLint, and a Next.js production build.
+- Desktop branch-server browser QA verifies the 32-entry library and six-entry Interactions family, artboard-local Canvas portal, direct Trigger/Close activation, fixed Preview body portal, dialog semantics, initial focus, Tab containment, Escape and backdrop dismissal, body lock, background isolation, configured z-index, and exact cleanup with activator focus restoration.
+- Mobile branch-server QA at a 390px CSS viewport verifies a 390px artboard-local Editor host, a clamped 320px panel, authored z-index, usable builder chrome, body-level fixed Preview geometry without horizontal overflow, modal isolation and body lock, keyboard containment, Escape cleanup, and activator focus restoration. The pass exposed a dialog-fallback focus-loop edge; the runtime was corrected and a behavior-first regression now covers Tab and Shift+Tab from that fallback.
 - Focused tests cover authored default changes, runtime state deletion, reference reconnection, Enter and Space activation, unrelated page edits preserving live state, and supported reference metadata policies.
 - Branch-server browser QA verifies the 29-entry library, Interactions family, readable state picker, inactive Editor authoring, runtime-only toggling, initial Preview absence, and Preview mounting after activation.
 - The prior Image and Navbar follow-up passed all 26 test files and 349 tests with serialized file execution; its four focused registry, library, and editor files passed 142 tests.

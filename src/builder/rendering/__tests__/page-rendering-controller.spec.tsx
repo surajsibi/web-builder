@@ -62,6 +62,42 @@ describe("PageRenderingController", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("should expose direct-interaction metadata only in Editor output", () => {
+    const state = createTestNode("boolean-state", "state-editor-action");
+    const action = createTestNode("state-action", "action-editor-action");
+    action.props.targetStateNodeId = state.id;
+    const page = createTestPage(
+      "page-editor-action",
+      "Editor action",
+      "/editor-action",
+      [state, action],
+    );
+    const view = render(
+      <PageRenderingController
+        page={page}
+        runtime={{ mode: "editor" }}
+        viewport="desktop"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Toggle state" })).toHaveAttribute(
+      "data-editor-direct-interaction",
+      "true",
+    );
+
+    view.rerender(
+      <PageRenderingController
+        page={page}
+        runtime={{ mode: "preview" }}
+        viewport="desktop"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Toggle state" })).not.toHaveAttribute(
+      "data-editor-direct-interaction",
+    );
+  });
+
   it("should let generic actions update every conditional consumer of one Boolean State", () => {
     const state = createTestNode("boolean-state", "state-menu-open");
     const turnOn = createTestNode("state-action", "action-turn-on");

@@ -9,13 +9,16 @@ import {
 afterEach(cleanup);
 
 describe("componentRegistry", () => {
-  it("should expose the nineteen primitives with valid defaults and versions", () => {
+  it("should expose the twenty-two primitives with valid defaults and versions", () => {
     expect(Object.keys(componentRegistry)).toEqual([
       "section",
       "container",
       "boolean-state",
       "state-action",
       "conditional-content",
+      "drawer-trigger",
+      "drawer-panel",
+      "drawer-close",
       "heading",
       "text",
       "label",
@@ -51,6 +54,9 @@ describe("componentRegistry", () => {
       "boolean-state": 1,
       "state-action": 1,
       "conditional-content": 1,
+      "drawer-trigger": 1,
+      "drawer-panel": 1,
+      "drawer-close": 1,
       heading: 1,
       text: 1,
       label: 1,
@@ -88,6 +94,65 @@ describe("componentRegistry", () => {
         (field) => field.path === "targetStateNodeId",
       ),
     ).toMatchObject({ control: "node-reference" });
+  });
+
+  it("should declare State Action Canvas activation through editor metadata", () => {
+    expect(componentRegistry["state-action"].editor).toEqual({
+      directInteraction: true,
+    });
+  });
+
+  it("should declare connected Drawer references and direct controls", () => {
+    expect(componentRegistry["drawer-trigger"].references).toEqual([
+      {
+        path: "targetDrawerNodeId",
+        targetType: "drawer-panel",
+        scope: "page",
+        onDuplicate: "remap-if-target-cloned",
+      },
+    ]);
+    expect(componentRegistry["drawer-panel"].references).toEqual([
+      {
+        path: "targetStateNodeId",
+        targetType: "boolean-state",
+        scope: "page",
+        onDuplicate: "remap-if-target-cloned",
+      },
+    ]);
+    expect(componentRegistry["drawer-trigger"].editor).toEqual({
+      directInteraction: true,
+    });
+    expect(componentRegistry["drawer-close"].editor).toEqual({
+      directInteraction: true,
+      requiredAncestorType: "drawer-panel",
+    });
+  });
+
+  it("should reject invalid Drawer placement and modal props", () => {
+    expect(() =>
+      componentRegistry["drawer-panel"].propsSchema.parse({
+        ...componentRegistry["drawer-panel"].defaults.props,
+        side: "center",
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry["drawer-panel"].propsSchema.parse({
+        ...componentRegistry["drawer-panel"].defaults.props,
+        sizePx: 0,
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry["drawer-panel"].propsSchema.parse({
+        ...componentRegistry["drawer-panel"].defaults.props,
+        zIndex: 1.5,
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry["drawer-panel"].propsSchema.parse({
+        ...componentRegistry["drawer-panel"].defaults.props,
+        dialogLabel: "   ",
+      }),
+    ).toThrow();
   });
 
   it("should reject unsupported Boolean State and action values", () => {

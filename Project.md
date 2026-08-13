@@ -154,6 +154,11 @@ type ComponentInspectorConfig<Props extends JsonObject> = {
   styles: readonly StyleInspectorCapability[];
 };
 
+type ComponentEditorMetadata<Type extends string = string> = {
+  directInteraction?: boolean;
+  requiredAncestorType?: Type;
+};
+
 type ComponentMigrationValue = {
   props: JsonObject;
   styles: JsonObject;
@@ -213,6 +218,7 @@ type ComponentDefinitionBase<
 
   propsSchema: RuntimeSchema<Props>;
   inspector: ComponentInspectorConfig<Props>;
+  editor?: ComponentEditorMetadata<Type>;
   references?: readonly ComponentNodeReference<Props, Type>[];
 
   migrations?: readonly ComponentMigration[];
@@ -234,7 +240,7 @@ type ComponentDefinition<
   );
 ```
 
-All top-level fields are required except `allowedParents`, `references`, and `migrations`. `library.searchTerms` is optional discovery metadata: the Component Library includes it in normalized search matching without changing the visible label, canonical component type, or persisted node data. `accepts` is required when `children.allowed` is `true` and forbidden when it is `false`. Inspector props may be empty, and the style-capability list may be empty, but both fields remain present so every definition has the same predictable shape. A `node-reference` Inspector field requires matching typed reference metadata; V1 references are page-scoped and target string-valued node-ID props. Registry startup validates the declared scope and duplication policy, while the shared reference service uses that metadata for candidate discovery, resolution, and clone remapping.
+All top-level fields are required except `allowedParents`, `editor`, `references`, and `migrations`. `library.searchTerms` is optional discovery metadata: the Component Library includes it in normalized search matching without changing the visible label, canonical component type, or persisted node data. `accepts` is required when `children.allowed` is `true` and forbidden when it is `false`. Inspector props may be empty, and the style-capability list may be empty, but both fields remain present so every definition has the same predictable shape. A `node-reference` Inspector field requires matching typed reference metadata; V1 references are page-scoped and target string-valued node-ID props. Registry startup validates the declared scope and duplication policy, while the shared reference service uses that metadata for candidate discovery, resolution, and clone remapping. Editor metadata is application code rather than persisted node data: `directInteraction` lets a renderer receive Canvas activation without a component-name check, while `requiredAncestorType` drives a generic non-mutating structural diagnostic.
 
 The definition union connects placement and rendering at compile time: leaf components cannot accept rendered children, while container components receive a child slot. Both renderer variants accept only validated props and compiled presentation inputs.
 
@@ -249,6 +255,9 @@ export const componentRegistry = defineComponentRegistry({
   "boolean-state": booleanStateDefinition,
   "state-action": stateActionDefinition,
   "conditional-content": conditionalContentDefinition,
+  "drawer-trigger": drawerTriggerDefinition,
+  "drawer-panel": drawerPanelDefinition,
+  "drawer-close": drawerCloseDefinition,
   heading: headingDefinition,
   text: textDefinition,
   label: labelDefinition,
@@ -268,7 +277,7 @@ export const componentRegistry = defineComponentRegistry({
 export type ComponentType = keyof typeof componentRegistry;
 ```
 
-`defineComponentRegistry` binds placement and node-reference targets to the registry-key union and validates the complete catalog at application startup. It rejects unknown child, parent, or reference target types; reference paths with missing or non-string defaults; duplicate reference paths; empty placement lists; invalid or duplicate style capabilities; invalid defaults; non-positive versions; and broken or overlapping migration steps.
+`defineComponentRegistry` binds placement, node-reference targets, and required editor ancestor types to the registry-key union and validates the complete catalog at application startup. It rejects unknown child, parent, reference, or required-ancestor types; invalid direct-interaction metadata; reference paths with missing or non-string defaults; duplicate reference paths; empty placement lists; invalid or duplicate style capabilities; invalid defaults; non-positive versions; and broken or overlapping migration steps.
 
 ### Props Schemas and Defaults
 
@@ -309,6 +318,10 @@ Boolean State is a nonvisual, page-scoped interaction primitive. Its node ID is 
 State Action is a native non-submit `<button>` that stores visible text, one page-local Boolean State node reference, a `turn-on`, `turn-off`, or `toggle` operation, and authored disabled state. The component translates its authored operation into the shared Boolean action contract. An unresolved target remains focusable, reports `aria-disabled`, and performs no state change; an authored disabled action uses native `disabled` behavior. Existing components do not receive generic action bindings in V1.
 
 Conditional Content is a real container with ordinary responsive layout, position, and z-index styles plus one page-local Boolean State reference and a `showWhen` Boolean. In Preview, an unmatched or unresolved condition is immediately absent and its descendants are not mounted. Reopening mounts fresh descendant runtime instances from authored defaults while leaving the saved builder nodes and their IDs unchanged. In Editor, inactive content remains visibly muted and authorable, and all authored descendants remain available through Layers. A dedicated presence boundary keeps future bounded enter/exit behavior possible without introducing authored animation controls in V1.
+
+Drawer V1 is composed from three specialized components while Boolean State remains the only open or closed authority. Drawer Trigger is a native non-submit button that references one page-local Drawer Panel, exposes `aria-controls` and `aria-expanded`, records the activating element, and dispatches Boolean Turn On through the Panel's state reference. Drawer Panel is a container that references one page-local Boolean State and stores a left, right, top, or bottom side, a bounded pixel size, a required accessible dialog label, and a nonnegative layer z-index. Drawer Close is a native non-submit button that resolves the nearest rendered Drawer Panel through runtime context and dispatches Boolean Turn Off. Trigger-to-Panel and Panel-to-State references use the shared `remap-if-target-cloned` policy; unresolved connections and orphaned Close controls remain visible, report diagnostics or availability state, and perform no mutation.
+
+Drawer Panel uses immediate presence: false or unresolved state produces no panel or backdrop DOM, closing unmounts the authored subtree, and reopening creates a fresh descendant runtime instance. In Preview it portals a fixed layer to `document.body`, exposes a modal dialog, focuses the close control or first focusable fallback, traps Tab within the top layer, closes the top layer on Escape or backdrop activation, locks body scrolling, isolates background body children, and restores prior DOM styles, attributes, and valid activator focus on cleanup. In Editor it portals an absolute layer into the Canvas artboard host so authored clipping is escaped without locking or isolating builder chrome. The runtime coordinator tracks mounted DOM layers and activators only; it owns no Drawer Boolean value, `activeDrawerId`, persisted state, or parallel state store.
 
 The Inspector's `string-multi-select` control references another string-array prop through validated `optionsPath` metadata. Checkbox Group uses it to present current options as default-selection checkboxes. When the authored option list changes, the Inspector prunes default selections that no longer reference an option before validating and committing the complete props object.
 
@@ -1396,7 +1409,7 @@ The Editor Interaction Layer:
 - Registers and measures renderer root elements without passing node IDs into renderers.
 - Maintains an external element-to-node mapping for hit testing and selection.
 - Renders selection outlines, labels, drag handles, resize handles, drop zones, and empty-container prompts in a layout-neutral overlay layer.
-- Uses capture-phase interaction guards to prevent navigation, ordinary button activation, or form submission while editing, while explicitly allowing State Action to simulate its runtime-only Boolean operation.
+- Uses capture-phase interaction guards to prevent navigation, ordinary button activation, or form submission while editing, while allowing components that opt into validated `directInteraction` registry metadata, currently State Action, Drawer Trigger, and Drawer Close, to perform their runtime-only operation.
 - Supplies editor runtime mode so keyboard-triggered form submission is also prevented without relying only on pointer capture.
 - Keeps editor state and overlays out of component props, saved JSON, preview markup, and published markup.
 
@@ -1408,9 +1421,11 @@ Tailwind CSS styles the editor shell and known presets. Arbitrary user values ar
 
 The editor toolbar links to the dedicated `/preview` route with `target="_blank"` and `rel="noopener noreferrer"`, leaving the editor open in its original browser tab. Immediately before the browser opens Preview, the editor places a tokenized, one-use snapshot containing the current validated document and active page ID in same-origin browser storage. The preview tab consumes and removes that snapshot, then hydrates it into an isolated vanilla Zustand store through the normal project validation boundary.
 
-Preview maps the active page's ordered roots through the page and node rendering controllers inside a page-scoped Boolean runtime provider. The Editor canvas owns an equivalent provider around its roots so the same State Action and Conditional Content renderers work on both surfaces without placing runtime values in Zustand or the document. Preview does not render the editor toolbar, sidebars, Inspector, breadcrumbs, canvas stage, selection layer, drag-and-drop targets, resize controls, or editor-only empty prompts. The route derives its active `Viewport` from the real browser width using the shared V1 breakpoint constants, then uses the existing responsive resolver and style compiler.
+Preview maps the active page's ordered roots through the page and node rendering controllers inside a page-scoped Boolean runtime provider and a Boolean-State-delegating Drawer runtime provider. The Editor Canvas owns equivalent providers around its roots, plus an artboard-local Drawer portal host, so State Action, Conditional Content, and connected Drawer components work on both surfaces without placing runtime values in Zustand or the document. Preview does not render the editor toolbar, sidebars, Inspector, breadcrumbs, canvas stage, selection layer, drag-and-drop targets, resize controls, or editor-only empty prompts. The route derives its active `Viewport` from the real browser width using the shared V1 breakpoint constants, then uses the existing responsive resolver and style compiler.
 
 Boolean runtime state starts from each Boolean State node's authored `defaultValue`, is shared by every consumer on that page surface, and is destroyed with the render session. Missing, wrong-type, deleted, or cross-page references never mutate state. Inspector node-reference controls show readable local targets and preserve unresolved IDs with diagnostics. The shared reference service reads registry metadata to select page-local candidates, resolve target type and scope, and apply the declared duplication policy. Subtree duplication remaps an internal reference only when its target is cloned in the same transaction; duplicating only a consumer preserves its external target.
+
+The Drawer adapter resolves `trigger node -> panel node -> Boolean State node` from the current page document and delegates open and close to the same generic Boolean action contract. Its modal-layer list is transient DOM lifecycle bookkeeping only. It determines top-layer Escape, backdrop, focus, isolation, and cleanup order without becoming another source of open or closed state.
 
 Preview does not supply a form-submission transport. Form cancels native submission and Preview supplies an accessible note that submissions are not saved or sent. The same-origin `/api/form-submissions` Route Handler remains fail-closed and returns `503 Service Unavailable` without reading or echoing the request body. Durable storage and delivery require a separately designed backend integration before submission controls or success and error states may be activated.
 
@@ -1890,6 +1905,8 @@ const runtimeTreeIndex = {
 
 Each rendered page surface also owns a transient Boolean-value map keyed by Boolean State node ID. That map is initialized from authored defaults and exists only inside the React runtime provider; it is not part of project hydration, the Zustand editor store, undo history, preview snapshots, or autosave.
 
+An open Drawer surface additionally owns transient activator and mounted-layer DOM references for modal focus, stacking, isolation, and cleanup. Those references are consequences of the Boolean value, are destroyed with the render surface, and are never serialized or placed in Zustand.
+
 The Layers tree, breadcrumbs, selected node, selected parent, and resolved responsive styles are derived through selectors. They must not be stored as duplicate project structures:
 
 ```ts
@@ -2029,6 +2046,7 @@ The first proof of concept must demonstrate that the architecture can:
 36. Insert and configure a Checkbox, confirm its visible label names the native control, its label remains independent from its configured value, pointer and Space-key interaction toggle the live checked state, required and disabled states retain native semantics, and native `FormData` includes the configured named value only while checked.
 37. Insert and configure a Checkbox Group, confirm its fieldset legend names the group, its option list and default selections remain synchronized, pointer and Space-key interaction toggle independent options, required means at least one selected option, disabled state reaches every option, and native `FormData` preserves selected values in authored option order.
 38. Insert a Label and one Input, Textarea, or Dropdown, assign the same valid target and control ID, confirm the visible Label supplies the control's accessible name, clicking the Label focuses the control in Preview, inline editing preserves the target, and legacy labelable controls migrate with their existing accessible-label behavior unchanged.
+39. Connect Boolean State, Drawer Trigger, Drawer Panel, and Drawer Close; confirm Canvas uses its artboard portal without locking builder chrome, Preview exposes one modal dialog above authored content, focus stays within the top layer and restores after Escape or backdrop dismissal, body scroll and background isolation restore exactly, and runtime actions create no document revision or history entry.
 
 ## Editor Workspace Layout
   
