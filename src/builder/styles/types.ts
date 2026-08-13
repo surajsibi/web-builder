@@ -40,6 +40,16 @@ export type EffectLengthValue = {
   unit: EffectUnit;
 };
 
+export type PositionOffsetLengthValue = {
+  value: number;
+  unit: "px";
+};
+
+export type PositionOffsetValue = {
+  x: PositionOffsetLengthValue;
+  y: PositionOffsetLengthValue;
+};
+
 export type BoxShadowValue = {
   offsetX: number;
   offsetY: number;
@@ -126,6 +136,7 @@ export type StyleValues = {
   boxShadow?: BoxShadowValue[];
   backdropBlur?: EffectLengthValue;
   position?: "static" | "relative" | "absolute" | "fixed" | "sticky";
+  positionOffset?: PositionOffsetValue;
   zIndex?: "auto" | number;
   grid?: GridConfig;
   flex?: FlexConfig;

@@ -1,8 +1,13 @@
 import { useState, type ReactNode } from "react";
 
 import type { StyleChange } from "@/builder/commands/types";
+import type { NodeId } from "@/builder/model/ids";
 import type { JsonObject, JsonValue } from "@/builder/model/json";
 import type { BuilderNode } from "@/builder/model/project-document";
+import {
+  evaluatePositioningEligibility,
+  type PositioningEligibilityReason,
+} from "@/builder/positioning/eligibility";
 import { componentRegistry } from "@/builder/registry/component-registry";
 import { resolveResponsiveStyles } from "@/builder/styles/resolve";
 import { isSafeBackgroundImageSource } from "@/builder/styles/schema";
@@ -28,6 +33,7 @@ import {
   DEFAULT_GRID_CONFIG,
   INSPECTOR_UNITS,
   layoutModeStyleChanges,
+  positionOffsetStyleChange,
   spacingSidesForMode,
   spacingStyleChanges,
   type InspectorUnit,
@@ -39,6 +45,7 @@ import {
 
 type InspectorPanelProps = {
   node: Readonly<BuilderNode> | null;
+  parentId: NodeId | null;
   isRoot: boolean;
   viewport: Viewport;
   visualMode: VisualOverlayMode;
@@ -146,6 +153,41 @@ type PropField = {
 
 function titleCase(value: string): string {
   return value.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function positionOffsetOrigin(
+  node: Readonly<BuilderNode>,
+  viewport: Viewport,
+): Viewport | null {
+  if (viewport === "mobile" && node.styles.mobile?.positionOffset) {
+    return "mobile";
+  }
+  if (
+    (viewport === "tablet" || viewport === "mobile") &&
+    node.styles.tablet?.positionOffset
+  ) {
+    return "tablet";
+  }
+  return node.styles.base.positionOffset ? "desktop" : null;
+}
+
+function positioningRestrictionMessage(
+  reason: PositioningEligibilityReason,
+): string {
+  switch (reason) {
+    case "root-node":
+      return "Root positioning remains disabled until container verification passes.";
+    case "container-capable":
+      return "Container positioning remains disabled until stacking-context and containing-block verification passes.";
+    case "position-mode":
+      return "Offsets are disabled for absolute, fixed, and sticky positioning in this release.";
+    case "locked":
+      return "Unlock this component before changing its offset.";
+    case "not-rendered":
+      return "This component is not rendered in the active viewport.";
+    case "capability-missing":
+      return "This component does not support visual positioning.";
+  }
 }
 
 function asStringArray(value: JsonValue | undefined): readonly string[] | undefined {
@@ -1626,6 +1668,7 @@ function EffectsControl({
 
 export function InspectorPanel({
   node,
+  parentId,
   isRoot,
   viewport,
   spacingModes,
@@ -1669,6 +1712,30 @@ export function InspectorPanel({
         : undefined;
   const letterSpacing =
     resolved.letterSpacing ?? resolvedDefaults.letterSpacing;
+  const resolvedPositionOffset = resolved.positionOffset ?? {
+    x: { value: 0, unit: "px" as const },
+    y: { value: 0, unit: "px" as const },
+  };
+  const offsetOrigin = positionOffsetOrigin(node, viewport);
+  const localPositionOffset =
+    viewport === "desktop"
+      ? node.styles.base.positionOffset
+      : node.styles[viewport]?.positionOffset;
+  const offsetSetEligibility = evaluatePositioningEligibility({
+    node,
+    parentId,
+    viewport,
+    operation: "inspector-set",
+    rendered: resolved.display !== "none",
+  });
+  const offsetResetEligibility = evaluatePositioningEligibility({
+    node,
+    parentId,
+    viewport,
+    operation: "inspector-reset",
+    rendered: resolved.display !== "none",
+  });
+  const offsetDisabled = disabled || offsetSetEligibility.status !== "allowed";
   const updateOne = (property: keyof StyleValues, value: JsonValue) =>
     onUpdateStyles([{ target: { property }, value }]);
   const contentControls = (
@@ -1850,10 +1917,91 @@ export function InspectorPanel({
       </InspectorGroup>
 
       {capabilities.has("positioning") ? (
-        <InspectorGroup title="Position">
-          <div className="inspector-two-column position-controls">
-            <SelectField disabled={disabled} label="Position" onChange={(value) => updateOne("position", value)} options={["static", "relative", "absolute", "fixed", "sticky"].map((value) => ({ label: titleCase(value), value }))} value={resolved.position ?? "static"} />
-            <label className="inspector-field compact"><span>Z index</span><NumberDraft disabled={disabled || resolved.zIndex === "auto"} label="Z index" onCommit={(value) => updateOne("zIndex", value)} value={typeof resolved.zIndex === "number" ? resolved.zIndex : undefined} /><button className="inline-value-button" disabled={disabled} onClick={() => updateOne("zIndex", resolved.zIndex === "auto" ? 0 : "auto")} type="button">{resolved.zIndex === "auto" ? "Use number" : "Use auto"}</button></label>
+        <InspectorGroup
+          suffix={<span className="responsive-layer-badge">{viewport}</span>}
+          title="Position"
+        >
+          <div className="inspector-control-stack">
+            <div className="inspector-two-column position-controls">
+              <SelectField disabled={disabled} label="Position" onChange={(value) => updateOne("position", value)} options={["static", "relative", "absolute", "fixed", "sticky"].map((value) => ({ label: titleCase(value), value }))} value={resolved.position ?? "static"} />
+              <label className="inspector-field compact"><span>Z index</span><NumberDraft disabled={disabled || resolved.zIndex === "auto"} label="Z index" onCommit={(value) => updateOne("zIndex", value)} value={typeof resolved.zIndex === "number" ? resolved.zIndex : undefined} /><button className="inline-value-button" disabled={disabled} onClick={() => updateOne("zIndex", resolved.zIndex === "auto" ? 0 : "auto")} type="button">{resolved.zIndex === "auto" ? "Use number" : "Use auto"}</button></label>
+            </div>
+            <div className="inspector-two-column position-offset-controls">
+              <label className="inspector-field compact">
+                <span>Offset X</span>
+                <div className="number-with-unit">
+                  <NumberDraft
+                    disabled={offsetDisabled}
+                    label="Offset X"
+                    onCommit={(value) =>
+                      onUpdateStyles([
+                        positionOffsetStyleChange({
+                          x: value,
+                          y: resolvedPositionOffset.y.value,
+                        }),
+                      ])
+                    }
+                    value={resolvedPositionOffset.x.value}
+                  />
+                  <span>px</span>
+                </div>
+              </label>
+              <label className="inspector-field compact">
+                <span>Offset Y</span>
+                <div className="number-with-unit">
+                  <NumberDraft
+                    disabled={offsetDisabled}
+                    label="Offset Y"
+                    onCommit={(value) =>
+                      onUpdateStyles([
+                        positionOffsetStyleChange({
+                          x: resolvedPositionOffset.x.value,
+                          y: value,
+                        }),
+                      ])
+                    }
+                    value={resolvedPositionOffset.y.value}
+                  />
+                  <span>px</span>
+                </div>
+              </label>
+            </div>
+            <div className="position-offset-meta">
+              <p className="inspector-help">
+                {localPositionOffset
+                  ? `Offset is set for ${viewport}.`
+                  : offsetOrigin
+                    ? `Offset is inherited from ${offsetOrigin}.`
+                    : "Offset uses the default 0px position."}
+              </p>
+              <button
+                className="inline-value-button"
+                disabled={
+                  !localPositionOffset ||
+                  offsetResetEligibility.status !== "allowed"
+                }
+                onClick={() =>
+                  onUpdateStyles([
+                    {
+                      operation: "reset",
+                      target: { property: "positionOffset" },
+                    },
+                  ])
+                }
+                type="button"
+              >
+                Reset offset
+              </button>
+            </div>
+            {offsetSetEligibility.status !== "allowed" ? (
+              <p className="inspector-help positioning-restriction" role="note">
+                {positioningRestrictionMessage(offsetSetEligibility.reason)}
+              </p>
+            ) : (
+              <p className="inspector-help">
+                Offset moves this component visually without changing its layout slot.
+              </p>
+            )}
           </div>
         </InspectorGroup>
       ) : null}

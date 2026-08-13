@@ -5,6 +5,10 @@ import {
   DEFAULT_FLEX_CONFIG,
   DEFAULT_GRID_CONFIG,
   layoutModeStyleChanges,
+  positionDeltaInArtboard,
+  positionOffsetStyleChange,
+  positionProposal,
+  positioningKeyAction,
   previewStyleForChanges,
   resizeStyleChanges,
   spacingStyleChanges,
@@ -51,6 +55,78 @@ function createResizeContext(
 }
 
 describe("Phase 5 visual editing change builders", () => {
+  it("should convert pointer and scroll movement into artboard coordinates at zoom", () => {
+    expect(
+      positionDeltaInArtboard(
+        { clientX: 100, clientY: 100, scrollX: 0, scrollY: 0 },
+        { clientX: 140, clientY: 80, scrollX: 10, scrollY: 20 },
+        2,
+      ),
+    ).toEqual({ x: 25, y: 0 });
+  });
+
+  it("should reject position conversion when zoom is not positive and finite", () => {
+    expect(() =>
+      positionDeltaInArtboard(
+        { clientX: 0, clientY: 0, scrollX: 0, scrollY: 0 },
+        { clientX: 10, clientY: 10, scrollX: 0, scrollY: 0 },
+        0,
+      ),
+    ).toThrow("Zoom must be a positive finite number");
+  });
+
+  it("should expose raw and adjusted proposed geometry without mutating inputs", () => {
+    const startOffset = { x: 10, y: -5 };
+    const startRect = { x: 100, y: 50, width: 40, height: 20 };
+    const before = { startOffset: { ...startOffset }, startRect: { ...startRect } };
+
+    const proposal = positionProposal(
+      startOffset,
+      startRect,
+      { x: -30, y: 15 },
+      (raw) => ({
+        offset: { ...raw.offset, x: 0 },
+        rect: { ...raw.rect, x: 90 },
+      }),
+    );
+
+    expect(proposal).toEqual({
+      raw: {
+        offset: { x: -20, y: 10 },
+        rect: { x: 70, y: 65, width: 40, height: 20 },
+      },
+      adjusted: {
+        offset: { x: 0, y: 10 },
+        rect: { x: 90, y: 65, width: 40, height: 20 },
+      },
+    });
+    expect({ startOffset, startRect }).toEqual(before);
+  });
+
+  it("should create one atomic position-offset style change", () => {
+    expect(positionOffsetStyleChange({ x: -20, y: 10 })).toEqual({
+      target: { property: "positionOffset" },
+      value: {
+        x: { value: -20, unit: "px" },
+        y: { value: 10, unit: "px" },
+      },
+    });
+  });
+
+  it("should map arrow, Shift-arrow, Enter, and Escape keys to positioning actions", () => {
+    expect(positioningKeyAction("ArrowLeft", false)).toEqual({
+      kind: "nudge",
+      delta: { x: -1, y: 0 },
+    });
+    expect(positioningKeyAction("ArrowDown", true)).toEqual({
+      kind: "nudge",
+      delta: { x: 0, y: 10 },
+    });
+    expect(positioningKeyAction("Enter", false)).toEqual({ kind: "commit" });
+    expect(positioningKeyAction("Escape", false)).toEqual({ kind: "cancel" });
+    expect(positioningKeyAction("Tab", false)).toBeNull();
+  });
+
   it("should store a first normal-flow width resize as percent and height as pixels", () => {
     expect(
       resizeStyleChanges(

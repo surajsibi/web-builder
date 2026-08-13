@@ -28,6 +28,26 @@ afterEach(() => {
 });
 
 describe("PreviewShell", () => {
+  it("should render a committed position offset through the shared preview path", () => {
+    const project = createTestProject();
+    const text =
+      project.pages[project.homePageId].nodes[asNodeId("node-text")];
+    text.styles.base.positionOffset = {
+      x: { value: 28, unit: "px" },
+      y: { value: -14, unit: "px" },
+    };
+
+    render(
+      <PreviewShell
+        store={createBuilderStore({ initialDocument: project })}
+      />,
+    );
+
+    expect(screen.getByText("Text")).toHaveStyle({
+      translate: "28px -14px",
+    });
+  });
+
   it("should render the active page without editor chrome", () => {
     const store = createBuilderStore({ initialDocument: createTestProject() });
 

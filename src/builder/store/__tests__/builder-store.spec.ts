@@ -135,6 +135,53 @@ describe("createBuilderStore", () => {
     expect(store.getState()).toMatchObject({ dirty: true, commitId: 3 });
   });
 
+  it("should undo and redo an atomic responsive position offset", () => {
+    const store = createStore();
+
+    const applied = store.getState().dispatchEditorCommand({
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "tablet",
+      changes: [
+        {
+          target: { property: "positionOffset" },
+          value: {
+            x: { value: 24, unit: "px" },
+            y: { value: -8, unit: "px" },
+          },
+        },
+      ],
+    });
+
+    expect(applied.status).toBe("applied");
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles.tablet?.positionOffset,
+    ).toEqual({
+      x: { value: 24, unit: "px" },
+      y: { value: -8, unit: "px" },
+    });
+
+    store.getState().undo();
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles,
+    ).not.toHaveProperty("tablet.positionOffset");
+
+    store.getState().redo();
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles.tablet?.positionOffset,
+    ).toEqual({
+      x: { value: 24, unit: "px" },
+      y: { value: -8, unit: "px" },
+    });
+  });
+
   it("should commit and undo a complete Navbar block as one history entry", () => {
     const store = createStore();
 

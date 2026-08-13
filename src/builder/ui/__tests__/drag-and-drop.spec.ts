@@ -98,6 +98,67 @@ describe("commandForEditorDrop", () => {
     store.getState().redo();
     expect(store.getState().parentById[asNodeId("node-text")]).toBeNull();
   });
+
+  it("should preserve a positioned node offset through structural move undo and redo", () => {
+    const project = createTestProject();
+    const page = project.pages[asPageId("page-home")];
+    page.nodes[asNodeId("node-text")].styles.base.positionOffset = {
+      x: { value: 75, unit: "px" },
+      y: { value: -30, unit: "px" },
+    };
+    const store = createBuilderStore({ initialDocument: project });
+    const before = store.getState();
+    const source: EditorDragSource = {
+      kind: "node",
+      nodeId: asNodeId("node-text"),
+      surface: "canvas",
+    };
+    const resolution = resolveEditorDropTarget(
+      {
+        document: before.document!,
+        parentById: before.parentById,
+        activePageId: before.activePageId!,
+        selectedNodeId: before.selectedNodeId,
+      },
+      source,
+      { intent: "after", nodeId: asNodeId("node-section") },
+      "canvas",
+    );
+    if (!resolution.valid) throw new Error(resolution.reason);
+
+    store
+      .getState()
+      .dispatchEditorCommand(commandForEditorDrop(page.id, source, resolution.target));
+
+    expect(store.getState().parentById[asNodeId("node-text")]).toBeNull();
+    expect(
+      store.getState().document?.pages[page.id].nodes[asNodeId("node-text")]
+        .styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 75, unit: "px" },
+      y: { value: -30, unit: "px" },
+    });
+
+    store.getState().undo();
+    expect(store.getState().parentById[asNodeId("node-text")]).toBe("node-card");
+    expect(
+      store.getState().document?.pages[page.id].nodes[asNodeId("node-text")]
+        .styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 75, unit: "px" },
+      y: { value: -30, unit: "px" },
+    });
+
+    store.getState().redo();
+    expect(store.getState().parentById[asNodeId("node-text")]).toBeNull();
+    expect(
+      store.getState().document?.pages[page.id].nodes[asNodeId("node-text")]
+        .styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 75, unit: "px" },
+      y: { value: -30, unit: "px" },
+    });
+  });
 });
 
 function preparedTree() {

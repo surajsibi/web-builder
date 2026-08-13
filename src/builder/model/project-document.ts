@@ -4,7 +4,7 @@ import type { ResponsiveStyles } from "@/builder/styles/types";
 import type { JsonObject } from "./json";
 import type { NodeId, PageId, ProjectId } from "./ids";
 
-export const CURRENT_PROJECT_SCHEMA_VERSION = 1 as const;
+export const CURRENT_PROJECT_SCHEMA_VERSION = 2 as const;
 
 export type ProjectDocument = {
   schemaVersion: number;

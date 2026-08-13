@@ -1,3 +1,13 @@
+---
+doc_id: WEB-BUILDER-PROJECT-ARCHITECTURE
+type: A1
+scope: Product and architecture description for the web-builder application and its current V1 contracts
+authority: Curated product and architecture description; approved product decisions own intent, while code, schemas, tests, configuration, and verified runtime behavior own current implementation behavior
+owner: Project owner
+lifecycle: maintained
+freshness: Updated on 2026-08-13 with verified responsive component-positioning, document-schema-version-2, eligibility, interaction, and Canvas/Preview rendering contracts; invalidated by a relevant product decision or registry, document schema, migration, command, style, rendering, editor interaction, preview, publishing, persistence, or supported-runtime change
+---
+
 # Drag-and-Drop Website Builder
 
 ## Product Vision
@@ -91,6 +101,7 @@ The following rules are authoritative:
 10. All persisted document mutations go through the canonical editor-command dispatcher. Session actions, persistence lifecycle actions, and hydration lifecycle actions cannot mutate document content independently.
 11. React components, DOM elements, functions, events, and Zustand actions are never stored in page JSON.
 12. Authored form configuration is persisted, but visitor-entered values remain DOM-only and never enter the project document, Zustand history, autosave, or a submission transport.
+13. Visual component movement is stored as one atomic responsive `positionOffset`; it never rewrites tree relationships, flex/grid placement, CSS `position`, or `z-index`.
 
 ### Component Registry
 
@@ -701,6 +712,11 @@ type LengthValue =
   | { value: number; unit: "px" | "%" | "rem" | "em" | "vw" | "vh" }
   | { keyword: "auto" | "fit-content" | "max-content" | "min-content" };
 
+type PositionOffsetValue = {
+  x: { value: number; unit: "px" };
+  y: { value: number; unit: "px" };
+};
+
 type SpacingValue = {
   top: LengthValue;
   right: LengthValue;
@@ -797,6 +813,7 @@ type StyleValues = {
   boxShadow?: BoxShadowValue[];
   backdropBlur?: EffectLengthValue;
   position?: "static" | "relative" | "absolute" | "fixed" | "sticky";
+  positionOffset?: PositionOffsetValue;
   zIndex?: "auto" | number;
   grid?: GridConfig;
   flex?: FlexConfig;
@@ -816,6 +833,8 @@ type StylePatch = Omit<
 Structured dimensions and spacing allow numeric validation, unit selection, linked padding controls, and predictable CSS output. The saved page must contain semantic values rather than generated Tailwind class names.
 
 Effects use the same responsive style contract as every other visual property. `boxShadow` is an ordered atomic list of at most four shadows; an empty list is an explicit narrower-breakpoint reset. `backdropBlur` is a finite nonnegative length. Both values are component-agnostic, pass through the shared schema, resolver, command allowlist, and CSS compiler, and render identically on the Canvas and in Preview.
+
+`positionOffset` is also atomic within a responsive layer: X and Y are finite signed pixel lengths that validate, clone, resolve, set, reset, and enter history together. Missing means inherit through the existing cascade. Explicit `{ x: 0px, y: 0px }` overrides an inherited nonzero value, while reset deletes the current layer value. After resolution, a zero pair emits no CSS translation.
 
 ### V1 Responsive Scope
 
@@ -884,7 +903,7 @@ The resolver must use explicit merge policies rather than a generic recursive de
 | Property category | Merge rule |
 | --- | --- |
 | Width, height, min/max dimensions | Replace the complete value |
-| Display, colors, position, z-index, radius | Replace the complete value |
+| Display, colors, position, position offset, z-index, radius | Replace the complete value |
 | Margin and padding | Merge individual edges |
 | Grid configuration | Merge individual grid fields |
 | Flex configuration | Merge individual flex fields |
@@ -979,7 +998,17 @@ Layer rules:
 - Position and z-index remain ordinary style values; no `stackingMode` or other behavior flag is stored.
 - Editor selection outlines, handles, and drop indicators render in a separate overlay layer and never depend on page-component z-index.
 
-If free positioning is added later, sibling-local **Bring forward**, **Send backward**, **Bring to front**, and **Send to back** commands may update explicit layer values. They must not use parent-based automatic increments.
+Visual positioning rules:
+
+- An eligible component may store one responsive `positionOffset` without changing its structural parent, sibling order, flex slot, grid placement, CSS `position`, or `z-index`.
+- The shared style compiler emits the individual CSS `translate` property for a resolved nonzero offset and omits translation for resolved zero.
+- Canvas and Preview resolve and compile committed offsets through the same Node Rendering Controller path. A future Published renderer must reuse this path and prove Canvas/Preview/Published parity before release.
+- The selected-node Canvas position handle is separate from the structural drag handle. Pointer or touch movement previews locally and commits one command at completion; arrow keys move by `1px`, Shift+arrow moves by `10px`, Enter commits, and Escape cancels.
+- Inspector X/Y controls edit the active responsive layer, identify inherited values, and provide reset-based recovery when a large offset moves a node outside the visible Canvas.
+- Root nodes, definitions that permit children, and nodes whose resolved position is `absolute`, `fixed`, or `sticky` remain centrally restricted. Locked nodes and definitions without the positioning capability are unsupported. A restricted or off-canvas node may still expose a safe Inspector reset so an existing offset can be removed.
+- Container and root positioning may be enabled only after retained browser evidence passes sticky/fixed-descendant, stacking, overlay, portal, hit-testing, nested-transform, deep-layout, large-offset, and recovery scenarios. Failure keeps those categories restricted without blocking eligible non-container flex/grid children.
+
+Because non-`none` translation creates a stacking context and a containing block for descendants, eligibility is enforced at the Inspector, Canvas gesture-start, and command-validation boundaries. Sibling-local **Bring forward**, **Send backward**, **Bring to front**, and **Send to back** commands remain future work and must not use parent-based automatic increments.
 
 ### Editor Command and Mutation Transactions — Frozen for V1
 
@@ -1314,6 +1343,7 @@ Examples:
 - Grid placement appears when the selected node belongs to a grid parent.
 - Image source and alt text appear only for image components.
 - Position and Layer controls manage position and z-index.
+- Position Offset controls manage exact responsive X/Y values and recovery for centrally eligible or resettable nodes.
 
 Every valid inspector change dispatches the corresponding canonical document command, rerenders affected subscribers, enters document history, and marks the document dirty for later autosave observation. Temporarily invalid input remains local control state. Typing, slider movement, color dragging, and resizing use one unique `historyGroupId` per continuous interaction so adjacent applied commands coalesce into one Undo operation.
 
@@ -1344,6 +1374,7 @@ The Node Rendering Controller:
 - Reads the node and looks up its static registry definition.
 - Receives only known component types from a successfully hydrated V1 document; normal rendering has no unknown-component fallback.
 - Resolves responsive `StyleValues` and compiles DOM-ready `React.CSSProperties`.
+- Compiles committed `positionOffset` through the same path for Canvas and Preview; no Canvas-only persisted translation is allowed.
 - Supplies a controlled `className` for known presets, generated responsive rules, pseudo-state rules, or scoped published CSS.
 - Recursively renders ordered children and uses the leaf or container renderer contract selected by the definition.
 - Forwards an optional `rootRef` supplied by an external consumer; it does not own registration or measurement.
@@ -1387,6 +1418,8 @@ Tailwind CSS styles the editor shell and known presets. Arbitrary user values ar
 The editor toolbar links to the dedicated `/preview` route with `target="_blank"` and `rel="noopener noreferrer"`, leaving the editor open in its original browser tab. Immediately before the browser opens Preview, the editor places a tokenized, one-use snapshot containing the current validated document and active page ID in same-origin browser storage. The preview tab consumes and removes that snapshot, then hydrates it into an isolated vanilla Zustand store through the normal project validation boundary.
 
 Preview maps the active page's ordered roots through the page and node rendering controllers. It does not render the editor toolbar, sidebars, Inspector, breadcrumbs, canvas stage, selection layer, drag-and-drop targets, resize controls, or editor-only empty prompts. The route derives its active `Viewport` from the real browser width using the shared V1 breakpoint constants, then uses the existing responsive resolver and style compiler.
+
+Committed position offsets therefore have one semantic rendering contract across Canvas and Preview. Transient gesture preview is editor-only session state, but it uses the same style-change compiler behavior and cannot become a second persisted positioning path. Published output is not implemented; when added, it must use the same resolver, compiler, and renderer and pass an explicit parity gate.
 
 Preview does not supply a form-submission transport. Form cancels native submission and Preview supplies an accessible note that submissions are not saved or sent. The same-origin `/api/form-submissions` Route Handler remains fail-closed and returns `503 Service Unavailable` without reading or echoing the request body. Durable storage and delivery require a separately designed backend integration before submission controls or success and error states may be activated.
 
@@ -1558,7 +1591,7 @@ Home Page
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "projectId": "project-acme-site",
   "name": "Acme Marketing Site",
   "pageOrder": [
@@ -1948,6 +1981,7 @@ const STYLE_MERGE_POLICY = {
   display: "replace",
   color: "replace",
   position: "replace",
+  positionOffset: "replace",
   zIndex: "replace",
   padding: "merge-edges",
   margin: "merge-edges",
@@ -2003,6 +2037,7 @@ The first proof of concept must demonstrate that the architecture can:
 36. Insert and configure a Checkbox, confirm its visible label names the native control, its label remains independent from its configured value, pointer and Space-key interaction toggle the live checked state, required and disabled states retain native semantics, and native `FormData` includes the configured named value only while checked.
 37. Insert and configure a Checkbox Group, confirm its fieldset legend names the group, its option list and default selections remain synchronized, pointer and Space-key interaction toggle independent options, required means at least one selected option, disabled state reaches every option, and native `FormData` preserves selected values in authored option order.
 38. Insert a Label and one Input, Textarea, or Dropdown, assign the same valid target and control ID, confirm the visible Label supplies the control's accessible name, clicking the Label focuses the control in Preview, inline editing preserves the target, and legacy labelable controls migrate with their existing accessible-label behavior unchanged.
+39. Move an eligible non-container leaf with responsive positive, negative, inherited, explicit-zero, and off-canvas offsets; confirm structural order is unchanged, one gesture creates one Undo entry, Canvas and Preview geometry match, Inspector reset recovers the leaf without Canvas hit-testing, and root/container/absolute/fixed/sticky positioning remains centrally denied.
 
 ## Editor Workspace Layout
   
@@ -2033,7 +2068,7 @@ The library should clearly distinguish **Components** from **Blocks**. Component
 The canvas is the main working area where users build their website. Users can:
 
 - Drag components from the component library and drop them onto the page
-- Select, move, duplicate, reorder, and delete components
+- Select, visually position eligible leaf components, structurally move or reorder components, duplicate components, and delete components
 - See clear drop zones and the currently selected component
 - Preview the page at desktop, tablet, and mobile widths
 - Zoom in or out and fit the page to the available space
@@ -2082,6 +2117,8 @@ Changing a component's layout type should update the available controls immediat
 Nested components use normal CSS painting order. A child naturally renders above its parent's background, so nesting does not assign or increment a numeric z-index.
 
 All components default to `position: static` and `z-index: auto`. Dropping or moving a component preserves these values. The right panel includes **Position and Layer** controls for intentional overlaps, and **Reset layer** restores `z-index: auto`.
+
+Eligible non-container leaves may also use responsive Position Offset X/Y controls and the selected-node Canvas position handle. This visual movement preserves the component's layout slot and may overlap siblings. Sections, Containers, Cards, Forms, and other child-capable wrappers remain restricted until the complete containing-block and stacking-context gate passes.
 
 The editor's selection outlines, component labels, drag handles, and drop indicators render in a separate overlay layer so they remain visible without changing the saved page styles.
 

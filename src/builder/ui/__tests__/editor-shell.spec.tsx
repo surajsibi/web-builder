@@ -431,6 +431,44 @@ describe("EditorShell", () => {
     });
   });
 
+  it("should restrict a block root while allowing an eligible block-created leaf offset", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Navbar block" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+
+    expect(screen.getByLabelText("Offset X")).toBeDisabled();
+    expect(
+      screen.getByText(/Root positioning remains disabled until container verification passes/),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    const layers = screen.getByRole("tree", { name: "Page layers" });
+    fireEvent.click(
+      within(layers).getAllByRole("button", { name: /Select Link/ })[0],
+    );
+
+    const offsetX = screen.getByLabelText("Offset X");
+    expect(offsetX).toBeEnabled();
+    fireEvent.change(offsetX, { target: { value: "18" } });
+    fireEvent.blur(offsetX);
+    const offsetY = screen.getByLabelText("Offset Y");
+    fireEvent.change(offsetY, { target: { value: "-6" } });
+    fireEvent.blur(offsetY);
+
+    expect(screen.getByRole("link", { name: "Work" })).toHaveStyle({
+      translate: "18px -6px",
+    });
+    expect(
+      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-editor-5")
+      ].styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 18, unit: "px" },
+      y: { value: -6, unit: "px" },
+    });
+  });
+
   it("should insert the Commerce Navbar without replacing the original Navbar block", () => {
     const store = createEditorTestStore();
     const dispatch = vi.fn(store.getState().dispatchEditorCommand);

@@ -446,6 +446,12 @@ describe("executeEditorCommand", () => {
     snapshot.document.pages[asPageId("page-home")].nodes[
       asNodeId("node-card")
     ].meta.locked = true;
+    snapshot.document.pages[asPageId("page-home")].nodes[
+      asNodeId("node-text")
+    ].styles.base.positionOffset = {
+      x: { value: 18, unit: "px" },
+      y: { value: -9, unit: "px" },
+    };
     const generatedIds = ["node-card-copy", "node-text-copy"];
 
     const result = executeEditorCommand(
@@ -482,6 +488,13 @@ describe("executeEditorCommand", () => {
       styles: page.nodes[asNodeId("node-text")].styles,
       meta: { name: "Text 1", locked: false },
     });
+    expect(duplicateChild.styles.base.positionOffset).toEqual({
+      x: { value: 18, unit: "px" },
+      y: { value: -9, unit: "px" },
+    });
+    expect(duplicateChild.styles.base.positionOffset).not.toBe(
+      page.nodes[asNodeId("node-text")].styles.base.positionOffset,
+    );
     expect(result.candidate.parentById[duplicate.id]).toBe("node-section");
     expect(result.candidate.parentById[duplicateChild.id]).toBe(duplicate.id);
     expect(result.candidate.selectedNodeId).toBe(duplicate.id);
@@ -666,6 +679,136 @@ describe("executeEditorCommand", () => {
     });
     expect(snapshot.document).toEqual(original);
   });
+
+  it("should set an atomic position offset on the targeted responsive layer", () => {
+    const snapshot = createSnapshot({ selectedNodeId: "node-text" });
+    const positionOffset = {
+      x: { value: 36, unit: "px" as const },
+      y: { value: -18, unit: "px" as const },
+    };
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "tablet",
+      changes: [
+        {
+          target: { property: "positionOffset" },
+          value: positionOffset,
+        },
+      ],
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(
+      result.candidate.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles.tablet?.positionOffset,
+    ).toEqual(positionOffset);
+    expect(
+      snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles,
+    ).not.toHaveProperty("tablet.positionOffset");
+  });
+
+  it("should reset only the targeted position-offset layer and remove an empty patch", () => {
+    const snapshot = createSnapshot({ selectedNodeId: "node-text" });
+    const node =
+      snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ];
+    node.styles.base.positionOffset = {
+      x: { value: 10, unit: "px" },
+      y: { value: 20, unit: "px" },
+    };
+    node.styles.tablet = {
+      positionOffset: {
+        x: { value: 0, unit: "px" },
+        y: { value: 0, unit: "px" },
+      },
+    };
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "tablet",
+      changes: [
+        {
+          operation: "reset",
+          target: { property: "positionOffset" },
+        },
+      ],
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    const updated =
+      result.candidate.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ];
+    expect(updated.styles.tablet).toBeUndefined();
+    expect(updated.styles.base.positionOffset).toEqual({
+      x: { value: 10, unit: "px" },
+      y: { value: 20, unit: "px" },
+    });
+  });
+
+  it("should return style-already-reset when the targeted layer has no offset", () => {
+    const snapshot = createSnapshot({ selectedNodeId: "node-text" });
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "mobile",
+      changes: [
+        {
+          operation: "reset",
+          target: { property: "positionOffset" },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      status: "noop",
+      reason: "style-already-reset",
+    });
+  });
+
+  it.each([
+    ["node-section", "root-node"],
+    ["node-card", "container-capable"],
+  ])(
+    "should reject position-offset writes for high-risk node %s",
+    (nodeId, reason) => {
+      const snapshot = createSnapshot({ selectedNodeId: nodeId });
+
+      const result = executeEditorCommand(snapshot, {
+        kind: "node.updateStyles",
+        pageId: asPageId("page-home"),
+        nodeId: asNodeId(nodeId),
+        viewport: "desktop",
+        changes: [
+          {
+            target: { property: "positionOffset" },
+            value: {
+              x: { value: 10, unit: "px" },
+              y: { value: 5, unit: "px" },
+            },
+          },
+        ],
+      });
+
+      expect(result).toMatchObject({
+        status: "rejected",
+        error: { code: "positioning-ineligible", reason },
+      });
+    },
+  );
 
   it("should apply a uniform border batch to one responsive layer atomically", () => {
     const snapshot = createSnapshot({ selectedNodeId: "node-card" });

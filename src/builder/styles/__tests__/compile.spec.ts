@@ -23,6 +23,22 @@ const layoutValues = {
 } satisfies StyleValues;
 
 describe("compileStyleValues", () => {
+  it("should compile a nonzero position offset to the individual translate property", () => {
+    const style = compileStyleValues({
+      positionOffset: { x: px(24), y: px(-12.5) },
+    });
+
+    expect(style).toEqual({ translate: "24px -12.5px" });
+  });
+
+  it("should omit translate when both resolved position-offset axes are zero", () => {
+    const style = compileStyleValues({
+      positionOffset: { x: px(0), y: px(0) },
+    });
+
+    expect(style).not.toHaveProperty("translate");
+  });
+
   it("should compile dimensions and only the active grid configuration", () => {
     const style = compileStyleValues({ ...layoutValues, display: "grid" });
 

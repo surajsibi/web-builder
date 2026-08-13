@@ -1506,6 +1506,43 @@ textarea:focus-visible {
   opacity: 0.35;
 }
 
+.canvas-position-handle {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0.2rem 0.7rem rgb(37 28 126 / 28%);
+  color: var(--accent-strong);
+  cursor: move;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 800;
+  height: 3rem;
+  justify-content: center;
+  padding: 0;
+  pointer-events: auto;
+  position: absolute;
+  touch-action: none;
+  transform: translate(-50%, -50%);
+  width: 3rem;
+  z-index: 9;
+}
+
+.canvas-position-handle:focus-visible {
+  outline: 3px solid rgb(109 93 252 / 35%);
+  outline-offset: 2px;
+}
+
+.canvas-position-instructions {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .canvas-resize-handle,
 .canvas-spacing-handle {
   background: #ffffff;
@@ -2295,6 +2332,28 @@ textarea:focus-visible {
 
 .position-controls {
   align-items: start;
+}
+
+.position-offset-controls {
+  align-items: start;
+}
+
+.position-offset-meta {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.position-offset-meta .inspector-help {
+  margin: 0;
+}
+
+.positioning-restriction {
+  background: #fff8e6;
+  border: 1px solid #f4d58d;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.55rem;
 }
 
 .sizing-controls {
