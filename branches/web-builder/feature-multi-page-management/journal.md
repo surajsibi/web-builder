@@ -5,7 +5,7 @@ scope: Repository execution state for multi-page management on feature/multi-pag
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Verified after pushing requested PR review changes on 2026-08-14; invalidated by further implementation, PR state, verification results, blockers, or a workspace-mapping change
+freshness: Verified after pushing the page-action toggle dismissal fix as b7d7222 on 2026-08-14; invalidated by further implementation, PR state, verification results, blockers, or a workspace-mapping change
 ---
 
 # Progress journal - web-builder / feature/multi-page-management
@@ -34,6 +34,9 @@ Complete domain behavior before UI integration. Extend canonical page commands, 
 - Reviewed the complete feature diff and corrected the ARIA menu keyboard model, tab keyboard navigation, delete-confirmation focus, action focus restoration, visible protection reasons, reduced-motion behavior, and panel-specific collapse announcements.
 - Addressed all three requested PR review changes: global canvas shortcuts now ignore interactive and dialog targets, action menus close after native Tab and Shift+Tab focus movement, and the vertical tab rail exposes matching ARIA and Up/Down keyboard behavior.
 - Added behavior-first `userEvent` regressions for Delete and Backspace inside page confirmation, forward and reverse menu Tab focus, vertical tab orientation, and ArrowUp and ArrowDown navigation.
+- Fixed the page-action toggle race by excluding pointer focus on the corresponding toggle from blur-close handling while retaining native Tab and Shift+Tab closure.
+- Added a behavior-first `userEvent` regression that clicks the same action toggle twice and verifies `aria-expanded="false"` with no menu rendered.
+- Committed the page-action toggle dismissal fix and regression as `b7d7222` and pushed it to `origin/feature/multi-page-management`.
 - Committed the requested-change remediation as `d2812f6` and pushed it to `origin/feature/multi-page-management`.
 - Split and extended the new behavior coverage so menu, dialog, tab, focus, protected-action, history, and integration outcomes have focused assertions.
 - Pushed `feature/multi-page-management` to `origin` with upstream tracking and opened draft PR #7 against `main`.
@@ -55,6 +58,10 @@ Complete domain behavior before UI integration. Extend canonical page commands, 
 - Rendered desktop verification at the existing Canvas Studio proportions confirmed the Pages rail tab, compact active row, create form, action menu placement, and visible Create/Cancel controls.
 - During final review, combined worker startup intermittently stalled under local Node 22; isolated focused suites and the serial full suite passed without assertion failures, establishing environment contention rather than a regression.
 - The environment reports Node 22.21.1 while `package.json` declares Node 24.19.x, and Next warns about a parent-directory lockfile; neither warning blocked lint, typecheck, tests, or build.
+- Latest page-action toggle fix: PagesPanel 14/14 tests passed, including double-click dismissal and the existing forward/reverse Tab regressions.
+- Latest complete serial suite: 33 files and 488 tests passed.
+- Latest `pnpm typecheck`, affected-file ESLint, and `git diff --check`: passed.
+- Repository-wide ESLint and the production build were not rerun after this latest local fix; their earlier branch verification remains recorded above.
 
 **Remaining:**
 
@@ -62,4 +69,4 @@ Complete domain behavior before UI integration. Extend canonical page commands, 
 - Add project persistence and the project dashboard in later, separately scoped milestones.
 
 **Last left off:**
-2026-08-14 - All three requested PR review changes were committed as `d2812f6` and pushed to `origin/feature/multi-page-management`. The exact next action is to request re-review.
+2026-08-14 - The page-action toggle dismissal fix and its double-`userEvent.click` regression were committed as `b7d7222` and pushed to `origin/feature/multi-page-management`. TypeScript, affected-file ESLint, PagesPanel 14/14, the complete serial suite at 33 files and 488 tests, and `git diff --check` pass. The exact next action is to request re-review.

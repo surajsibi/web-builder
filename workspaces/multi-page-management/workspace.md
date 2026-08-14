@@ -5,7 +5,7 @@ scope: Execution state for multi-page management in the web-builder editor
 authority: Selected feature execution-state authority; code, tests, and verified runtime behavior remain authoritative for implementation
 owner: Project owner
 lifecycle: draft
-freshness: Verified after pushing requested PR review changes on 2026-08-14; invalidated by a branch, PR, scope, implementation, or verification change
+freshness: Verified after pushing the page-action toggle dismissal fix as b7d7222 on 2026-08-14; invalidated by a branch, PR, scope, implementation, or verification change
 ---
 
 # Multi-page management workspace
@@ -14,7 +14,7 @@ freshness: Verified after pushing requested PR review changes on 2026-08-14; inv
 
 **Feature directory identifier:** `multi-page-management`
 
-**Overall status:** Draft PR #7 open; requested-change fixes committed and pushed, with re-review and merge pending
+**Overall status:** Draft PR #7 open; the latest page-action toggle review fix is committed and pushed, with re-review and merge pending
 
 **Participating repositories:** `web-builder`
 
@@ -46,7 +46,7 @@ freshness: Verified after pushing requested PR review changes on 2026-08-14; inv
 ## Execution state
 
 - **Current step:** Request re-review of [draft PR #7](https://github.com/surajsibi/web-builder/pull/7), then merge after approval.
-- **Done:** Implemented canonical duplication and home-promotion commands, the accessible Pages panel, sidebar and shell integration, Canvas Studio styling, history and Preview synchronization, collision and node-limit defenses, and behavior-first coverage. Final review added complete menu and tab keyboard behavior, dialog and action focus restoration, visible protected-action explanations, reduced-motion handling, and contextual collapse announcements. Requested-change remediation now isolates global canvas shortcuts from interactive and dialog targets, preserves native Tab and Shift+Tab focus when action menus close, and exposes the left tab rail with vertical semantics and Up/Down navigation.
-- **Verification:** TypeScript, repository-wide ESLint, all 487 tests in 33 files, the Next.js 16.3.0 production build, and `git diff --check` pass. Focused review suites also pass: PagesPanel 13/13 and EditorShell 54/54. The reliable full suite was run serially because the local Node 22 environment intermittently stalled Vitest workers; the project declares Node 24.19.x.
+- **Done:** Implemented canonical duplication and home-promotion commands, the accessible Pages panel, sidebar and shell integration, Canvas Studio styling, history and Preview synchronization, collision and node-limit defenses, and behavior-first coverage. Final review added complete menu and tab keyboard behavior, dialog and action focus restoration, visible protected-action explanations, reduced-motion handling, and contextual collapse announcements. Requested-change remediation isolates global canvas shortcuts from interactive and dialog targets, preserves native Tab and Shift+Tab focus when action menus close, exposes the left tab rail with vertical semantics and Up/Down navigation, and now lets an expanded page-action toggle dismiss its own menu without regressing keyboard focus movement. The latest toggle fix was committed as `b7d7222` and pushed to `origin/feature/multi-page-management`.
+- **Verification:** After the latest local fix, TypeScript, ESLint for the two affected files, all 488 tests in 33 files, the focused PagesPanel suite at 14/14, and `git diff --check` pass. The earlier branch-wide ESLint and Next.js 16.3.0 production-build results were not rerun for this local change. The reliable full suite was run serially because the local Node 22 environment intermittently stalls Vitest workers; the project declares Node 24.19.x.
 - **Remaining:** Request re-review and merge draft PR #7 after approval. Handle later persistence/project-dashboard milestones separately.
-- **Last left off:** 2026-08-14 - All three requested PR review changes were committed as `d2812f6` and pushed to `origin/feature/multi-page-management`; the exact next action is to request re-review.
+- **Last left off:** 2026-08-14 - The page-action toggle fix was committed as `b7d7222` and pushed to `origin/feature/multi-page-management`; its double-click `userEvent` regression and the complete serial suite pass. The exact next action is to request re-review.
