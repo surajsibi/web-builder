@@ -5,7 +5,7 @@ scope: Repository-specific facts and constraints for multi-page management on fe
 authority: Repository-specific overlay for the linked feature; code, tests, and verified runtime behavior remain authoritative
 owner: Project owner
 lifecycle: draft
-freshness: Verified against the reviewed feature implementation and final checks on 2026-08-14; invalidated by a page-model, command, editor, Preview, or verification change
+freshness: Verified after requested-change remediation and final checks on 2026-08-14; invalidated by a page-model, command, editor, Preview, or verification change
 ---
 
 # Repository overlay - web-builder / feature/multi-page-management

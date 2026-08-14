@@ -6,6 +6,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -207,19 +208,63 @@ describe("EditorShell", () => {
     });
   });
 
-  it("should navigate left-panel tabs with arrow keys", () => {
+  it("should expose the left-panel tab rail as vertical", () => {
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    expect(screen.getByRole("tablist", { name: "Left panel" })).toHaveAttribute(
+      "aria-orientation",
+      "vertical",
+    );
+  });
+
+  it.each([
+    ["{ArrowUp}", "Pages"],
+    ["{ArrowDown}", "Layers"],
+  ])("should navigate vertical left-panel tabs with %s", async (key, tabName) => {
+    const user = userEvent.setup();
     render(<EditorShell store={createEditorTestStore()} />);
 
     const componentsTab = screen.getByRole("tab", { name: "Components" });
     componentsTab.focus();
-    fireEvent.keyDown(componentsTab, { key: "ArrowLeft" });
+    await user.keyboard(key);
 
-    const pagesTab = screen.getByRole("tab", { name: "Pages" });
-    expect(pagesTab).toHaveFocus();
-    expect(pagesTab).toHaveAttribute("aria-selected", "true");
+    const selectedTab = screen.getByRole("tab", { name: tabName });
+    expect(selectedTab).toHaveFocus();
+    expect(selectedTab).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("should ignore removal shortcuts while page deletion confirmation has focus", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    await user.click(screen.getByRole("tab", { name: "Pages" }));
+    await user.click(screen.getByRole("button", { name: "Create new page" }));
+    await user.type(screen.getByRole("textbox", { name: "Page name" }), "Contact");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await user.click(screen.getByRole("button", { name: "Open Home page" }));
+    await user.click(screen.getByRole("tab", { name: "Components" }));
+    await user.click(screen.getByRole("button", { name: "Add Text" }));
+    const selectedNodeId = store.getState().selectedNodeId;
+    const historyLength = store.getState().history.past.length;
+    await user.click(screen.getByRole("tab", { name: "Pages" }));
+    await user.click(screen.getByRole("button", { name: "Actions for Contact" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    const confirmation = screen.getByRole("alertdialog", {
+      name: "Delete Contact?",
+    });
     expect(
-      screen.getByRole("heading", { name: "Website pages" }),
-    ).toBeInTheDocument();
+      within(confirmation).getByRole("button", { name: "Delete page" }),
+    ).toHaveFocus();
+
+    await user.keyboard("{Delete}{Backspace}");
+
+    expect(store.getState().history.past).toHaveLength(historyLength);
+    expect(
+      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
+        selectedNodeId!
+      ],
+    ).toBeDefined();
+    expect(confirmation).toBeInTheDocument();
   });
 
   it("should announce the active left panel when it is collapsed", () => {

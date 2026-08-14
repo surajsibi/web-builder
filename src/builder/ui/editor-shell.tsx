@@ -212,15 +212,13 @@ function actionMessage(result: EditorActionResult, successMessage: string): stri
   return "Change failed: " + result.message;
 }
 
-function isEditableTarget(target: EventTarget | null): boolean {
+function shouldIgnoreEditorShortcut(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return (
     target.isContentEditable ||
-    target.closest('[contenteditable="true"], [contenteditable="plaintext-only"]') !==
-      null ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
+    target.closest(
+      'a[href], button, input, select, summary, textarea, [contenteditable="true"], [contenteditable="plaintext-only"], [role="alertdialog"], [role="dialog"], [role="menu"], [role="menuitem"]',
+    ) !== null
   );
 }
 
@@ -291,7 +289,7 @@ export function EditorShell({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      if (event.defaultPrevented || shouldIgnoreEditorShortcut(event.target)) return;
       const current = store.getState();
       if (
         !current.document ||

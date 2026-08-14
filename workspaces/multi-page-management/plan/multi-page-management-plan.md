@@ -5,7 +5,7 @@ scope: Execution plan for production multi-page management on web-builder featur
 authority: Owns planned execution for this feature; workspace.md owns feature status and code/tests own implemented behavior
 owner: Project owner
 lifecycle: draft
-freshness: Verified against the reviewed implementation and final checks on 2026-08-14; invalidated by a scope, command contract, editor layout, or verification change
+freshness: Verified after requested-change remediation and final checks on 2026-08-14; invalidated by a scope, command contract, editor layout, or verification change
 ---
 
 # Plan: Add production multi-page management
@@ -65,4 +65,4 @@ Project persistence and the project dashboard remain separate follow-up mileston
 
 ## Completion
 
-The feature completes when all in-scope page operations work in the production editor, history and Preview remain correct, the verification matrix passes, rendered checks match the approved layout, and the implementation state is recorded in the feature workspace and branch journal. Final review met these gates with 482 passing tests across 33 files, repository-wide lint and TypeScript checks, the Next.js 16.3.0 production build, and `git diff --check`. Durable facts are promoted only after merge; the feature and branch workspaces remain active until branch completion.
+The feature completes when all in-scope page operations work in the production editor, history and Preview remain correct, the verification matrix passes, rendered checks match the approved layout, and the implementation state is recorded in the feature workspace and branch journal. Requested-change remediation met these gates locally with 487 passing tests across 33 files, repository-wide lint and TypeScript checks, the Next.js 16.3.0 production build, and `git diff --check`. Durable facts are promoted only after merge; the feature and branch workspaces remain active until branch completion.

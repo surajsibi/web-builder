@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { asPageId } from "@/builder/model/ids";
@@ -133,6 +134,37 @@ describe("PagesPanel", () => {
     fireEvent.keyDown(duplicateItem, { key: "Escape" });
     expect(
       screen.queryByRole("menu", { name: "About page actions" }),
+    ).not.toBeInTheDocument();
+    expect(actionsButton).toHaveFocus();
+  });
+
+  it("should close the action menu and move focus forward when Tab is pressed", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await user.click(screen.getByRole("button", { name: "Actions for Home" }));
+    expect(screen.getByRole("menuitem", { name: "Rename" })).toHaveFocus();
+
+    await user.tab();
+
+    expect(
+      screen.queryByRole("menu", { name: "Home page actions" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open About page" })).toHaveFocus();
+  });
+
+  it("should close the action menu and move focus backward when Shift+Tab is pressed", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const actionsButton = screen.getByRole("button", {
+      name: "Actions for Home",
+    });
+    await user.click(actionsButton);
+    expect(screen.getByRole("menuitem", { name: "Rename" })).toHaveFocus();
+
+    await user.tab({ shift: true });
+
+    expect(
+      screen.queryByRole("menu", { name: "Home page actions" }),
     ).not.toBeInTheDocument();
     expect(actionsButton).toHaveFocus();
   });

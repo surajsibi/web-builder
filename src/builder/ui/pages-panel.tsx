@@ -141,9 +141,6 @@ export function PagesPanel({
       event.stopPropagation();
       closeMenuAndRestoreFocus(pageId);
       return;
-    } else if (event.key === "Tab") {
-      setMenuPageId(null);
-      return;
     }
 
     if (nextIndex !== null && items[nextIndex]) {
@@ -341,6 +338,15 @@ export function PagesPanel({
                         aria-label={`${page.name} page actions`}
                         className="page-actions-menu"
                         id={`page-actions-${page.id}`}
+                        onBlur={(event) => {
+                          const nextTarget = event.relatedTarget;
+                          if (
+                            !(nextTarget instanceof Node) ||
+                            !event.currentTarget.contains(nextTarget)
+                          ) {
+                            setMenuPageId(null);
+                          }
+                        }}
                         onKeyDown={(event) => handleMenuKeyDown(event, page.id)}
                         ref={menuRef}
                         role="menu"
@@ -353,6 +359,7 @@ export function PagesPanel({
                             setMenuPageId(null);
                           }}
                           role="menuitem"
+                          tabIndex={-1}
                           type="button"
                         >
                           Rename
@@ -364,6 +371,7 @@ export function PagesPanel({
                             }
                           }}
                           role="menuitem"
+                          tabIndex={-1}
                           type="button"
                         >
                           Duplicate
@@ -379,6 +387,7 @@ export function PagesPanel({
                             }
                           }}
                           role="menuitem"
+                          tabIndex={-1}
                           type="button"
                         >
                           Set as home
@@ -396,6 +405,7 @@ export function PagesPanel({
                             setMenuPageId(null);
                           }}
                           role="menuitem"
+                          tabIndex={-1}
                           type="button"
                         >
                           Delete

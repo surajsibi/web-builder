@@ -5,7 +5,7 @@ scope: Repository execution state for multi-page management on feature/multi-pag
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Verified after draft PR publication on 2026-08-14; invalidated by further implementation, PR state, verification results, blockers, or a workspace-mapping change
+freshness: Verified after resolving requested PR review changes locally on 2026-08-14; invalidated by further implementation, PR state, verification results, blockers, or a workspace-mapping change
 ---
 
 # Progress journal - web-builder / feature/multi-page-management
@@ -14,7 +14,7 @@ freshness: Verified after draft PR publication on 2026-08-14; invalidated by fur
 `workspaces/multi-page-management/`
 
 **Current step:**
-Review and merge [draft PR #7](https://github.com/surajsibi/web-builder/pull/7), or begin the separately scoped persistence milestone.
+Commit and push the locally verified requested-change fixes to [draft PR #7](https://github.com/surajsibi/web-builder/pull/7), then request re-review.
 
 **Approach:**
 Complete domain behavior before UI integration. Extend canonical page commands, verify hydration and history invariants, then build a dedicated Pages panel and connect it to the existing left sidebar through EditorShell callbacks. Finish with Canvas Studio styling and full verification.
@@ -32,6 +32,8 @@ Complete domain behavior before UI integration. Extend canonical page commands, 
 - Kept the toolbar page selector as the compact switching surface and synchronized Preview with the active page.
 - Added keyboard form behavior, focus restoration, accessible labels and semantics, protected-action explanations, status announcements, and Canvas Studio-aligned styling.
 - Reviewed the complete feature diff and corrected the ARIA menu keyboard model, tab keyboard navigation, delete-confirmation focus, action focus restoration, visible protection reasons, reduced-motion behavior, and panel-specific collapse announcements.
+- Addressed all three requested PR review changes: global canvas shortcuts now ignore interactive and dialog targets, action menus close after native Tab and Shift+Tab focus movement, and the vertical tab rail exposes matching ARIA and Up/Down keyboard behavior.
+- Added behavior-first `userEvent` regressions for Delete and Backspace inside page confirmation, forward and reverse menu Tab focus, vertical tab orientation, and ArrowUp and ArrowDown navigation.
 - Split and extended the new behavior coverage so menu, dialog, tab, focus, protected-action, history, and integration outcomes have focused assertions.
 - Pushed `feature/multi-page-management` to `origin` with upstream tracking and opened draft PR #7 against `main`.
 - Preserved the unrelated `workspaces/label/assets/compact-canvas-controls-prototype.html` file without modification.
@@ -39,11 +41,11 @@ Complete domain behavior before UI integration. Extend canonical page commands, 
 **Verification:**
 
 - Workspace discovery mapping is exact for repository `web-builder`, branch `feature/multi-page-management`, and normalized identifier `feature-multi-page-management`.
-- PagesPanel review suite: 11 tests passed.
-- EditorShell integration suite: 51 tests passed.
+- PagesPanel review suite: 13 tests passed.
+- EditorShell integration suite: 54 tests passed.
 - Focused command and store review suites: 73 tests passed.
 - Phase 5 isolation after parallel timeouts: 48 tests passed.
-- Reliable serial full suite: 33 files, 482 tests passed.
+- Reliable serial full suite: 33 files, 487 tests passed.
 - `pnpm typecheck`: passed.
 - `pnpm lint`: passed.
 - `pnpm build`: passed under Next.js 16.3.0.
@@ -55,8 +57,8 @@ Complete domain behavior before UI integration. Extend canonical page commands, 
 
 **Remaining:**
 
-- Review and merge draft PR #7.
+- Commit and push the verified requested-change fixes, request re-review, and merge draft PR #7 after approval.
 - Add project persistence and the project dashboard in later, separately scoped milestones.
 
 **Last left off:**
-2026-08-14 - The reviewed branch was pushed to `origin/feature/multi-page-management`, and draft PR #7 was opened against `main`. No in-scope implementation remains.
+2026-08-14 - All three requested PR review changes are implemented and verified locally. The exact next action is to commit and push the intended code, test, dependency, and synchronized workspace files, then request re-review.

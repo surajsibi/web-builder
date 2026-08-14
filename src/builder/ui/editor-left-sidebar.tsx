@@ -67,9 +67,9 @@ export function EditorLeftSidebar(props: EditorLeftSidebarProps) {
     const currentIndex = LEFT_PANEL_TABS.indexOf(tab);
     let nextIndex: number | null = null;
 
-    if (event.key === "ArrowRight") {
+    if (event.key === "ArrowDown") {
       nextIndex = (currentIndex + 1) % LEFT_PANEL_TABS.length;
-    } else if (event.key === "ArrowLeft") {
+    } else if (event.key === "ArrowUp") {
       nextIndex =
         (currentIndex - 1 + LEFT_PANEL_TABS.length) % LEFT_PANEL_TABS.length;
     } else if (event.key === "Home") {
@@ -93,6 +93,7 @@ export function EditorLeftSidebar(props: EditorLeftSidebarProps) {
     >
       <div
         aria-label="Left panel"
+        aria-orientation="vertical"
         className="left-panel-tabs"
         onKeyDown={handleTabKeyDown}
         role="tablist"
