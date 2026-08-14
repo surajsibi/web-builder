@@ -215,6 +215,7 @@ function actionMessage(result: EditorActionResult, successMessage: string): stri
 
 function shouldIgnoreEditorShortcut(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
+  if (target.closest('[data-editor-shortcuts="allow"]')) return false;
   return (
     target.isContentEditable ||
     target.closest(

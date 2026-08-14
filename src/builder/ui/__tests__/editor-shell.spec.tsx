@@ -2100,6 +2100,29 @@ describe("EditorShell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Deleted Text 1.");
   });
 
+  it("should delete the selected component with Delete after adding it from the library", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    const addTextButton = screen.getByRole("button", { name: "Add Text" });
+
+    await user.click(addTextButton);
+    const selectedId = store.getState().selectedNodeId;
+    const historyBeforeDelete = store.getState().history.past.length;
+    expect(addTextButton).toHaveFocus();
+
+    await user.keyboard("{Delete}");
+
+    expect(
+      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
+        selectedId!
+      ],
+    ).toBeUndefined();
+    expect(store.getState().selectedNodeId).toBeNull();
+    expect(store.getState().history.past).toHaveLength(historyBeforeDelete + 1);
+    expect(screen.getByText("Deleted Text 1.")).toBeInTheDocument();
+  });
+
   it("should delete with Backspace outside text controls and keep removal shortcuts inactive inside them", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);

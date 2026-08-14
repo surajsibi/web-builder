@@ -491,6 +491,7 @@ function DraggableLibraryCard({
       <button
         aria-label={`Add ${insertionName}`}
         className="library-card-action"
+        data-editor-shortcuts="allow"
         onClick={() =>
           entry.kind === "component"
             ? onInsertComponent(entry.componentType)
