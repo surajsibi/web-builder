@@ -5,7 +5,7 @@ scope: Repository branch workspace index for web-builder feat/boolean-state-draw
 authority: Discovery index for the linked branch context; workspace.md owns feature execution state
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after CDR-01 through CDR-10, desktop/mobile browser QA, and final verification on 2026-08-13; invalidated by a branch, HEAD, workspace mapping, implementation, or verification change
+freshness: Updated after generic Boolean State connection implementation and verification on 2026-08-14; invalidated by a branch, HEAD, workspace mapping, implementation, or verification change
 ---
 
 # Repository branch workspace — web-builder / feat/boolean-state-drawer
@@ -18,7 +18,7 @@ freshness: Updated after CDR-01 through CDR-10, desktop/mobile browser QA, and f
 
 **Feature workspace:** [`workspaces/navbar/`](../../../workspaces/navbar/workspace.md)
 
-**Summary:** Holds repository-specific context and execution state for the Boolean-State-driven connected Drawer V1 implementation.
+**Summary:** Holds repository-specific context and execution state for the generic Boolean State connection implementation that replaced the former Drawer-specific workflow.
 
 ## Index
 

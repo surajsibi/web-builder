@@ -12,6 +12,113 @@ describe("runDocumentMigrations", () => {
     expect(result).toEqual({ success: true, value: input, migrated: false });
   });
 
+  it("should convert legacy interaction nodes into ordinary Buttons and Containers", () => {
+    const input = {
+      schemaVersion: 1,
+      pages: {
+        home: {
+          nodes: {
+            state: {
+              id: "state",
+              type: "boolean-state",
+              childIds: [],
+              props: { defaultValue: false },
+            },
+            action: {
+              id: "action",
+              type: "state-action",
+              childIds: [],
+              props: {
+                text: "Toggle menu",
+                targetStateNodeId: "state",
+                action: "toggle",
+              },
+            },
+            conditional: {
+              id: "conditional",
+              type: "conditional-content",
+              childIds: [],
+              props: { targetStateNodeId: "state", showWhen: true },
+            },
+            trigger: {
+              id: "trigger",
+              type: "drawer-trigger",
+              childIds: [],
+              props: { text: "Open", targetDrawerNodeId: "panel" },
+            },
+            panel: {
+              id: "panel",
+              type: "drawer-panel",
+              childIds: ["close"],
+              props: { targetStateNodeId: "state" },
+            },
+            close: {
+              id: "close",
+              type: "drawer-close",
+              childIds: [],
+              props: { text: "Close" },
+            },
+          },
+        },
+      },
+    };
+
+    const result = runDocumentMigrations(input);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.migrated).toBe(true);
+    expect(result.value).toMatchObject({
+      schemaVersion: 2,
+      pages: {
+        home: {
+          nodes: {
+            action: {
+              type: "button",
+              componentVersion: 5,
+              props: {
+                text: "Toggle menu",
+                targetStateNodeId: "state",
+                stateAction: "toggle",
+              },
+            },
+            conditional: {
+              type: "container",
+              stateBinding: {
+                stateNodeId: "state",
+                on: "show",
+                off: "hide",
+              },
+            },
+            trigger: {
+              type: "button",
+              props: {
+                targetStateNodeId: "state",
+                stateAction: "turn-on",
+              },
+            },
+            panel: {
+              type: "container",
+              stateBinding: {
+                stateNodeId: "state",
+                on: "show",
+                off: "hide",
+              },
+            },
+            close: {
+              type: "button",
+              props: {
+                targetStateNodeId: "state",
+                stateAction: "turn-off",
+              },
+            },
+          },
+        },
+      },
+    });
+    expect(input.schemaVersion).toBe(1);
+  });
+
   it.each([
     [{}, -1, "schemaVersion must be an integer"],
     [{ schemaVersion: "1" }, -1, "schemaVersion must be an integer"],

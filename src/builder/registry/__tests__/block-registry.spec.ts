@@ -288,6 +288,8 @@ describe("blockRegistry", () => {
         iconPosition: "end",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       },
       styles: {
         base: {

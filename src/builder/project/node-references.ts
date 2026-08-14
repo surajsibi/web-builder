@@ -91,3 +91,16 @@ export function remapNodeReferences(
 
   return props;
 }
+
+export function remapStateBinding(
+  node: Readonly<BuilderNode>,
+  idMap: Readonly<Record<NodeId, NodeId>>,
+): BuilderNode["stateBinding"] {
+  if (!node.stateBinding) return undefined;
+
+  return {
+    ...node.stateBinding,
+    stateNodeId:
+      idMap[node.stateBinding.stateNodeId] ?? node.stateBinding.stateNodeId,
+  };
+}

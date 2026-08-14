@@ -7,6 +7,7 @@ import {
   CURRENT_PROJECT_SCHEMA_VERSION,
   type ProjectDocument,
 } from "@/builder/model/project-document";
+import { booleanStateBindingSchema } from "@/builder/model/state-binding";
 import {
   canPlaceType,
   componentRegistry,
@@ -40,6 +41,7 @@ const rawNodeSchema = z
     childIds: z.array(z.string().min(1)),
     props: jsonObjectSchema,
     styles: jsonObjectSchema,
+    stateBinding: booleanStateBindingSchema.optional(),
     meta: z
       .object({
         name: z.string().refine((value) => value.trim().length > 0, {

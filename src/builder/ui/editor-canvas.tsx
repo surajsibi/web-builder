@@ -14,7 +14,6 @@ import {
 import { useDraggable, useDroppable } from "@dnd-kit/react";
 
 import { BooleanStateRuntimeProvider } from "@/builder/interaction/boolean-state-runtime";
-import { DrawerRuntimeProvider } from "@/builder/interaction/drawer-runtime";
 import type { EditorDragSource } from "@/builder/interaction/types";
 import type { NodeId } from "@/builder/model/ids";
 import type {
@@ -1121,9 +1120,6 @@ export function EditorCanvas({
       viewportWidth: null,
       viewportHeight: null,
     });
-  const [drawerPortalHost, setDrawerPortalHost] =
-    useState<HTMLDivElement | null>(null);
-
   const editableText = useCallback(
     (nodeId: NodeId): string | null => {
       const node = page.nodes[nodeId];
@@ -1433,7 +1429,7 @@ export function EditorCanvas({
       const isInsideInactiveConditional =
         event.target instanceof HTMLElement &&
         event.target.closest(
-          '.conditional-content-root[data-conditional-content-state="inactive"]',
+          '[data-state-visibility="inactive"]',
         ) !== null;
 
       if (activatesDirectInteraction && !isInsideInactiveConditional) {
@@ -1495,37 +1491,25 @@ export function EditorCanvas({
           ref={artboardRef}
         >
           <BooleanStateRuntimeProvider page={page}>
-            <DrawerRuntimeProvider
-              mode="editor"
-              page={page}
-              portalHost={drawerPortalHost}
-            >
-              {page.rootIds.length === 0 ? (
-                <div className="empty-page-placeholder">
-                  <span aria-hidden="true">+</span>
-                  <strong>Your page is empty</strong>
-                  <p>Choose or drag a component from the library to begin.</p>
-                </div>
-              ) : (
-                page.rootIds.map((nodeId) => (
-                  <CanvasNode
-                    getRootAttributes={rootAttributesFor}
-                    key={nodeId}
-                    nodeId={nodeId}
-                    page={page}
-                    previewStyles={previewStyles}
-                    registerRoot={registerRoot}
-                    viewport={viewport}
-                  />
-                ))
-              )}
-            </DrawerRuntimeProvider>
-
-            <div
-              aria-label="Drawer portal host"
-              className="canvas-drawer-portal-host"
-              ref={setDrawerPortalHost}
-            />
+            {page.rootIds.length === 0 ? (
+              <div className="empty-page-placeholder">
+                <span aria-hidden="true">+</span>
+                <strong>Your page is empty</strong>
+                <p>Choose or drag a component from the library to begin.</p>
+              </div>
+            ) : (
+              page.rootIds.map((nodeId) => (
+                <CanvasNode
+                  getRootAttributes={rootAttributesFor}
+                  key={nodeId}
+                  nodeId={nodeId}
+                  page={page}
+                  previewStyles={previewStyles}
+                  registerRoot={registerRoot}
+                  viewport={viewport}
+                />
+              ))
+            )}
 
             <CanvasInteractionOverlay
               artboardContentSize={artboardContentSize}

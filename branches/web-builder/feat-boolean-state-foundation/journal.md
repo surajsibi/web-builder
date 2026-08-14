@@ -53,7 +53,7 @@ Implement the approved V1 in bounded slices: shared Boolean contracts and typed 
 
 **Remaining:**
 
-- A separately authorized implementation of the [Boolean-State-driven connected Drawer V1 plan](../../../workspaces/navbar/plan/Connected-Drawer-Components-Plan.md).
+- A separately authorized follow-up interaction implementation on its own feature branch.
 - Separate follow-ups for authored transitions, variants, conditional styles, existing-component action bindings, connected templates, and improved State Action Canvas manipulation.
 
 **Last left off:**

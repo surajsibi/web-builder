@@ -72,22 +72,6 @@ describe("validateComponentRegistry", () => {
     ).toThrow("test.editor.directInteraction must be boolean");
   });
 
-  it("should reject editor ancestor requirements outside the registry", () => {
-    const definition = createDefinition();
-    const invalidDefinition = {
-      ...definition,
-      editor: { requiredAncestorType: "missing" },
-    };
-
-    expect(() =>
-      validateComponentRegistry({
-        test: invalidDefinition,
-      } as unknown as RegistryInput),
-    ).toThrow(
-      "test.editor.requiredAncestorType references unknown component type: missing",
-    );
-  });
-
   it("should reject defaults that do not pass the component props schema", () => {
     const definition = createDefinition();
     const invalidDefinition = {

@@ -34,11 +34,6 @@ export type DragSession = {
   source: EditorDragSource;
 };
 
-export type BooleanCondition = {
-  stateNodeId: NodeId;
-  equals: boolean;
-};
-
 export type InteractionAction =
   | {
       kind: "boolean.set";

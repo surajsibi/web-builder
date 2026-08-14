@@ -4,10 +4,8 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor,
   within,
 } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -320,100 +318,128 @@ describe("EditorShell", () => {
     ).toBe("Section 1");
   });
 
-  it("should bind actions and conditional content to a named Boolean State", () => {
+  it("should create, connect, undo, and operate a Boolean State with ordinary components", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Interactions/ }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Add Boolean State" }),
-    );
-    const nameInput = screen.getByRole("textbox", { name: "Component name" });
-    fireEvent.change(nameInput, { target: { value: "Menu open" } });
-    fireEvent.blur(nameInput);
+    fireEvent.click(screen.getByRole("button", { name: /Layout/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Container" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Add State Action" }));
-    const actionReference = screen.getByRole("combobox", {
-      name: "Boolean State",
+    const historyBeforeConnection = store.getState().history.past.length;
+    const stateName = screen.getByRole("textbox", { name: "Name" });
+    fireEvent.change(stateName, { target: { value: "Menu open" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create state & connect" }),
+    );
+
+    const pageAfterConnection =
+      store.getState().document!.pages[asPageId("page-editor-test")];
+    const connectedContainer = Object.values(pageAfterConnection.nodes).find(
+      (node) => node.type === "container",
+    )!;
+    const state = Object.values(pageAfterConnection.nodes).find(
+      (node) => node.type === "boolean-state",
+    )!;
+
+    expect(state.meta.name).toBe("Menu open");
+    expect(connectedContainer.stateBinding).toEqual({
+      stateNodeId: state.id,
+      on: "show",
+      off: "hide",
     });
-    expect(actionReference).toHaveDisplayValue("Select Boolean State");
-    fireEvent.change(actionReference, { target: { value: "node-editor-1" } });
-    expect(actionReference).toHaveDisplayValue("Menu open");
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Add Conditional Content" }),
+    expect(store.getState().history.past).toHaveLength(
+      historyBeforeConnection + 1,
     );
+
+    act(() => {
+      store.getState().undo();
+    });
+
+    const pageAfterUndo =
+      store.getState().document!.pages[asPageId("page-editor-test")];
+    expect(
+      Object.values(pageAfterUndo.nodes).some(
+        (node) => node.type === "boolean-state",
+      ),
+    ).toBe(false);
+    expect(pageAfterUndo.nodes[connectedContainer.id].stateBinding).toBeUndefined();
+
+    act(() => {
+      store.getState().redo();
+      store.getState().clearSelection();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "Components" }));
+    fireEvent.click(screen.getByRole("button", { name: /Buttons/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Button" }));
+
+    fireEvent.change(screen.getByRole("combobox", { name: "On click" }), {
+      target: { value: "toggle" },
+    });
     fireEvent.change(
-      screen.getByRole("combobox", { name: "Boolean State" }),
-      { target: { value: "node-editor-1" } },
+      screen.getByRole("combobox", { name: "Action Boolean State" }),
+      { target: { value: state.id } },
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Typography/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Add Text" }));
-    const conditional = document.querySelector(
-      ".conditional-content-root:has(.canvas-node)",
+    const connectedElement = document.querySelector(
+      ".canvas-node[data-state-visibility]",
     );
-    expect(conditional).toHaveAttribute(
-      "data-conditional-content-state",
-      "inactive",
-    );
+    expect(connectedElement).toHaveAttribute("data-state-visibility", "inactive");
+    expect(
+      Object.values(
+        store.getState().document!.pages[asPageId("page-editor-test")].nodes,
+      ).find((node) => node.type === "button")?.props,
+    ).toMatchObject({
+      targetStateNodeId: state.id,
+      stateAction: "toggle",
+    });
 
     const historyBeforeRuntimeAction = store.getState().history.past.length;
     const revisionBeforeRuntimeAction = store.getState().document?.revision;
-    fireEvent.click(screen.getByRole("button", { name: "Toggle state" }));
-    expect(conditional).toHaveAttribute(
-      "data-conditional-content-state",
-      "visible",
-    );
-    expect(store.getState().history.past).toHaveLength(
-      historyBeforeRuntimeAction,
-    );
-    expect(store.getState().document?.revision).toBe(
-      revisionBeforeRuntimeAction,
-    );
-    expect(
-      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
-        asNodeId("node-editor-2")
-      ].props.targetStateNodeId,
-    ).toBe("node-editor-1");
-    expect(
-      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
-        asNodeId("node-editor-3")
-      ].props.targetStateNodeId,
-    ).toBe("node-editor-1");
-
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
-    fireEvent.click(screen.getByRole("button", { name: "Select Menu open" }));
-    fireEvent.click(screen.getByRole("button", { name: "Delete Menu open" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Select State Action 1" }),
+      within(screen.getByRole("region", { name: "Page canvas" })).getByRole(
+        "button",
+        { name: "Button" },
+      ),
     );
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "The selected Boolean State no longer exists.",
-    );
+
+    expect(
+      document.querySelector(".canvas-node[data-state-visibility]"),
+    ).toHaveAttribute("data-state-visibility", "visible");
+    expect(store.getState().history.past).toHaveLength(historyBeforeRuntimeAction);
+    expect(store.getState().document?.revision).toBe(revisionBeforeRuntimeAction);
   });
 
-  it("should reconnect an action after its referenced Boolean State is deleted", () => {
+  it("should explain and repair a connection after its Boolean State is deleted", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);
-    fireEvent.click(screen.getByRole("button", { name: /Interactions/ }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Add Boolean State" }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Add State Action" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Boolean State" }), {
-      target: { value: "node-editor-1" },
+
+    fireEvent.click(screen.getByRole("button", { name: /Layout/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Container" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
+      target: { value: "Original state" },
     });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create state & connect" }),
+    );
+
     fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Select Boolean State 1" }),
+      screen.getByRole("button", { name: "Select Original state" }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Delete Boolean State 1" }),
+      screen.getByRole("button", { name: "Delete Original state" }),
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Select State Action 1" }),
+      screen.getByRole("button", { name: "Select Container 1" }),
     );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The connected Boolean State no longer exists.",
+    );
+
     fireEvent.click(screen.getByRole("tab", { name: "Components" }));
     fireEvent.click(screen.getByRole("button", { name: /Interactions/ }));
     fireEvent.click(
@@ -427,83 +453,21 @@ describe("EditorShell", () => {
     const replacementState = Object.values(
       store.getState().document!.pages[asPageId("page-editor-test")].nodes,
     ).find((node) => node.type === "boolean-state")!;
+
     fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Select State Action 1" }),
+      screen.getByRole("button", { name: "Select Container 1" }),
     );
-
-    const referencePicker = screen.getByRole("combobox", {
-      name: "Boolean State",
-    });
-
-    fireEvent.change(referencePicker, {
+    fireEvent.change(screen.getByRole("combobox", { name: "Boolean State" }), {
       target: { value: replacementState.id },
     });
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(referencePicker).toHaveDisplayValue("Replacement state");
-  });
-
-  it("should author and operate a connected Drawer inside the Canvas portal", async () => {
-    const user = userEvent.setup();
-    const store = createEditorTestStore();
-    render(<EditorShell store={store} />);
-    await user.click(screen.getByRole("button", { name: /Interactions/ }));
-    await user.click(screen.getByRole("button", { name: "Add Boolean State" }));
-    await user.click(screen.getByRole("button", { name: "Add Drawer Trigger" }));
-    await user.click(screen.getByRole("button", { name: "Add Drawer Panel" }));
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Boolean State" }),
-      "node-editor-1",
-    );
-    await user.click(screen.getByRole("button", { name: "Add Drawer Close" }));
-    await user.click(screen.getByRole("tab", { name: "Layers" }));
-    await user.click(
-      screen.getByRole("button", { name: "Select Drawer Trigger 1" }),
-    );
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "Drawer Panel" }),
-      "node-editor-3",
-    );
-    const historyBeforeRuntimeAction = store.getState().history.past.length;
-    const revisionBeforeRuntimeAction = store.getState().document?.revision;
-
-    await user.click(screen.getByRole("button", { name: "Open drawer" }));
-
-    const dialog = await screen.findByRole("dialog", { name: "Drawer" });
-    expect(screen.getByLabelText("Drawer portal host")).toContainElement(dialog);
-    expect(document.body).not.toHaveStyle({ overflow: "hidden" });
     expect(
-      within(screen.getByRole("region", { name: "Page canvas" })).queryByRole(
-        "button",
-        { name: "Drag Drawer Trigger 1" },
-      ),
-    ).not.toBeInTheDocument();
-
-    await user.click(
-      within(dialog).getByRole("button", { name: "Close drawer" }),
-    );
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(store.getState().selectedNodeId).toBe("node-editor-4");
-    expect(store.getState().history.past).toHaveLength(historyBeforeRuntimeAction);
-    expect(store.getState().document?.revision).toBe(revisionBeforeRuntimeAction);
-  });
-
-  it("should explain when Drawer Close is outside a Drawer Panel without editing the page", async () => {
-    const user = userEvent.setup();
-    const store = createEditorTestStore();
-    render(<EditorShell store={store} />);
-    await user.click(screen.getByRole("button", { name: /Interactions/ }));
-    await user.click(screen.getByRole("button", { name: "Add Drawer Close" }));
-    const historyBeforeDiagnostic = store.getState().history.past.length;
-    const revisionBeforeDiagnostic = store.getState().document?.revision;
-
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Place this Drawer Close inside a Drawer Panel.",
-    );
-    expect(store.getState().history.past).toHaveLength(historyBeforeDiagnostic);
-    expect(store.getState().document?.revision).toBe(revisionBeforeDiagnostic);
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-editor-1")
+      ].stateBinding?.stateNodeId,
+    ).toBe(replacementState.id);
   });
 
   it("should insert and configure a linked SVG Image through the Inspector", () => {
@@ -775,6 +739,8 @@ describe("EditorShell", () => {
       iconPosition: "end",
       iconAnimation: "none",
       behavior: "button",
+      targetStateNodeId: "",
+      stateAction: "none",
     });
   });
 

@@ -1,9 +1,7 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { z } from "zod";
 
 import {
-  ConditionalPresence,
-  evaluateBooleanCondition,
   useBooleanStateRuntime,
 } from "@/builder/interaction/boolean-state-runtime";
 import { asNodeId } from "@/builder/model/ids";
@@ -24,7 +22,6 @@ import {
   CheckboxGroupIcon,
   CheckboxIcon,
   ContainerIcon,
-  ConditionalContentIcon,
   DropdownIcon,
   FormIcon,
   HeadingIcon,
@@ -34,7 +31,6 @@ import {
   LinkIcon,
   RadioGroupIcon,
   SectionIcon,
-  StateActionIcon,
   TextIcon,
   TextareaIcon,
 } from "./component-icons";
@@ -51,11 +47,6 @@ export type V1ComponentType =
   | "section"
   | "container"
   | "boolean-state"
-  | "state-action"
-  | "conditional-content"
-  | "drawer-trigger"
-  | "drawer-panel"
-  | "drawer-close"
   | "heading"
   | "text"
   | "label"
@@ -393,240 +384,6 @@ export const booleanStateDefinition = {
   },
   render: BooleanStateRenderer,
 } satisfies ComponentDefinition<BooleanStateProps, V1ComponentType>;
-
-export const stateActionPropsSchema = z
-  .object({
-    text: z.string().trim().min(1).max(100),
-    targetStateNodeId: nodeReferenceIdSchema,
-    action: z.enum(["turn-on", "turn-off", "toggle"]),
-    disabled: z.boolean(),
-  })
-  .strict();
-
-export type StateActionProps = z.infer<typeof stateActionPropsSchema>;
-
-export function StateActionRenderer({
-  props,
-  style,
-  className,
-  rootRef,
-  rootAttributes,
-}: LeafRendererProps<StateActionProps>) {
-  const stateRuntime = useBooleanStateRuntime();
-  const stateNodeId = asNodeId(props.targetStateNodeId);
-  const targetExists =
-    props.targetStateNodeId !== "" && stateRuntime?.has(stateNodeId) === true;
-  const unavailable = !targetExists;
-
-  return (
-    <button
-      {...rootAttributes}
-      aria-disabled={props.disabled || unavailable}
-      className={["state-action-control", className].filter(Boolean).join(" ")}
-      data-state-target-status={targetExists ? "resolved" : "unresolved"}
-      disabled={props.disabled}
-      onClick={() => {
-        if (props.disabled || !targetExists || !stateRuntime) return;
-        if (props.action === "toggle") {
-          stateRuntime.dispatch({ kind: "boolean.toggle", stateNodeId });
-          return;
-        }
-        stateRuntime.dispatch({
-          kind: "boolean.set",
-          stateNodeId,
-          value: props.action === "turn-on",
-        });
-      }}
-      ref={rootRef}
-      style={style}
-      type="button"
-    >
-      {props.text}
-    </button>
-  );
-}
-
-const stateActionStyles = {
-  base: {
-    display: "block",
-    width: { mode: "fit" },
-    height: { mode: "auto" },
-    padding: spacing(10, 16, 10, 16),
-    backgroundColor: "#2563eb",
-    color: "#ffffff",
-    borderColor: "#2563eb",
-    borderStyle: "solid",
-    borderWidth: { value: 1, unit: "px" },
-    borderRadius: px(8),
-    fontSize: px(14),
-    fontWeight: 600,
-    lineHeight: 1.2,
-    position: "static",
-    zIndex: "auto",
-  },
-} satisfies ResponsiveStyles;
-
-export const stateActionDefinition = {
-  version: 1,
-  library: {
-    label: "State Action",
-    category: "Interactions",
-    icon: StateActionIcon,
-    searchTerms: ["toggle", "turn on", "turn off", "interaction"],
-  },
-  defaults: {
-    props: {
-      text: "Toggle state",
-      targetStateNodeId: "",
-      action: "toggle",
-      disabled: false,
-    },
-    styles: stateActionStyles,
-  },
-  children: { allowed: false },
-  editor: { directInteraction: true },
-  propsSchema: stateActionPropsSchema,
-  references: [
-    {
-      path: "targetStateNodeId",
-      targetType: "boolean-state",
-      scope: "page",
-      onDuplicate: "remap-if-target-cloned",
-    },
-  ],
-  inspector: {
-    props: [
-      { path: "text", label: "Label", control: "text" },
-      {
-        path: "targetStateNodeId",
-        label: "Boolean State",
-        control: "node-reference",
-      },
-      {
-        path: "action",
-        label: "Action",
-        control: "select",
-        options: [
-          { label: "Turn On", value: "turn-on" },
-          { label: "Turn Off", value: "turn-off" },
-          { label: "Toggle", value: "toggle" },
-        ],
-      },
-      { path: "disabled", label: "Disabled", control: "boolean" },
-    ],
-    styles: [
-      "sizing",
-      "spacing",
-      "background",
-      "border",
-      "typography",
-      "positioning",
-    ],
-  },
-  render: StateActionRenderer,
-} satisfies ComponentDefinition<StateActionProps, V1ComponentType>;
-
-export const conditionalContentPropsSchema = z
-  .object({
-    targetStateNodeId: nodeReferenceIdSchema,
-    showWhen: z.boolean(),
-  })
-  .strict();
-
-export type ConditionalContentProps = z.infer<
-  typeof conditionalContentPropsSchema
->;
-
-export function ConditionalContentRenderer({
-  props,
-  style,
-  className,
-  rootRef,
-  rootAttributes,
-  runtime,
-  children,
-}: ContainerRendererProps<ConditionalContentProps>) {
-  const stateRuntime = useBooleanStateRuntime();
-  const matches = evaluateBooleanCondition(stateRuntime, {
-    stateNodeId: asNodeId(props.targetStateNodeId),
-    equals: props.showWhen,
-  });
-  const content = (
-    <div
-      {...rootAttributes}
-      className={["conditional-content-root", className]
-        .filter(Boolean)
-        .join(" ")}
-      data-conditional-content-state={matches ? "visible" : "inactive"}
-      ref={rootRef}
-      style={style}
-    >
-      {children}
-    </div>
-  );
-
-  if (runtime?.mode === "editor") return content;
-  return <ConditionalPresence present={matches}>{content}</ConditionalPresence>;
-}
-
-const conditionalContentStyles = {
-  base: {
-    display: "block",
-    width: { mode: "fill" },
-    height: { mode: "auto" },
-    minWidth: px(0),
-    padding: spacing(0, 0, 0, 0),
-    position: "static",
-    zIndex: "auto",
-  },
-} satisfies ResponsiveStyles;
-
-export const conditionalContentDefinition = {
-  version: 1,
-  library: {
-    label: "Conditional Content",
-    category: "Interactions",
-    icon: ConditionalContentIcon,
-    searchTerms: ["visibility", "show hide", "condition", "state"],
-  },
-  defaults: {
-    props: {
-      targetStateNodeId: "",
-      showWhen: true,
-    },
-    styles: conditionalContentStyles,
-  },
-  children: { allowed: true, accepts: "any" },
-  propsSchema: conditionalContentPropsSchema,
-  references: [
-    {
-      path: "targetStateNodeId",
-      targetType: "boolean-state",
-      scope: "page",
-      onDuplicate: "remap-if-target-cloned",
-    },
-  ],
-  inspector: {
-    props: [
-      {
-        path: "targetStateNodeId",
-        label: "Boolean State",
-        control: "node-reference",
-      },
-      { path: "showWhen", label: "Show when On", control: "boolean" },
-    ],
-    styles: [
-      "sizing",
-      "spacing",
-      "background",
-      "backgroundImage",
-      "border",
-      "layout",
-      "positioning",
-    ],
-  },
-  render: ConditionalContentRenderer,
-} satisfies ComponentDefinition<ConditionalContentProps, V1ComponentType>;
 
 export const headingPropsSchema = z
   .object({
@@ -1264,7 +1021,7 @@ const buttonV3PropsSchema = z
     }
   });
 
-export const buttonPropsSchema = z
+const buttonV4PropsSchema = z
   .object({
     text: z.string().min(1),
     href: safeHrefSchema,
@@ -1293,6 +1050,61 @@ export const buttonPropsSchema = z
     }
   });
 
+export const buttonPropsSchema = z
+  .object({
+    text: z.string().min(1),
+    href: safeHrefSchema,
+    openInNewTab: z.boolean(),
+    icon: z.enum(BUTTON_ICON_NAMES).nullable(),
+    iconPosition: z.enum(["start", "end"]),
+    iconAnimation: z.enum(["none", "shift-right"]),
+    behavior: z.enum(["button", "submit"]),
+    targetStateNodeId: nodeReferenceIdSchema,
+    stateAction: z.enum(["none", "turn-on", "turn-off", "toggle"]),
+  })
+  .strict()
+  .superRefine((props, context) => {
+    if (props.href === "" && props.openInNewTab) {
+      context.addIssue({
+        code: "custom",
+        path: ["openInNewTab"],
+        message: "A button without a link cannot open in a new tab",
+      });
+    }
+
+    if (props.href !== "" && props.behavior === "submit") {
+      context.addIssue({
+        code: "custom",
+        path: ["behavior"],
+        message: "A linked button cannot submit a form",
+      });
+    }
+
+    if (props.stateAction !== "none" && props.href !== "") {
+      context.addIssue({
+        code: "custom",
+        path: ["stateAction"],
+        message: "A linked button cannot run a Boolean State action",
+      });
+    }
+
+    if (props.stateAction !== "none" && props.behavior !== "button") {
+      context.addIssue({
+        code: "custom",
+        path: ["stateAction"],
+        message: "A submit button cannot run a Boolean State action",
+      });
+    }
+
+    if (props.stateAction === "none" && props.targetStateNodeId !== "") {
+      context.addIssue({
+        code: "custom",
+        path: ["targetStateNodeId"],
+        message: "A button without a state action cannot keep a state target",
+      });
+    }
+  });
+
 export type ButtonProps = z.infer<typeof buttonPropsSchema>;
 
 export function ButtonRenderer({
@@ -1301,7 +1113,33 @@ export function ButtonRenderer({
   className,
   rootRef,
   rootAttributes,
+  runtime,
 }: LeafRendererProps<ButtonProps>) {
+  const stateRuntime = useBooleanStateRuntime();
+  const stateNodeId = asNodeId(props.targetStateNodeId);
+  const hasStateAction = props.stateAction !== "none";
+  const stateTargetExists =
+    hasStateAction &&
+    props.targetStateNodeId !== "" &&
+    stateRuntime?.has(stateNodeId) === true;
+  const handleClick = (event: MouseEvent<HTMLElement>) => {
+    if (!hasStateAction) {
+      if (runtime?.mode === "editor") event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    if (!stateRuntime || !stateTargetExists) return;
+    if (props.stateAction === "toggle") {
+      stateRuntime.dispatch({ kind: "boolean.toggle", stateNodeId });
+      return;
+    }
+    stateRuntime.dispatch({
+      kind: "boolean.set",
+      stateNodeId,
+      value: props.stateAction === "turn-on",
+    });
+  };
   const content = (
     <>
       {props.icon !== null && props.iconPosition === "start" ? (
@@ -1318,8 +1156,17 @@ export function ButtonRenderer({
     return (
       <button
         {...rootAttributes}
+        aria-disabled={hasStateAction && !stateTargetExists}
         className={className}
         data-button-icon-animation={props.iconAnimation}
+        data-state-target-status={
+          hasStateAction
+            ? stateTargetExists
+              ? "resolved"
+              : "unresolved"
+            : undefined
+        }
+        onClick={handleClick}
         ref={rootRef}
         style={style}
         type={props.behavior}
@@ -1335,6 +1182,7 @@ export function ButtonRenderer({
       className={className}
       data-button-icon-animation={props.iconAnimation}
       href={props.href}
+      onClick={handleClick}
       ref={rootRef}
       rel={props.openInNewTab ? "noopener noreferrer" : undefined}
       style={style}
@@ -1375,7 +1223,7 @@ const buttonStyles = {
 } satisfies ResponsiveStyles;
 
 export const buttonDefinition = {
-  version: 4,
+  version: 5,
   library: {
     label: "Button",
     category: "Actions",
@@ -1390,11 +1238,22 @@ export const buttonDefinition = {
       iconPosition: "start",
       iconAnimation: "none",
       behavior: "button",
+      targetStateNodeId: "",
+      stateAction: "none",
     },
     styles: buttonStyles,
   },
   children: { allowed: false },
+  editor: { directInteraction: true },
   propsSchema: buttonPropsSchema,
+  references: [
+    {
+      path: "targetStateNodeId",
+      targetType: "boolean-state",
+      scope: "page",
+      onDuplicate: "remap-if-target-cloned",
+    },
+  ],
   migrations: [
     {
       fromVersion: 1,
@@ -1428,6 +1287,22 @@ export const buttonDefinition = {
 
         return {
           props: { ...props, iconAnimation: "none" },
+          styles: { ...value.styles },
+        };
+      },
+    },
+    {
+      fromVersion: 4,
+      toVersion: 5,
+      migrate: (value) => {
+        const props = buttonV4PropsSchema.parse(value.props);
+
+        return {
+          props: {
+            ...props,
+            targetStateNodeId: "",
+            stateAction: "none",
+          },
           styles: { ...value.styles },
         };
       },
@@ -1580,7 +1455,6 @@ export const formDefinition = {
       "label",
       "link",
       "button",
-      "state-action",
       "input",
       "textarea",
       "dropdown",

@@ -5,6 +5,7 @@ import type {
   RefCallback,
 } from "react";
 
+import { useBooleanStateRuntime } from "@/builder/interaction/boolean-state-runtime";
 import type { JsonObject } from "@/builder/model/json";
 import type { NodeId } from "@/builder/model/ids";
 import type {
@@ -60,8 +61,25 @@ export function NodeRenderingController({
   renderEmptyContainer,
   renderChild,
 }: NodeRenderingControllerProps) {
+  const stateRuntime = useBooleanStateRuntime();
   const node = page.nodes[nodeId];
   const definition = componentRegistry[node.type];
+  const stateBinding = node.stateBinding;
+  const stateAvailable =
+    stateBinding === undefined || stateRuntime?.has(stateBinding.stateNodeId) === true;
+  const stateValue =
+    stateBinding && stateAvailable
+      ? stateRuntime?.read(stateBinding.stateNodeId) ?? false
+      : false;
+  const stateVisibility = stateBinding
+    ? stateValue
+      ? stateBinding.on
+      : stateBinding.off
+    : "show";
+  const stateVisible = stateAvailable && stateVisibility === "show";
+
+  if (runtime?.mode !== "editor" && !stateVisible) return null;
+
   const Renderer = definition.render as ReactComponentType<RuntimeRendererProps>;
   const style = {
     ...compileStyleValues(resolveResponsiveStyles(node.styles, viewport)),
@@ -69,6 +87,14 @@ export function NodeRenderingController({
   };
   const rootAttributes = {
     ...getRootAttributes?.(node),
+    ...(runtime?.mode === "editor" && stateBinding
+      ? {
+          "data-state-visibility": stateVisible ? "visible" : "inactive",
+          "data-state-connection-status": stateAvailable
+            ? "resolved"
+            : "unresolved",
+        }
+      : {}),
     ...(runtime?.mode === "editor" && componentUsesDirectInteraction(node.type)
       ? { "data-editor-direct-interaction": "true" as const }
       : {}),

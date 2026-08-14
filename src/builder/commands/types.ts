@@ -1,5 +1,6 @@
 import type { JsonObject, JsonValue } from "@/builder/model/json";
 import type { NodeId, PageId } from "@/builder/model/ids";
+import type { BooleanStateBinding } from "@/builder/model/state-binding";
 import type { ComponentType } from "@/builder/registry/component-registry";
 import type { BlockType } from "@/builder/registry/block-registry";
 import type {
@@ -111,6 +112,21 @@ export type NodeCommand =
       nodeId: NodeId;
       viewport: Viewport;
       changes: NonEmptyReadonlyArray<StyleChange>;
+    }
+  | {
+      kind: "node.updateStateBinding";
+      pageId: PageId;
+      nodeId: NodeId;
+      binding: BooleanStateBinding | null;
+    }
+  | {
+      kind: "state.createAndConnect";
+      pageId: PageId;
+      nodeId: NodeId;
+      name: string;
+      defaultValue: boolean;
+      on: BooleanStateBinding["on"];
+      off: BooleanStateBinding["off"];
     };
 
 export type BlockCommand = {
@@ -176,6 +192,7 @@ export type CommandAppliedValue =
       destination: NodeDestination;
     }
   | { nodeId: NodeId; removedNodeIds: readonly NodeId[] }
+  | { nodeId: NodeId; stateNodeId: NodeId }
   | {
       blockType: BlockType;
       rootNodeId: NodeId;

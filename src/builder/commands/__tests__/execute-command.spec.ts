@@ -533,26 +533,117 @@ describe("executeEditorCommand", () => {
     ).toHaveLength(5);
   });
 
-  it("should remap Boolean State references when the connected subtree is duplicated", () => {
+  it("should create and connect a Boolean State as one atomic command", () => {
+    const snapshot = createSnapshot();
+    const page = snapshot.document.pages[asPageId("page-home")];
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "state.createAndConnect",
+        pageId: page.id,
+        nodeId: asNodeId("node-card"),
+        name: "Menu open",
+        defaultValue: false,
+        on: "show",
+        off: "hide",
+      },
+      { idGenerator: () => "node-menu-state" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.value).toEqual({
+      nodeId: "node-card",
+      stateNodeId: "node-menu-state",
+    });
+    const candidatePage = result.candidate.document.pages[page.id];
+    expect(candidatePage.nodes[asNodeId("node-menu-state")]).toMatchObject({
+      type: "boolean-state",
+      props: { defaultValue: false },
+      meta: { name: "Menu open", locked: false },
+    });
+    expect(candidatePage.nodes[asNodeId("node-card")].stateBinding).toEqual({
+      stateNodeId: "node-menu-state",
+      on: "show",
+      off: "hide",
+    });
+    expect(candidatePage.rootIds).toContain("node-menu-state");
+    expect(page.nodes[asNodeId("node-card")].stateBinding).toBeUndefined();
+  });
+
+  it("should update and disconnect a valid state binding without changing props", () => {
     const snapshot = createSnapshot();
     const page = snapshot.document.pages[asPageId("page-home")];
     const state = createTestNode("boolean-state", "node-state");
-    const action = createTestNode("state-action", "node-state-action");
-    const conditional = createTestNode(
-      "conditional-content",
-      "node-conditional",
+    page.nodes[state.id] = state;
+    page.rootIds.push(state.id);
+    const originalProps = structuredClone(
+      page.nodes[asNodeId("node-card")].props,
     );
+
+    const connected = executeEditorCommand(snapshot, {
+      kind: "node.updateStateBinding",
+      pageId: page.id,
+      nodeId: asNodeId("node-card"),
+      binding: {
+        stateNodeId: state.id,
+        on: "hide",
+        off: "show",
+      },
+    });
+
+    expect(connected.status).toBe("applied");
+    if (connected.status !== "applied") return;
+    expect(
+      connected.candidate.document.pages[page.id].nodes[
+        asNodeId("node-card")
+      ].stateBinding,
+    ).toEqual({ stateNodeId: state.id, on: "hide", off: "show" });
+    expect(
+      connected.candidate.document.pages[page.id].nodes[
+        asNodeId("node-card")
+      ].props,
+    ).toEqual(originalProps);
+
+    const disconnected = executeEditorCommand(connected.candidate, {
+      kind: "node.updateStateBinding",
+      pageId: page.id,
+      nodeId: asNodeId("node-card"),
+      binding: null,
+    });
+
+    expect(disconnected.status).toBe("applied");
+    if (disconnected.status !== "applied") return;
+    expect(
+      disconnected.candidate.document.pages[page.id].nodes[
+        asNodeId("node-card")
+      ].stateBinding,
+    ).toBeUndefined();
+  });
+
+  it("should remap Button actions and component bindings with their cloned state", () => {
+    const snapshot = createSnapshot();
+    const page = snapshot.document.pages[asPageId("page-home")];
+    const state = createTestNode("boolean-state", "node-state");
+    const button = createTestNode("button", "node-state-button");
+    const connected = createTestNode("container", "node-connected");
     const group = createTestNode("container", "node-interaction-group", [
       state.id,
-      action.id,
-      conditional.id,
+      button.id,
+      connected.id,
     ]);
-    action.props.targetStateNodeId = state.id;
-    conditional.props.targetStateNodeId = state.id;
+    button.props.targetStateNodeId = state.id;
+    button.props.stateAction = "toggle";
+    connected.stateBinding = {
+      stateNodeId: state.id,
+      on: "show",
+      off: "hide",
+    };
     Object.assign(page.nodes, {
       [state.id]: state,
-      [action.id]: action,
-      [conditional.id]: conditional,
+      [button.id]: button,
+      [connected.id]: connected,
       [group.id]: group,
     });
     page.nodes[asNodeId("node-section")].childIds.push(group.id);
@@ -562,113 +653,8 @@ describe("executeEditorCommand", () => {
     const generatedIds = [
       "node-group-copy",
       "node-state-copy",
-      "node-action-copy",
-      "node-conditional-copy",
-    ];
-
-    const result = executeEditorCommand(
-      snapshot,
-      {
-        kind: "node.duplicate",
-        pageId: page.id,
-        nodeId: group.id,
-        destination: {
-          parentId: asNodeId("node-section"),
-          index: 2,
-        },
-      },
-      { idGenerator: () => generatedIds.shift() ?? "node-collision" },
-    );
-
-    expect(result.status).toBe("applied");
-    if (result.status !== "applied") return;
-    if (!("idMap" in result.value)) {
-      throw new Error("Expected duplication result metadata");
-    }
-    const duplicatedPage = result.candidate.document.pages[page.id];
-    const duplicatedStateId = result.value.idMap[state.id];
-    const duplicatedActionId = result.value.idMap[action.id];
-    const duplicatedConditionalId = result.value.idMap[conditional.id];
-    expect(
-      duplicatedPage.nodes[duplicatedActionId].props.targetStateNodeId,
-    ).toBe(duplicatedStateId);
-    expect(
-      duplicatedPage.nodes[duplicatedConditionalId].props.targetStateNodeId,
-    ).toBe(duplicatedStateId);
-    expect(page.nodes[action.id].props.targetStateNodeId).toBe(state.id);
-  });
-
-  it("should preserve an external Boolean State reference when only its action is duplicated", () => {
-    const snapshot = createSnapshot();
-    const page = snapshot.document.pages[asPageId("page-home")];
-    const state = createTestNode("boolean-state", "node-external-state");
-    const action = createTestNode("state-action", "node-external-action");
-    action.props.targetStateNodeId = state.id;
-    Object.assign(page.nodes, {
-      [state.id]: state,
-      [action.id]: action,
-    });
-    page.nodes[asNodeId("node-section")].childIds.push(state.id, action.id);
-    const parentIndex = buildProjectParentIndex(snapshot.document);
-    if (!parentIndex.success) throw new Error(parentIndex.issue.reason);
-    snapshot.parentById = parentIndex.parentById;
-
-    const result = executeEditorCommand(
-      snapshot,
-      {
-        kind: "node.duplicate",
-        pageId: page.id,
-        nodeId: action.id,
-        destination: {
-          parentId: asNodeId("node-section"),
-          index: 3,
-        },
-      },
-      { idGenerator: () => "node-external-action-copy" },
-    );
-
-    expect(result.status).toBe("applied");
-    if (result.status !== "applied") return;
-    expect(
-      result.candidate.document.pages[page.id].nodes[
-        asNodeId("node-external-action-copy")
-      ].props.targetStateNodeId,
-    ).toBe(state.id);
-  });
-
-  it("should remap both Drawer connections when a complete subtree is duplicated", () => {
-    const snapshot = createSnapshot();
-    const page = snapshot.document.pages[asPageId("page-home")];
-    const state = createTestNode("boolean-state", "node-drawer-state");
-    const trigger = createTestNode("drawer-trigger", "node-drawer-trigger");
-    const close = createTestNode("drawer-close", "node-drawer-close");
-    const panel = createTestNode("drawer-panel", "node-drawer-panel", [
-      close.id,
-    ]);
-    const group = createTestNode("container", "node-drawer-group", [
-      state.id,
-      trigger.id,
-      panel.id,
-    ]);
-    trigger.props.targetDrawerNodeId = panel.id;
-    panel.props.targetStateNodeId = state.id;
-    Object.assign(page.nodes, {
-      [state.id]: state,
-      [trigger.id]: trigger,
-      [close.id]: close,
-      [panel.id]: panel,
-      [group.id]: group,
-    });
-    page.nodes[asNodeId("node-section")].childIds.push(group.id);
-    const parentIndex = buildProjectParentIndex(snapshot.document);
-    if (!parentIndex.success) throw new Error(parentIndex.issue.reason);
-    snapshot.parentById = parentIndex.parentById;
-    const generatedIds = [
-      "node-drawer-group-copy",
-      "node-drawer-state-copy",
-      "node-drawer-trigger-copy",
-      "node-drawer-panel-copy",
-      "node-drawer-close-copy",
+      "node-button-copy",
+      "node-connected-copy",
     ];
 
     const result = executeEditorCommand(
@@ -688,14 +674,59 @@ describe("executeEditorCommand", () => {
     expect(result.status).toBe("applied");
     if (result.status !== "applied" || !("idMap" in result.value)) return;
     const duplicatedPage = result.candidate.document.pages[page.id];
+    const duplicatedStateId = result.value.idMap[state.id];
     expect(
-      duplicatedPage.nodes[result.value.idMap[trigger.id]].props
-        .targetDrawerNodeId,
-    ).toBe(result.value.idMap[panel.id]);
-    expect(
-      duplicatedPage.nodes[result.value.idMap[panel.id]].props
+      duplicatedPage.nodes[result.value.idMap[button.id]].props
         .targetStateNodeId,
-    ).toBe(result.value.idMap[state.id]);
+    ).toBe(duplicatedStateId);
+    expect(
+      duplicatedPage.nodes[result.value.idMap[connected.id]].stateBinding
+        ?.stateNodeId,
+    ).toBe(duplicatedStateId);
+    expect(page.nodes[button.id].props.targetStateNodeId).toBe(state.id);
+    expect(page.nodes[connected.id].stateBinding?.stateNodeId).toBe(state.id);
+  });
+
+  it("should preserve external state references when connected nodes are duplicated alone", () => {
+    const snapshot = createSnapshot();
+    const page = snapshot.document.pages[asPageId("page-home")];
+    const state = createTestNode("boolean-state", "node-external-state");
+    const connected = createTestNode("container", "node-external-connected");
+    connected.stateBinding = {
+      stateNodeId: state.id,
+      on: "show",
+      off: "hide",
+    };
+    Object.assign(page.nodes, {
+      [state.id]: state,
+      [connected.id]: connected,
+    });
+    page.nodes[asNodeId("node-section")].childIds.push(state.id, connected.id);
+    const parentIndex = buildProjectParentIndex(snapshot.document);
+    if (!parentIndex.success) throw new Error(parentIndex.issue.reason);
+    snapshot.parentById = parentIndex.parentById;
+
+    const result = executeEditorCommand(
+      snapshot,
+      {
+        kind: "node.duplicate",
+        pageId: page.id,
+        nodeId: connected.id,
+        destination: {
+          parentId: asNodeId("node-section"),
+          index: 3,
+        },
+      },
+      { idGenerator: () => "node-external-connected-copy" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(
+      result.candidate.document.pages[page.id].nodes[
+        asNodeId("node-external-connected-copy")
+      ].stateBinding?.stateNodeId,
+    ).toBe(state.id);
   });
 
   it("should reject duplication into a locked destination without changing the source", () => {

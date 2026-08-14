@@ -15,44 +15,14 @@
   --toolbar: #171a24;
 }
 
-.state-action-control[aria-disabled="true"] {
+button[data-state-target-status="unresolved"][aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.62;
 }
 
-.conditional-content-root[data-conditional-content-state="inactive"] {
+[data-state-visibility="inactive"] {
   outline: 1px dashed color-mix(in srgb, currentColor 45%, transparent);
   opacity: 0.58;
-}
-
-.drawer-trigger-control[aria-disabled="true"],
-.drawer-close-control[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.62;
-}
-
-.drawer-layer {
-  display: flex;
-  inset: 0;
-  pointer-events: auto;
-  position: fixed;
-}
-
-.drawer-layer[data-drawer-mode="editor"] {
-  position: absolute;
-}
-
-.drawer-backdrop {
-  background: rgb(16 24 40 / 52%);
-  inset: 0;
-  position: absolute;
-}
-
-.drawer-panel-surface {
-  flex: 0 0 auto;
-  max-height: 100%;
-  max-width: 100%;
-  z-index: 1;
 }
 
 * {
@@ -521,6 +491,29 @@ textarea:focus-visible {
 
 .inspector-panel {
   border-left: 1px solid var(--line);
+}
+
+.inspector-tabs {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0 -1.15rem;
+  padding: 0 1.15rem;
+}
+
+.inspector-tabs button {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.75rem 0.4rem;
+}
+
+.inspector-tabs button.active {
+  border-bottom-color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .panel-heading {
@@ -1335,17 +1328,6 @@ textarea:focus-visible {
   width: min(100%, 24.375rem);
 }
 
-.canvas-drawer-portal-host {
-  inset: 0;
-  pointer-events: none;
-  position: absolute;
-  z-index: 9;
-}
-
-.canvas-drawer-portal-host > .drawer-layer {
-  pointer-events: auto;
-}
-
 .empty-page-placeholder {
   align-items: center;
   color: var(--muted);
@@ -2081,6 +2063,58 @@ textarea:focus-visible {
   font-size: 0.62rem;
   line-height: 1.4;
   margin: 0;
+}
+
+.inspector-state-panel {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inspector-state-panel h3,
+.inspector-state-panel .inspector-section-heading h3 {
+  margin: 0;
+}
+
+.state-create-card {
+  background: #f8f7ff;
+  border: 1px solid #dcd7ff;
+  border-radius: 0.65rem;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+}
+
+.state-create-card > strong {
+  color: #344054;
+  font-size: 0.68rem;
+}
+
+.inspector-toggle-row {
+  align-items: center;
+  color: #475467;
+  display: flex;
+  font-size: 0.68rem;
+  font-weight: 650;
+  gap: 0.45rem;
+}
+
+.inspector-toggle-row input {
+  accent-color: var(--accent);
+}
+
+.state-primary-button {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 0.5rem;
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 750;
+  padding: 0.6rem 0.75rem;
+}
+
+.state-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .background-gradient-control,

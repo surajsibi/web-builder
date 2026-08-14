@@ -10,7 +10,6 @@ import {
   checkboxGroupDefinition,
   checkboxDefinition,
   containerDefinition,
-  conditionalContentDefinition,
   dropdownDefinition,
   formDefinition,
   headingDefinition,
@@ -20,25 +19,14 @@ import {
   linkDefinition,
   radioGroupDefinition,
   sectionDefinition,
-  stateActionDefinition,
   textDefinition,
   textareaDefinition,
 } from "./components/component-definitions";
-import {
-  drawerCloseDefinition,
-  drawerPanelDefinition,
-  drawerTriggerDefinition,
-} from "./components/drawer-definitions";
 
 export const componentRegistry = defineComponentRegistry({
   section: sectionDefinition,
   container: containerDefinition,
   "boolean-state": booleanStateDefinition,
-  "state-action": stateActionDefinition,
-  "conditional-content": conditionalContentDefinition,
-  "drawer-trigger": drawerTriggerDefinition,
-  "drawer-panel": drawerPanelDefinition,
-  "drawer-close": drawerCloseDefinition,
   heading: headingDefinition,
   text: textDefinition,
   label: labelDefinition,
@@ -63,16 +51,6 @@ export function componentUsesDirectInteraction(type: ComponentType): boolean {
   };
 
   return definition.editor?.directInteraction === true;
-}
-
-export function requiredAncestorTypeForComponent(
-  type: ComponentType,
-): ComponentType | null {
-  const definition = componentRegistry[type] as {
-    editor?: ComponentEditorMetadata<ComponentType>;
-  };
-
-  return definition.editor?.requiredAncestorType ?? null;
 }
 
 export function referencesForComponentType(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { asNodeId } from "@/builder/model/ids";
+import { CURRENT_PROJECT_SCHEMA_VERSION } from "@/builder/model/project-document";
 import { prepareProjectHydration } from "@/builder/project/hydration";
 import {
   createTestNode,
@@ -110,7 +111,7 @@ describe("prepareProjectHydration", () => {
     if (!result.success) return;
     expect(result.value.migrated).toBe(true);
     expect(result.value.document.pages[input.homePageId].nodes[button.id]).toMatchObject({
-      componentVersion: 4,
+      componentVersion: 5,
       props: {
         text: "Legacy action",
         href: "",
@@ -119,6 +120,8 @@ describe("prepareProjectHydration", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       },
     });
     expect(input.pages[input.homePageId].nodes[button.id]).toMatchObject({
@@ -154,13 +157,15 @@ describe("prepareProjectHydration", () => {
     expect(result.value.migrated).toBe(true);
     expect(result.value.document.pages[input.homePageId].nodes[button.id])
       .toMatchObject({
-        componentVersion: 4,
+        componentVersion: 5,
         props: {
           text: "Legacy arrow",
           icon: "arrow-right",
           iconPosition: "end",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         },
       });
   });
@@ -405,7 +410,8 @@ describe("prepareProjectHydration", () => {
   });
 
   it("should reject unsupported future document versions", () => {
-    const input = { ...createTestProject(), schemaVersion: 2 };
+    const futureVersion = CURRENT_PROJECT_SCHEMA_VERSION + 1;
+    const input = { ...createTestProject(), schemaVersion: futureVersion };
 
     const result = prepareProjectHydration(input);
 
@@ -413,7 +419,7 @@ describe("prepareProjectHydration", () => {
       success: false,
       error: {
         stage: "document-version",
-        schemaVersion: 2,
+        schemaVersion: futureVersion,
       },
     });
   });

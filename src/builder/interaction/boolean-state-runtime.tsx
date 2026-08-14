@@ -7,10 +7,7 @@ import {
   type ReactNode,
 } from "react";
 
-import type {
-  BooleanCondition,
-  InteractionAction,
-} from "@/builder/interaction/types";
+import type { InteractionAction } from "@/builder/interaction/types";
 import { asNodeId, type NodeId } from "@/builder/model/ids";
 import type { PageDocument } from "@/builder/model/project-document";
 
@@ -28,14 +25,6 @@ export type BooleanStateRuntime = {
   has: (stateNodeId: NodeId) => boolean;
   read: (stateNodeId: NodeId) => boolean | undefined;
 };
-
-export function evaluateBooleanCondition(
-  runtime: Pick<BooleanStateRuntime, "read"> | null,
-  condition: Readonly<BooleanCondition>,
-): boolean {
-  const currentValue = runtime?.read(condition.stateNodeId);
-  return currentValue !== undefined && currentValue === condition.equals;
-}
 
 const BooleanStateRuntimeContext =
   createContext<BooleanStateRuntime | null>(null);
@@ -180,14 +169,4 @@ export function BooleanStateRuntimeProvider({
 
 export function useBooleanStateRuntime(): BooleanStateRuntime | null {
   return useContext(BooleanStateRuntimeContext);
-}
-
-export function ConditionalPresence({
-  present,
-  children,
-}: {
-  present: boolean;
-  children: ReactNode;
-}) {
-  return present ? children : null;
 }

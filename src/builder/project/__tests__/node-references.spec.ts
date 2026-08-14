@@ -19,7 +19,7 @@ describe("resolveNodeReference", () => {
     home.rootIds.push(localState.id);
     about.nodes[remoteState.id] = remoteState;
     about.rootIds.push(remoteState.id);
-    const reference = componentRegistry["state-action"].references[0];
+    const reference = componentRegistry.button.references[0];
 
     expect(resolveNodeReference(project, home.id, "", reference)).toEqual({
       status: "empty",

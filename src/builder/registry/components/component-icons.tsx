@@ -45,54 +45,6 @@ export function BooleanStateIcon() {
   );
 }
 
-export function StateActionIcon() {
-  return (
-    <ComponentIcon>
-      <path d="M3 10h10" stroke="currentColor" strokeLinecap="round" />
-      <path d="m10 6 4 4-4 4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="16" cy="10" fill="currentColor" r="1.5" />
-    </ComponentIcon>
-  );
-}
-
-export function ConditionalContentIcon() {
-  return (
-    <ComponentIcon>
-      <path d="M2.5 6h5l2.5 4 2.5-4h5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <rect fill="none" height="5" rx="1" stroke="currentColor" width="11" x="4.5" y="12" />
-    </ComponentIcon>
-  );
-}
-
-export function DrawerTriggerIcon() {
-  return (
-    <ComponentIcon>
-      <path d="M3 10h9" stroke="currentColor" strokeLinecap="round" />
-      <path d="m9 6 4 4-4 4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M16 3v14" stroke="currentColor" strokeLinecap="round" />
-    </ComponentIcon>
-  );
-}
-
-export function DrawerPanelIcon() {
-  return (
-    <ComponentIcon>
-      <rect fill="none" height="16" rx="1.5" stroke="currentColor" width="18" x="1" y="2" />
-      <path d="M8 2v16" stroke="currentColor" />
-      <path d="M4 7h2M4 10h2M4 13h2" stroke="currentColor" strokeLinecap="round" />
-    </ComponentIcon>
-  );
-}
-
-export function DrawerCloseIcon() {
-  return (
-    <ComponentIcon>
-      <rect fill="none" height="16" rx="2" stroke="currentColor" width="16" x="2" y="2" />
-      <path d="m6 6 8 8M14 6l-8 8" stroke="currentColor" strokeLinecap="round" />
-    </ComponentIcon>
-  );
-}
-
 export function HeadingIcon() {
   return (
     <ComponentIcon>

@@ -1292,6 +1292,8 @@ describe("Phase 5 editor UI", () => {
       iconPosition: "start",
       iconAnimation: "none",
       behavior: "button",
+      targetStateNodeId: "",
+      stateAction: "none",
     });
     expect(screen.getByRole("status")).toHaveTextContent("Change rejected:");
   });

@@ -3,8 +3,9 @@ import type { ResponsiveStyles } from "@/builder/styles/types";
 
 import type { JsonObject } from "./json";
 import type { NodeId, PageId, ProjectId } from "./ids";
+import type { BooleanStateBinding } from "./state-binding";
 
-export const CURRENT_PROJECT_SCHEMA_VERSION = 1 as const;
+export const CURRENT_PROJECT_SCHEMA_VERSION = 2 as const;
 
 export type ProjectDocument = {
   schemaVersion: number;
@@ -33,6 +34,7 @@ export type BuilderNode = {
   childIds: NodeId[];
   props: JsonObject;
   styles: ResponsiveStyles;
+  stateBinding?: BooleanStateBinding;
   meta: {
     name: string;
     locked: boolean;

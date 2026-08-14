@@ -9,16 +9,11 @@ import {
 afterEach(cleanup);
 
 describe("componentRegistry", () => {
-  it("should expose the twenty-two primitives with valid defaults and versions", () => {
+  it("should expose the seventeen primitives with valid defaults and versions", () => {
     expect(Object.keys(componentRegistry)).toEqual([
       "section",
       "container",
       "boolean-state",
-      "state-action",
-      "conditional-content",
-      "drawer-trigger",
-      "drawer-panel",
-      "drawer-close",
       "heading",
       "text",
       "label",
@@ -52,18 +47,13 @@ describe("componentRegistry", () => {
       section: 1,
       container: 3,
       "boolean-state": 1,
-      "state-action": 1,
-      "conditional-content": 1,
-      "drawer-trigger": 1,
-      "drawer-panel": 1,
-      "drawer-close": 1,
       heading: 1,
       text: 1,
       label: 1,
       card: 1,
       image: 1,
       link: 1,
-      button: 4,
+      button: 5,
       form: 1,
       input: 3,
       textarea: 2,
@@ -77,8 +67,8 @@ describe("componentRegistry", () => {
     );
   });
 
-  it("should declare page-scoped Boolean State references as registry metadata", () => {
-    expect(componentRegistry["state-action"].references).toEqual([
+  it("should declare the Button Boolean State reference and direct Canvas interaction", () => {
+    expect(componentRegistry.button.references).toEqual([
       {
         path: "targetStateNodeId",
         targetType: "boolean-state",
@@ -86,76 +76,12 @@ describe("componentRegistry", () => {
         onDuplicate: "remap-if-target-cloned",
       },
     ]);
-    expect(componentRegistry["conditional-content"].references).toEqual(
-      componentRegistry["state-action"].references,
-    );
-    expect(
-      componentRegistry["state-action"].inspector.props.find(
-        (field) => field.path === "targetStateNodeId",
-      ),
-    ).toMatchObject({ control: "node-reference" });
-  });
-
-  it("should declare State Action Canvas activation through editor metadata", () => {
-    expect(componentRegistry["state-action"].editor).toEqual({
+    expect(componentRegistry.button.editor).toEqual({
       directInteraction: true,
     });
   });
 
-  it("should declare connected Drawer references and direct controls", () => {
-    expect(componentRegistry["drawer-trigger"].references).toEqual([
-      {
-        path: "targetDrawerNodeId",
-        targetType: "drawer-panel",
-        scope: "page",
-        onDuplicate: "remap-if-target-cloned",
-      },
-    ]);
-    expect(componentRegistry["drawer-panel"].references).toEqual([
-      {
-        path: "targetStateNodeId",
-        targetType: "boolean-state",
-        scope: "page",
-        onDuplicate: "remap-if-target-cloned",
-      },
-    ]);
-    expect(componentRegistry["drawer-trigger"].editor).toEqual({
-      directInteraction: true,
-    });
-    expect(componentRegistry["drawer-close"].editor).toEqual({
-      directInteraction: true,
-      requiredAncestorType: "drawer-panel",
-    });
-  });
-
-  it("should reject invalid Drawer placement and modal props", () => {
-    expect(() =>
-      componentRegistry["drawer-panel"].propsSchema.parse({
-        ...componentRegistry["drawer-panel"].defaults.props,
-        side: "center",
-      }),
-    ).toThrow();
-    expect(() =>
-      componentRegistry["drawer-panel"].propsSchema.parse({
-        ...componentRegistry["drawer-panel"].defaults.props,
-        sizePx: 0,
-      }),
-    ).toThrow();
-    expect(() =>
-      componentRegistry["drawer-panel"].propsSchema.parse({
-        ...componentRegistry["drawer-panel"].defaults.props,
-        zIndex: 1.5,
-      }),
-    ).toThrow();
-    expect(() =>
-      componentRegistry["drawer-panel"].propsSchema.parse({
-        ...componentRegistry["drawer-panel"].defaults.props,
-        dialogLabel: "   ",
-      }),
-    ).toThrow();
-  });
-
-  it("should reject unsupported Boolean State and action values", () => {
+  it("should reject unsupported Boolean State and Button action values", () => {
     expect(() =>
       componentRegistry["boolean-state"].propsSchema.parse({
         defaultValue: false,
@@ -163,15 +89,17 @@ describe("componentRegistry", () => {
       }),
     ).toThrow();
     expect(() =>
-      componentRegistry["state-action"].propsSchema.parse({
-        ...componentRegistry["state-action"].defaults.props,
-        action: "open",
+      componentRegistry.button.propsSchema.parse({
+        ...componentRegistry.button.defaults.props,
+        stateAction: "open",
       }),
     ).toThrow();
     expect(() =>
-      componentRegistry["conditional-content"].propsSchema.parse({
-        ...componentRegistry["conditional-content"].defaults.props,
-        expression: "state && user",
+      componentRegistry.button.propsSchema.parse({
+        ...componentRegistry.button.defaults.props,
+        href: "/docs",
+        targetStateNodeId: "menu-state",
+        stateAction: "toggle",
       }),
     ).toThrow();
   });
@@ -331,6 +259,8 @@ describe("componentRegistry", () => {
           iconPosition: "start",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -358,6 +288,8 @@ describe("componentRegistry", () => {
           iconPosition: "start",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -386,6 +318,8 @@ describe("componentRegistry", () => {
           iconPosition: "end",
           iconAnimation: "shift-right",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -413,6 +347,8 @@ describe("componentRegistry", () => {
           iconPosition: "end",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -483,6 +419,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
 
@@ -495,6 +433,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
 
@@ -507,6 +447,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
 
@@ -519,6 +461,8 @@ describe("componentRegistry", () => {
         iconPosition: "end",
         iconAnimation: "spin",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
   });
@@ -536,6 +480,8 @@ describe("componentRegistry", () => {
           iconPosition: "start",
           iconAnimation: "none",
           behavior: "submit",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -554,6 +500,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "submit",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
   });
@@ -662,6 +610,8 @@ describe("componentRegistry", () => {
             iconPosition: "start",
             iconAnimation: "none",
             behavior: "submit",
+            targetStateNodeId: "",
+            stateAction: "none",
           }}
           style={{}}
         />

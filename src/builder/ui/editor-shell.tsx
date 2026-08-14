@@ -13,6 +13,7 @@ import type {
 } from "@/builder/commands/types";
 import type { JsonObject } from "@/builder/model/json";
 import type { NodeId, PageId } from "@/builder/model/ids";
+import type { BooleanStateBinding } from "@/builder/model/state-binding";
 import {
   blockRegistry,
   resolveBlockTemplate,
@@ -510,6 +511,37 @@ export function EditorShell({
     );
   };
 
+  const updateStateBinding = (binding: BooleanStateBinding | null) => {
+    if (!selectedNode) return;
+    runCommand(
+      {
+        kind: "node.updateStateBinding",
+        pageId: activePage.id,
+        nodeId: selectedNode.id,
+        binding,
+      },
+      binding
+        ? `Connected ${selectedNode.meta.name} to a Boolean State.`
+        : `Disconnected ${selectedNode.meta.name} from its Boolean State.`,
+    );
+  };
+
+  const createStateAndConnect = (name: string, defaultValue: boolean) => {
+    if (!selectedNode) return;
+    runCommand(
+      {
+        kind: "state.createAndConnect",
+        pageId: activePage.id,
+        nodeId: selectedNode.id,
+        name,
+        defaultValue,
+        on: "show",
+        off: "hide",
+      },
+      `Created ${name.trim()} and connected ${selectedNode.meta.name}.`,
+    );
+  };
+
   const previewVisualEdit = (session: VisualEditSession) => {
     visualEditSessionRef.current = session;
     dispatchVisualEditing({ type: "preview", session });
@@ -691,7 +723,6 @@ export function EditorShell({
 
         <InspectorPanel
           document={document}
-          parentById={state.parentById}
           isRoot={
             selectedNode
               ? (state.parentById[selectedNode.id] ?? null) === null
@@ -700,8 +731,10 @@ export function EditorShell({
           node={selectedNode}
           page={activePage}
           onDelete={deleteSelectedNode}
+          onCreateStateAndConnect={createStateAndConnect}
           onRename={renameSelectedNode}
           onUpdateProps={updateProps}
+          onUpdateStateBinding={updateStateBinding}
           onUpdateStyles={updateStyles}
           onSpacingModeChange={(property, mode) => {
             if (visualEditSessionRef.current) cancelVisualEdit();

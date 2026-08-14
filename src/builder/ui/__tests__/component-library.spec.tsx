@@ -217,7 +217,7 @@ describe("ComponentLibrary", () => {
     expect(screen.getByRole("button", { name: "Add Label" })).toBeInTheDocument();
   });
 
-  it("should group Boolean State and connected Drawer primitives in Interactions", () => {
+  it("should keep only Boolean State in the Interactions family", () => {
     renderComponentLibrary();
     const familyNavigation = screen.getByRole("navigation", {
       name: "Component families",
@@ -225,28 +225,13 @@ describe("ComponentLibrary", () => {
 
     fireEvent.click(
       within(familyNavigation).getByRole("button", {
-        name: "Interactions (6)",
+        name: "Interactions (1)",
       }),
     );
 
-    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(6);
+    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: "Add Boolean State" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add State Action" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add Conditional Content" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add Drawer Trigger" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add Drawer Panel" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add Drawer Close" }),
     ).toBeInTheDocument();
   });
 
