@@ -1,11 +1,11 @@
 ---
 doc_id: WEB-BUILDER-PROJECT-PERSISTENCE-BACKEND-SPEC
 type: D1
-scope: Proposed project persistence, dashboard repository, storage record, and HTTP API contract for web-builder after schema version 2
+scope: Proposed project persistence, dashboard repository, storage record, and HTTP API contract for web-builder schema version 3
 authority: Draft product and interface intent only; verified code owns current behavior, and an approved executable schema will own the future machine contract
 owner: Project owner
 lifecycle: draft
-freshness: Verified on 2026-08-14 against commit 4f4967ff0cb15eac7769b3430a3d474a24f003c3; invalidated by an approved persistence, dashboard, authentication, API, project-schema, migration, or storage decision
+freshness: Reverified on 2026-08-14 against project schema version 3 at commit d12b4c5af8dc710cfc153a927aaf059bb08906f8; invalidated by an approved persistence, dashboard, authentication, API, project-schema, migration, or storage decision
 ---
 
 # Project persistence and backend specification
@@ -71,7 +71,7 @@ The canonical transport is the implemented `ProjectDocument`. Its current top-le
 
 | Field | Format | Ownership and use |
 | --- | --- | --- |
-| `schemaVersion` | Non-negative supported integer; currently `2` | Selects deterministic document migrations. Clients cannot bypass compatibility checks. |
+| `schemaVersion` | Non-negative supported integer; version `3` at the recorded verification commit | Selects deterministic document migrations. Clients cannot bypass compatibility checks. |
 | `projectId` | Non-empty opaque string | Allocated once by the active repository and immutable. |
 | `name` | Non-empty trimmed string | User-facing project name shown by the dashboard and editor. |
 | `pages` | Record keyed by page ID | Canonical pages and component trees. Keys must match embedded IDs. |
@@ -247,7 +247,7 @@ The paths are draft and assume same-origin Next.js route handlers or an equivale
       {
         "projectId": "project_example",
         "name": "Marketing site",
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "revision": 13,
         "pageCount": 4,
         "createdAt": "2026-08-10T09:00:00.000Z",
@@ -267,7 +267,7 @@ This minimal example contains one empty Home page. Real node props and styles us
 {
   "expectedRevision": 12,
   "content": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "name": "Marketing site",
     "pages": {
       "page_home": {

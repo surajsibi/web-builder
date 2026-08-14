@@ -5,7 +5,7 @@ scope: Execution state for future project persistence, dashboard storage, and ba
 authority: Selected execution-state authority for this future feature; Project.md and verified code own current behavior, and the linked draft specification owns proposed intent
 owner: Project owner
 lifecycle: draft
-freshness: Verified on 2026-08-14 against the schema-version-2 project model and hydration boundary; invalidated by an approved backend, persistence, authentication, dashboard, project-schema, or API-contract decision
+freshness: Reverified on 2026-08-14 against the schema-version-3 project model and hydration boundary at commit d12b4c5af8dc710cfc153a927aaf059bb08906f8; invalidated by an approved backend, persistence, authentication, dashboard, project-schema, or API-contract decision
 ---
 
 # Backend and project persistence workspace
@@ -45,9 +45,9 @@ freshness: Verified on 2026-08-14 against the schema-version-2 project model and
 
 - **Current step:** Await the project owner's next approved backend or persistence requirement.
 - **Done:** Created the planning-only workspace and captured the initial project storage, API payload, validation, concurrency, and migration proposal.
-- **Verification:** Compared the draft with `src/builder/model/project-document.ts`, `src/builder/project/factory.ts`, `src/builder/project/hydration.ts`, the implemented routes under `src/app`, and the persistence boundaries in `Project.md`.
+- **Verification:** Revalidated the draft against schema version 3 in `src/builder/model/project-document.ts`, the deterministic migration and hydration boundary, `src/builder/project/factory.ts`, the implemented routes under `src/app`, and the persistence boundaries in `Project.md`.
 - **Remaining:** Approve or revise the proposed contract one decision at a time; select the first implementation slice only when requested.
-- **Last left off:** 2026-08-14 - Documentation only. No backend code, local persistence code, API route, database choice, or package change has been made.
+- **Last left off:** 2026-08-14 - Revalidated the planning contract and examples for project schema version 3. No backend code, local persistence code, API route, database choice, or package change has been made.
 
 ## Decision intake
 

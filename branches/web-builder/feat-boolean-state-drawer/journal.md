@@ -5,7 +5,7 @@ scope: Execution state for web-builder feat/boolean-state-drawer
 authority: Selected repository execution-state record for this branch and feature
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after resolving the schema-version, Button Canvas-affordance, and disabled-legacy-control PR #8 findings with full verification on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after revalidating the maintained backend persistence documents for schema version 3 on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / feat/boolean-state-drawer
@@ -14,7 +14,7 @@ freshness: Updated after resolving the schema-version, Button Canvas-affordance,
 `workspaces/navbar/`
 
 **Current step:**
-Push the latest locally committed and verified PR #8 review fixes to `feat/boolean-state-drawer`, then continue review of [draft PR #8](https://github.com/surajsibi/web-builder/pull/8).
+Push the committed schema-version-3 backend documentation remediation to `feat/boolean-state-drawer`, then continue review of [draft PR #8](https://github.com/surajsibi/web-builder/pull/8).
 
 **Approach:**
 Replace special-purpose interaction components with one nonvisual Boolean State, a shared node-level visibility connection, and state actions on the ordinary Button. Preserve compatible saved work through a bounded schema migration and remove Drawer-only runtime and authoring infrastructure.
@@ -46,12 +46,14 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 - Migrated disabled State Action, Drawer Trigger, and Drawer Close controls to inert ordinary Buttons instead of activating their former state actions.
 - Made Button direct Canvas interaction depend on a configured state action so ordinary Buttons retain drag, resize, and spacing affordances.
 - Added behavior-first migration, hydration, registry, and Canvas regressions for the three follow-up review findings.
+- Revalidated the maintained backend persistence specification and workspace against project schema version 3, including their scope, freshness evidence, field contract, and JSON examples.
 
 **Verification:**
 
 - The merged working tree passes the full serialized regression: 34 files and 523 tests.
 - `pnpm typecheck`, `pnpm lint`, and `pnpm build` pass.
 - Six focused migration, hydration, registry, rendering, and Canvas suites pass 165 tests.
+- Backend planning documents consistently identify schema version 3 at commit `d12b4c5`, and their repository-relative authority links resolve.
 - The focused command and Editor suites pass 105 tests; the focused migration, Pages panel, and node-rendering suites pass 26 tests.
 - Real-browser Editor QA passes atomic state creation, component connection, ordinary Button Toggle setup, pointer toggling, keyboard toggling, and inactive authoring visibility.
 - Browser console review found no feature runtime error. Chrome's external `cz-shortcut-listen` body attribute produces the known development hydration warning.
@@ -62,8 +64,8 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 
 **Remaining:**
 
-- Push the latest locally committed review fixes and continue review of draft PR #8.
+- Push the committed backend documentation remediation and continue review of draft PR #8.
 - Design conditional styling, variants, and authored enter/exit animations as separate follow-up consumers of the same Boolean State.
 
 **Last left off:**
-2026-08-14 — current `origin/main` is integrated locally, the schema-version, Button Canvas-affordance, and disabled-legacy-control findings are fixed and committed with regression coverage, and the complete 523-test, typecheck, lint, and production-build verification is green; pushing the latest fixes is the next action.
+2026-08-14 — the maintained backend persistence specification and workspace now use schema version 3 consistently, cite commit `d12b4c5` as verification evidence, and are committed locally; pushing this documentation-only remediation is the next action.
