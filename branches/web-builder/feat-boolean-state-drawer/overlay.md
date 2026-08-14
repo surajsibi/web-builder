@@ -5,7 +5,7 @@ scope: Repository-specific implementation differences for web-builder feat/boole
 authority: Repository-specific overlay for the linked feature; code, configuration, tests, and verified runtime behavior remain authoritative
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after integrating main, resolving PR #8 review findings, and completing full verification on 2026-08-14; invalidated by an implementation, dependency, configuration, or verification change
+freshness: Updated after resolving the schema-version, Button Canvas-affordance, and disabled-legacy-control PR #8 findings with full verification on 2026-08-14; invalidated by an implementation, dependency, configuration, or verification change
 ---
 
 # Repository overlay — web-builder / feat/boolean-state-drawer
@@ -18,16 +18,18 @@ freshness: Updated after integrating main, resolving PR #8 review findings, and 
 - Every unbound visual component presents optional visibility as a collapsed Always visible disclosure. Existing bindings open automatically. A newly created Boolean State starts Off with unchecked **Start visible**, and a new binding defaults to On → Show and Off → Show.
 - If a connected state is missing or resolves to a non-Boolean-State node, the State tab reports it as unavailable and offers replacement or disconnection without a Component Library fallback.
 - Ordinary unlinked, non-submit Buttons can Turn On, Turn Off, or Toggle a page-local Boolean State. The Button renderer uses native pointer and keyboard activation in Editor and Preview.
+- Direct Canvas interaction is props-aware: only a Button with a configured state action activates its runtime behavior directly, while a Button with no state action retains drag, resize, and spacing controls.
 - The Button State tab presents Button action first. Optional Button visibility defaults to a collapsed Always visible disclosure and exposes Show/Hide mapping only after deliberate connection.
 - One Boolean State may control multiple components. Runtime values remain in the page rendering provider and never enter the document, history, revision, autosave, or Preview snapshot.
 - Subtree and whole-page duplication remap a state binding or Button action when its target is cloned in the same transaction and preserve a valid external target otherwise.
-- Project schema version 2 migrates the former State Action, Conditional Content, Drawer Trigger, Drawer Panel, and Drawer Close nodes into normal Buttons and Containers with shared bindings and actions.
+- Project schema version 3 uses the deterministic version 1 → 2 → 3 chain. Its version 2 → 3 step migrates former State Action, Conditional Content, Drawer Trigger, Drawer Panel, and Drawer Close nodes into normal Buttons and Containers; a disabled legacy control becomes an inert Button with no state action.
 - Obsolete Drawer runtime, portal, registry metadata, components, icons, styles, and focused tests were removed.
 
 ## Verification
 
-- Full serialized regression: 34 files and 518 tests pass.
+- Full serialized regression: 34 files and 523 tests pass.
 - `pnpm typecheck`, `pnpm lint`, and `pnpm build` pass.
+- Six focused migration, hydration, registry, rendering, and Canvas suites pass 165 tests.
 - Real-browser Editor QA verifies create-and-connect, readable targets, inactive authoring, a root-level ordinary Button Toggle action, pointer activation, and keyboard activation.
 - Browser console review found only the development hydration warning caused by Chrome's external `cz-shortcut-listen` body attribute.
 - Real-browser Section QA verifies collapsed Always visible status, unchecked **Start visible**, and a connected On → Show / Off → Show Section that remains visible while its state is Off.

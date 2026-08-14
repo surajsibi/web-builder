@@ -5,7 +5,7 @@ scope: Execution state for web-builder feat/boolean-state-drawer
 authority: Selected repository execution-state record for this branch and feature
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after integrating main, resolving PR #8 review findings, and completing full verification on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after resolving the schema-version, Button Canvas-affordance, and disabled-legacy-control PR #8 findings with full verification on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / feat/boolean-state-drawer
@@ -14,14 +14,14 @@ freshness: Updated after integrating main, resolving PR #8 review findings, and 
 `workspaces/navbar/`
 
 **Current step:**
-Push the locally merged and verified PR #8 review fixes to `feat/boolean-state-drawer`, then continue review of [draft PR #8](https://github.com/surajsibi/web-builder/pull/8).
+Push the latest locally committed and verified PR #8 review fixes to `feat/boolean-state-drawer`, then continue review of [draft PR #8](https://github.com/surajsibi/web-builder/pull/8).
 
 **Approach:**
 Replace special-purpose interaction components with one nonvisual Boolean State, a shared node-level visibility connection, and state actions on the ordinary Button. Preserve compatible saved work through a bounded schema migration and remove Drawer-only runtime and authoring infrastructure.
 
 **Done:**
 
-- Added the strict shared `stateBinding` node model and project schema version 2.
+- Added the strict shared `stateBinding` node model and project schema version 3 with a deterministic version 1 → 2 → 3 migration chain.
 - Added atomic create-and-connect and connect/disconnect commands with one history entry and undo/redo support.
 - Extended duplication so internal state references remap and external references remain stable.
 - Added Turn On, Turn Off, and Toggle to the ordinary Button while keeping link and submit behavior mutually exclusive.
@@ -42,11 +42,16 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 - Extended whole-page duplication so page-local visibility bindings and Button actions target the duplicated Boolean State IDs.
 - Treated missing and wrong-type visibility/action targets as unavailable in the Inspector, with replacement, disconnection, and action-clearing recovery controls.
 - Added behavior-first regression coverage for whole-page reference remapping and wrong-type Inspector recovery.
+- Moved legacy interaction conversion into the version 2 → 3 document migration so main's existing version-2 format and the new shared node envelope no longer share one schema version.
+- Migrated disabled State Action, Drawer Trigger, and Drawer Close controls to inert ordinary Buttons instead of activating their former state actions.
+- Made Button direct Canvas interaction depend on a configured state action so ordinary Buttons retain drag, resize, and spacing affordances.
+- Added behavior-first migration, hydration, registry, and Canvas regressions for the three follow-up review findings.
 
 **Verification:**
 
-- The merged working tree passes the full serialized regression: 34 files and 518 tests.
+- The merged working tree passes the full serialized regression: 34 files and 523 tests.
 - `pnpm typecheck`, `pnpm lint`, and `pnpm build` pass.
+- Six focused migration, hydration, registry, rendering, and Canvas suites pass 165 tests.
 - The focused command and Editor suites pass 105 tests; the focused migration, Pages panel, and node-rendering suites pass 26 tests.
 - Real-browser Editor QA passes atomic state creation, component connection, ordinary Button Toggle setup, pointer toggling, keyboard toggling, and inactive authoring visibility.
 - Browser console review found no feature runtime error. Chrome's external `cz-shortcut-listen` body attribute produces the known development hydration warning.
@@ -57,8 +62,8 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 
 **Remaining:**
 
-- Push the locally merged review fixes and continue review of draft PR #8.
+- Push the latest locally committed review fixes and continue review of draft PR #8.
 - Design conditional styling, variants, and authored enter/exit animations as separate follow-up consumers of the same Boolean State.
 
 **Last left off:**
-2026-08-14 — current `origin/main` is integrated locally, both PR #8 review findings are fixed with regression coverage, and the complete 518-test, typecheck, lint, and production-build verification is green; pushing the updated branch is the next action.
+2026-08-14 — current `origin/main` is integrated locally, the schema-version, Button Canvas-affordance, and disabled-legacy-control findings are fixed and committed with regression coverage, and the complete 523-test, typecheck, lint, and production-build verification is green; pushing the latest fixes is the next action.

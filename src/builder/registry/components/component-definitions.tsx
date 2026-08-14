@@ -1244,7 +1244,9 @@ export const buttonDefinition = {
     styles: buttonStyles,
   },
   children: { allowed: false },
-  editor: { directInteraction: true },
+  editor: {
+    directInteraction: (props) => props.stateAction !== "none",
+  },
   propsSchema: buttonPropsSchema,
   references: [
     {

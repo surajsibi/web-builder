@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   canPlaceType,
   componentRegistry,
+  componentUsesDirectInteraction,
 } from "@/builder/registry/component-registry";
+import { createTestNode } from "@/builder/testing/project-fixtures";
 
 afterEach(cleanup);
 
@@ -67,7 +69,7 @@ describe("componentRegistry", () => {
     );
   });
 
-  it("should declare the Button Boolean State reference and direct Canvas interaction", () => {
+  it("should declare the Button Boolean State reference", () => {
     expect(componentRegistry.button.references).toEqual([
       {
         path: "targetStateNodeId",
@@ -76,9 +78,17 @@ describe("componentRegistry", () => {
         onDuplicate: "remap-if-target-cloned",
       },
     ]);
-    expect(componentRegistry.button.editor).toEqual({
-      directInteraction: true,
-    });
+  });
+
+  it("should enable direct Canvas interaction only for a Button with a state action", () => {
+    const button = createTestNode("button", "button-action");
+
+    expect(componentUsesDirectInteraction(button)).toBe(false);
+
+    button.props.targetStateNodeId = "menu-state";
+    button.props.stateAction = "toggle";
+
+    expect(componentUsesDirectInteraction(button)).toBe(true);
   });
 
   it("should reject unsupported Boolean State and Button action values", () => {

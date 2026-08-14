@@ -1,3 +1,5 @@
+import type { JsonObject } from "@/builder/model/json";
+
 import {
   defineComponentRegistry,
   type ComponentEditorMetadata,
@@ -45,12 +47,18 @@ export const componentRegistry = defineComponentRegistry({
 
 export type ComponentType = keyof typeof componentRegistry;
 
-export function componentUsesDirectInteraction(type: ComponentType): boolean {
-  const definition = componentRegistry[type] as {
+export function componentUsesDirectInteraction(node: {
+  type: ComponentType;
+  props: JsonObject;
+}): boolean {
+  const definition = componentRegistry[node.type] as {
     editor?: ComponentEditorMetadata;
   };
+  const directInteraction = definition.editor?.directInteraction;
 
-  return definition.editor?.directInteraction === true;
+  return typeof directInteraction === "function"
+    ? directInteraction(node.props)
+    : directInteraction === true;
 }
 
 export function referencesForComponentType(

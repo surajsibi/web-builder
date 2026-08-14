@@ -88,7 +88,9 @@ export type ComponentInspectorConfig<Props extends JsonObject> = {
 };
 
 export type ComponentEditorMetadata = {
-  directInteraction?: boolean;
+  directInteraction?:
+    | boolean
+    | ((props: Readonly<JsonObject>) => boolean);
 };
 
 export type ComponentMigrationValue = {
@@ -454,9 +456,12 @@ export function validateComponentRegistry(
 
     if (
       definition.editor?.directInteraction !== undefined &&
-      typeof definition.editor.directInteraction !== "boolean"
+      typeof definition.editor.directInteraction !== "boolean" &&
+      typeof definition.editor.directInteraction !== "function"
     ) {
-      throw new Error(`${type}.editor.directInteraction must be boolean`);
+      throw new Error(
+        `${type}.editor.directInteraction must be boolean or a props predicate`,
+      );
     }
     try {
       definition.propsSchema.parse(definition.defaults.props);

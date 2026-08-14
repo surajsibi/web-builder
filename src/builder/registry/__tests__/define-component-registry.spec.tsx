@@ -58,7 +58,7 @@ describe("defineComponentRegistry", () => {
 });
 
 describe("validateComponentRegistry", () => {
-  it("should reject non-boolean direct-interaction metadata", () => {
+  it("should reject direct-interaction metadata that is not boolean or a props predicate", () => {
     const definition = createDefinition();
     const invalidDefinition = {
       ...definition,
@@ -69,7 +69,9 @@ describe("validateComponentRegistry", () => {
       validateComponentRegistry({
         test: invalidDefinition,
       } as unknown as RegistryInput),
-    ).toThrow("test.editor.directInteraction must be boolean");
+    ).toThrow(
+      "test.editor.directInteraction must be boolean or a props predicate",
+    );
   });
 
   it("should reject defaults that do not pass the component props schema", () => {

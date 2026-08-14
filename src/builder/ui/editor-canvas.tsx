@@ -1100,7 +1100,7 @@ function CanvasInteractionOverlay({
     ? componentRegistry[selectedNode.type]
     : null;
   const selectedNodeUsesDirectInteraction = selectedNode
-    ? componentUsesDirectInteraction(selectedNode.type)
+    ? componentUsesDirectInteraction(selectedNode)
     : false;
   const selectedStyles = selectedNode
     ? resolveResponsiveStyles(selectedNode.styles, viewport)

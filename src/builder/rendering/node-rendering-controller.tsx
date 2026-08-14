@@ -95,7 +95,7 @@ export function NodeRenderingController({
             : "unresolved",
         }
       : {}),
-    ...(runtime?.mode === "editor" && componentUsesDirectInteraction(node.type)
+    ...(runtime?.mode === "editor" && componentUsesDirectInteraction(node)
       ? { "data-editor-direct-interaction": "true" as const }
       : {}),
   };

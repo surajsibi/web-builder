@@ -14,6 +14,18 @@ function asRecord(value: unknown): MutableRecord | null {
     : null;
 }
 
+function migrateVersion1ToVersion2(value: unknown): unknown {
+  const sourceDocument = asRecord(value);
+  if (!sourceDocument) {
+    throw new Error("Version 1 document must be an object");
+  }
+
+  return {
+    ...structuredClone(sourceDocument),
+    schemaVersion: 2,
+  };
+}
+
 function stringProp(node: MutableRecord | undefined, key: string): string {
   const props = asRecord(node?.props);
   const value = props?.[key];
@@ -24,6 +36,7 @@ function buttonProps(
   text: string,
   targetStateNodeId: string,
   stateAction: "none" | "turn-on" | "turn-off" | "toggle",
+  disabled: boolean,
 ): MutableRecord {
   return {
     text: text.trim() || "Button",
@@ -33,15 +46,15 @@ function buttonProps(
     iconPosition: "start",
     iconAnimation: "none",
     behavior: "button",
-    targetStateNodeId,
-    stateAction,
+    targetStateNodeId: disabled ? "" : targetStateNodeId,
+    stateAction: disabled ? "none" : stateAction,
   };
 }
 
-function migrateLegacyInteractions(value: unknown): unknown {
+function migrateVersion2ToVersion3(value: unknown): unknown {
   const sourceDocument = asRecord(value);
   if (!sourceDocument) {
-    throw new Error("Version 1 document must be an object");
+    throw new Error("Version 2 document must be an object");
   }
 
   const document = structuredClone(sourceDocument);
@@ -49,7 +62,7 @@ function migrateLegacyInteractions(value: unknown): unknown {
 
   const pages = asRecord(documentRecord.pages);
   if (!pages) {
-    documentRecord.schemaVersion = 2;
+    documentRecord.schemaVersion = 3;
     return document;
   }
 
@@ -139,6 +152,7 @@ function migrateLegacyInteractions(value: unknown): unknown {
           typeof props?.text === "string" ? props.text : "Toggle state",
           targetStateNodeId,
           action,
+          props?.disabled === true,
         );
         continue;
       }
@@ -153,6 +167,7 @@ function migrateLegacyInteractions(value: unknown): unknown {
           typeof props?.text === "string" ? props.text : "Open drawer",
           targetStateNodeId,
           "turn-on",
+          props?.disabled === true,
         );
         continue;
       }
@@ -166,19 +181,25 @@ function migrateLegacyInteractions(value: unknown): unknown {
           typeof props?.text === "string" ? props.text : "Close drawer",
           targetStateNodeId,
           "turn-off",
+          props?.disabled === true,
         );
       }
     }
   }
 
-  documentRecord.schemaVersion = 2;
+  documentRecord.schemaVersion = 3;
   return document;
 }
 export const documentMigrations: readonly DocumentMigration[] = [
   {
     fromVersion: 1,
     toVersion: 2,
-    migrate: migrateLegacyInteractions,
+    migrate: migrateVersion1ToVersion2,
+  },
+  {
+    fromVersion: 2,
+    toVersion: 3,
+    migrate: migrateVersion2ToVersion3,
   },
 ];
 
