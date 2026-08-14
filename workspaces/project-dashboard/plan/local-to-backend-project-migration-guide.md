@@ -5,7 +5,7 @@ scope: Proposed opt-in migration of validated Canvas Studio projects from browse
 authority: Draft migration procedure only; verified project schema and hydration code own current compatibility behavior, while future executable import schemas, authorization policy, migration code, and storage transactions will own the implemented migration contract
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-14 to reference the approved unavailable-project dashboard contract and verified against commit da11e47760e39e98f0d6fb989307260c75d8fb9a, ProjectDocument schema version 2, the current version 1 to 2 migration, and the project hydration boundary; invalidated by a project-schema, hydration-error, recovery, migration, IndexedDB, authentication, authorization, backend API, identity, retention, or storage-policy change
+freshness: Updated on 2026-08-14 after rebasing onto origin/main at 4835734ba7a371281b9d3d5c9d8bb520c5e9676e and aligning the proposed procedure with ProjectDocument schema version 3, the version 1 to 2 to 3 migration chain, and the project hydration boundary; invalidated by a project-schema, hydration-error, recovery, migration, IndexedDB, authentication, authorization, backend API, identity, retention, or storage-policy change
 ---
 
 # Migrate browser-local projects to authenticated backend storage
@@ -36,7 +36,7 @@ This storage migration is distinct from document-schema migration. Every selecte
 
 - Projects stored by the approved browser-local `ProjectRepository` adapter in IndexedDB.
 - A preserved raw `ProjectDocument` plus local repository metadata such as `lastOpenedAt` and local revision.
-- Document schema versions supported by the application at migration time. The verified baseline currently supports version 1 through the deterministic version 1 to 2 migration and accepts current version 2.
+- Document schema versions supported by the application at migration time. The verified baseline supports version 1 through the deterministic version 1 to 2 to 3 migration chain, migrates version 2 to 3, and accepts current version 3.
 
 ### Target
 
@@ -222,7 +222,7 @@ An illustrative request is:
 ```json
 {
   "content": {
-    "schemaVersion": 2,
+    "schemaVersion": 3,
     "name": "My Store",
     "pages": {
       "page_home": {
@@ -282,8 +282,9 @@ Write `localProjectId -> remoteProjectId` only after verification. The account-b
 
 ### Automated coverage
 
-- Supported version 1 input migrates to current version 2 before upload.
-- Current version 2 input remains semantically unchanged.
+- Supported version 1 input migrates through version 2 to current version 3 before upload.
+- Supported version 2 input migrates to current version 3 before upload.
+- Current version 3 input remains semantically unchanged.
 - Future, missing, ambiguous, corrupt, invalid-tree, unknown-component, invalid-prop/style, and invalid-placement inputs are blocked and preserved.
 - Authentication is required and cross-user import IDs or project IDs fail closed.
 - Reusing one import ID returns one remote project after timeouts and retries.

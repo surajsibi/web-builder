@@ -53,6 +53,11 @@ export type ProjectListResult = {
   nextCursor: string | null;
 };
 
+export type ProjectLoadResult = {
+  document: ProjectDocument;
+  migrated: boolean;
+};
+
 export type SaveProjectInput = {
   expectedRevision: number;
   content: ProjectContentPayload;
@@ -98,7 +103,7 @@ export class ProjectRepositoryError extends Error {
 export interface ProjectRepository {
   list(input?: ProjectListInput): Promise<ProjectListResult>;
   create(input: { name: string }): Promise<ProjectDocument>;
-  load(projectId: string): Promise<ProjectDocument>;
+  load(projectId: string): Promise<ProjectLoadResult>;
   save(projectId: string, input: SaveProjectInput): Promise<SaveProjectReceipt>;
   rename(
     projectId: string,
@@ -120,6 +125,7 @@ export type PreparedStoredProject =
   | {
       availability: "ready";
       document: ProjectDocument;
+      migrated: boolean;
       summary: ProjectSummary;
     }
   | {
@@ -225,6 +231,7 @@ export function prepareStoredProject(
     return {
       availability: "ready",
       document: result.value.document,
+      migrated: result.value.migrated,
       summary: projectSummary(result.value.document),
     };
   }
@@ -249,10 +256,13 @@ export function documentFromStoredRecord(value: unknown): unknown {
 export function assertReadyStoredProject(
   storageKey: string,
   value: unknown,
-): ProjectDocument {
+): ProjectLoadResult {
   const prepared = prepareStoredProject(storageKey, documentFromStoredRecord(value));
   if (prepared.availability === "ready") {
-    return cloneProjectDocument(prepared.document);
+    return {
+      document: cloneProjectDocument(prepared.document),
+      migrated: prepared.migrated,
+    };
   }
 
   throw new ProjectRepositoryError(

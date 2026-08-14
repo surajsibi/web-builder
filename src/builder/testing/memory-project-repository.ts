@@ -14,6 +14,7 @@ import {
   type ProjectListItem,
   type ProjectListInput,
   type ProjectListResult,
+  type ProjectLoadResult,
   type ProjectRepository,
   ProjectRepositoryError,
   type SaveProjectInput,
@@ -76,7 +77,7 @@ export class MemoryProjectRepository implements ProjectRepository {
     return structuredClone(project);
   }
 
-  async load(projectId: string): Promise<ProjectDocument> {
+  async load(projectId: string): Promise<ProjectLoadResult> {
     if (!this.records.has(projectId)) {
       throw new ProjectRepositoryError("not-found", "Project not found");
     }
@@ -87,7 +88,7 @@ export class MemoryProjectRepository implements ProjectRepository {
     projectId: string,
     input: SaveProjectInput,
   ): Promise<SaveProjectReceipt> {
-    const current = await this.load(projectId);
+    const { document: current } = await this.load(projectId);
     const saved = buildSavedProject(current, input, this.now());
     this.records.set(projectId, asStoredRecord(saved));
     return {
@@ -101,7 +102,7 @@ export class MemoryProjectRepository implements ProjectRepository {
     projectId: string,
     input: { name: string; expectedRevision: number },
   ): Promise<SaveProjectReceipt> {
-    const current = await this.load(projectId);
+    const { document: current } = await this.load(projectId);
     return this.save(projectId, {
       expectedRevision: input.expectedRevision,
       content: {
@@ -115,7 +116,7 @@ export class MemoryProjectRepository implements ProjectRepository {
     projectId: string,
     input?: { name?: string },
   ): Promise<ProjectDocument> {
-    const source = await this.load(projectId);
+    const { document: source } = await this.load(projectId);
     const duplicate = duplicateProjectDocument(source, {
       name: input?.name
         ? normalizeProjectName(input.name)

@@ -5,7 +5,7 @@ scope: Execution state for the local-first project dashboard, project persistenc
 authority: Selected execution-state authority for this future feature; Project.md and verified code own current behavior, and the linked draft specification owns proposed intent
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-14 after implementing and verifying the local-first dashboard slice; invalidated by an approved backend, persistence, migration, authentication, dashboard, recovery, project-schema, hydration-error, API-contract, branch, workspace-mapping, or implementation decision
+freshness: Verified on 2026-08-14 after post-rebase lint, typecheck, 551-test, production-build, focused schema-version-3 integration, and rendered browser verification against origin/main 4835734ba7a371281b9d3d5c9d8bb520c5e9676e; invalidated by an approved backend, persistence, migration, authentication, dashboard, recovery, project-schema, hydration-error, API-contract, branch, workspace-mapping, or implementation decision
 ---
 
 # Project dashboard and persistence workspace
@@ -18,9 +18,9 @@ freshness: Updated on 2026-08-14 after implementing and verifying the local-firs
 
 **Participating repositories:** `web-builder`
 
-**Active branches:** `web-builder`: `feature/project-dashboard`, created from `main` at `da11e47760e39e98f0d6fb989307260c75d8fb9a`. Repository context: [branch workspace](../../branches/web-builder/feature-project-dashboard/README.md).
+**Active branches:** `web-builder`: `feature/project-dashboard`, originally created from `main` at `da11e47760e39e98f0d6fb989307260c75d8fb9a` and rebased onto `origin/main` at `4835734ba7a371281b9d3d5c9d8bb520c5e9676e`. Repository context: [branch workspace](../../branches/web-builder/feature-project-dashboard/README.md).
 
-**Current milestone:** Review the implemented browser-local slice and decide whether to commit and publish it; separately review the opt-in migration design before future backend work.
+**Current milestone:** Review the verified rebased browser-local slice and decide whether to push it; separately review the opt-in migration design before future backend work.
 
 **Feature summary:** Define how the project dashboard and editor can save, list, load, rename, duplicate, and eventually delete projects. Use browser-local IndexedDB behind a repository interface before a backend exists, then replace that adapter with a revision-checked API without changing the canonical project document or bypassing hydration validation.
 
@@ -48,11 +48,11 @@ freshness: Updated on 2026-08-14 after implementing and verifying the local-firs
 
 ## Execution state
 
-- **Current step:** Review the implemented local-first slice and decide whether to commit and publish the branch changes.
-- **Done:** Completed PD-00 through PD-08: repository contracts, memory and IndexedDB adapters, safe duplication, responsive dashboard, project-specific loader/store, autosave and conflict handling, regression/browser verification, and the in-review D5 implementation report. The future D6 backend migration guide remains proposed.
-- **Verification:** Repository-wide lint, typecheck, production build, focused feature suites, 66 editor/Preview regressions, and the isolated 48-test Phase 5 suite pass. The complete suite passes 513 of 513 with a temporary 15-second runner ceiling; repository test configuration remains unchanged. A browser journey verified create, routed open, autosave, reload persistence, dashboard return, and mobile layout. Verification used Node 22.21.1 with an engine warning because required Node 24.19.x is unavailable.
-- **Remaining:** Owner review, explicit commit/push direction, a full Node 24.19.x verification run when available, and separate approval of future migration identity, idempotency, retention, recovery, and endpoint decisions.
-- **Last left off:** 2026-08-14 - The local-first project dashboard and persistent editor slice is implemented and production-build verified. The next action is owner review and an explicit commit/push decision; no backend, authentication, deletion, export, or cloud migration was added.
+- **Current step:** Review the verified rebased local-first slice and decide whether to push the feature branch.
+- **Done:** Created checkpoint commit `6939faa`, rebased it as `153f397` onto `origin/main` at `4835734`, preserved the `project-dashboard` workspace rename, retained the safe recovery contract, remapped schema-version-3 references during whole-project duplication, and preserved hydration's migration signal through revisioned autosave.
+- **Verification:** Repository-wide lint and typecheck pass; the focused schema-version-3 persistence/duplication matrix passes 5 files and 19 tests; the complete suite passes 41 files and 551 tests with a temporary 15-second ceiling; the production build passes; and Chrome renders the dashboard, routed editor, 26-component library, reload, and saved state. Verification uses Node 22.21.1 because required Node 24.19.x is unavailable.
+- **Remaining:** Owner review, explicit push direction, a full Node 24.19.x verification run when available, and separate approval of future migration identity, idempotency, retention, recovery, and endpoint decisions.
+- **Last left off:** 2026-08-14 - The local-first dashboard is rebased onto the Boolean State/Drawer mainline, schema-version-3 integration issues are fixed, and the complete Node 22 verification matrix passes. The next action is owner review and an explicit push decision.
 
 ## Decision intake
 

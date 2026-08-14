@@ -166,11 +166,14 @@ export function ProjectEditorLoader({
     let active = true;
     repository
       .load(projectId)
-      .then((document) => {
+      .then(({ document, migrated }) => {
         if (active) {
           setState({
             status: "ready",
-            store: createBuilderStore({ initialDocument: document }),
+            store: createBuilderStore({
+              initialDocument: document,
+              initialPersistenceDirty: migrated,
+            }),
           });
         }
       })

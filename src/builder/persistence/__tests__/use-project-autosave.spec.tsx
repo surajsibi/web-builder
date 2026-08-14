@@ -75,10 +75,12 @@ describe("useProjectAutosave", () => {
     expect(screen.getByText("saved")).toBeVisible();
     expect(store.getState()).toMatchObject({ dirty: false });
     await expect(repository.load(project.projectId)).resolves.toMatchObject({
-      pages: {
-        [project.homePageId]: expect.objectContaining({ name: "Storefront" }),
+      document: {
+        pages: {
+          [project.homePageId]: expect.objectContaining({ name: "Storefront" }),
+        },
+        revision: 1,
       },
-      revision: 1,
     });
   });
 
@@ -158,8 +160,10 @@ describe("useProjectAutosave", () => {
 
     expect(store.getState().persistenceStatus).toBe("conflict");
     await expect(repository.load(project.projectId)).resolves.toMatchObject({
-      name: "Changed elsewhere",
-      revision: 1,
+      document: {
+        name: "Changed elsewhere",
+        revision: 1,
+      },
     });
   });
 });

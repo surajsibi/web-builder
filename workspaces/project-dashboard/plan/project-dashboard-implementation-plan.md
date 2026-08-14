@@ -1,11 +1,11 @@
 ---
 doc_id: WEB-BUILDER-PROJECT-DASHBOARD-IMPLEMENTATION-PLAN
 type: D3
-scope: Local-first project dashboard, project-specific editor routing, IndexedDB persistence, and revision-safe autosave for web-builder schema version 2 on feature/project-dashboard
+scope: Local-first project dashboard, project-specific editor routing, IndexedDB persistence, and revision-safe autosave for web-builder schema version 3 on feature/project-dashboard
 authority: Execution plan for the local-first delivery slice; project-persistence-and-backend-spec.md owns proposed product intent, while verified code and tests own implemented behavior
 owner: Project owner
 lifecycle: active
-freshness: Updated on 2026-08-14 after implementing PD-00 through PD-08 on the working tree based on da11e47760e39e98f0d6fb989307260c75d8fb9a; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, or scope change
+freshness: Updated on 2026-08-14 after rebasing the implemented PD-00 through PD-08 slice onto origin/main at 4835734ba7a371281b9d3d5c9d8bb520c5e9676e and aligning whole-project duplication with schema-version-3 node references; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, or scope change
 ---
 
 # Plan: Local project dashboard and persistent editor
@@ -54,7 +54,7 @@ The [project persistence and backend specification](project-persistence-and-back
 | --- | --- | --- |
 | `/` renders the editor directly. | [`src/app/page.tsx`](../../../src/app/page.tsx) | Replace this route with the dashboard and move editor composition to the dynamic project route. |
 | The editor defaulted to one deterministic singleton project before this slice. | Historical baseline at commit `da11e47`; [`src/builder/ui/editor-shell.tsx`](../../../src/builder/ui/editor-shell.tsx) now requires an injected store. | The production singleton was removed and each loaded project now owns one store. |
-| `ProjectDocument` already owns project identity, content, timestamps, revision, and schema version 2. | [`src/builder/model/project-document.ts`](../../../src/builder/model/project-document.ts) | Do not invent a second project document format. |
+| `ProjectDocument` owns project identity, content, timestamps, revision, and schema version 3. | [`src/builder/model/project-document.ts`](../../../src/builder/model/project-document.ts) | Do not invent a second project document format; remap schema-version-3 node references when duplicating a whole project. |
 | Project hydration already migrates and validates untrusted input before atomic store replacement. | [`src/builder/project/hydration.ts`](../../../src/builder/project/hydration.ts) | All IndexedDB reads must pass this boundary before editing or autosave is enabled. |
 | The builder store already tracks valid document state, history, `commitId`, and `dirty`. | [`src/builder/store/builder-store.ts`](../../../src/builder/store/builder-store.ts) | Extend persistence lifecycle state without putting it in Undo or Redo history. |
 | The toolbar currently distinguishes dirty state but says clean work is only local. | [`src/builder/ui/editor-toolbar.tsx`](../../../src/builder/ui/editor-toolbar.tsx) | Replace the binary indicator with explicit loading, unsaved, saving, saved locally, conflict, and error states. |
@@ -109,7 +109,7 @@ Text equivalent: the dashboard and project editor use the same repository contra
 | Dependency | Required state | Owner | Failure response |
 | --- | --- | --- | --- |
 | Local-first slice and blank-project assumption | Approved and implemented | Project owner | Reopen product scope only through an explicit follow-up request. |
-| Canonical project schema and hydration boundary | Existing schema version 2 tests remain green | Project owner | Stop if persistence requires bypassing or duplicating validation. |
+| Canonical project schema and hydration boundary | Existing schema version 3 tests remain green | Project owner | Stop if persistence requires bypassing or duplicating validation. |
 | Multi-page commands and editor behavior | Verified in the active branch baseline | Project owner | Rebase or revise the plan if the implementation changes before this work starts. |
 | IndexedDB test environment | Deterministic contract tests can run under Vitest | Project owner | Use an approved test-only adapter; do not ship untested transaction semantics. |
 | Next.js 16.3 route conventions | Dynamic route page awaits `params`; browser APIs remain client-only | Project owner | Re-read installed docs if the Next.js version changes. |

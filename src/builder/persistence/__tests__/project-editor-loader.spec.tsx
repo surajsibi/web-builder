@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -40,6 +40,34 @@ describe("ProjectEditorLoader", () => {
     await user.click(screen.getByRole("button", { name: "Return to Projects" }));
 
     expect(onNavigateDashboard).toHaveBeenCalledOnce();
+  });
+
+  it("should save a supported migrated project through the revisioned repository path", async () => {
+    const repository = createRepository();
+    const project = await repository.create({ name: "Legacy Store" });
+    const versionTwoProject = structuredClone(project);
+    versionTwoProject.schemaVersion = 2;
+    repository.putRaw(project.projectId, {
+      storageKey: project.projectId,
+      document: versionTwoProject,
+      lastOpenedAt: null,
+    });
+    const save = vi.spyOn(repository, "save");
+
+    render(
+      <ProjectEditorLoader
+        projectId={project.projectId}
+        repository={repository}
+      />,
+    );
+
+    expect(await screen.findByLabelText("Unsaved changes")).toBeVisible();
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.getByLabelText("Saved locally")).toBeVisible());
+    await expect(repository.load(project.projectId)).resolves.toMatchObject({
+      document: { schemaVersion: 3, revision: 1 },
+      migrated: false,
+    });
   });
 
   it("should bound a corrupt direct route without rendering editor actions", async () => {

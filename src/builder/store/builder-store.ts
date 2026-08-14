@@ -110,6 +110,7 @@ export type BuilderStoreState = {
 
 type CreateBuilderStoreOptions = {
   initialDocument?: ProjectDocument;
+  initialPersistenceDirty?: boolean;
   idGenerator?: IdGenerator;
 };
 
@@ -247,6 +248,10 @@ export function createBuilderStore(
   const initialParentById = initialPrepared?.success
     ? initialPrepared.value.parentById
     : (Object.create(null) as ParentById);
+  const initialPersistenceDirty = Boolean(
+    initialPrepared?.success &&
+      (initialPrepared.value.migrated || options.initialPersistenceDirty),
+  );
 
   return createStore<BuilderStoreState>((set, get) => ({
     document: initialDocument,
@@ -254,10 +259,8 @@ export function createBuilderStore(
     activePageId: initialDocument?.homePageId ?? null,
     selectedNodeId: null,
     activeViewport: "desktop",
-    dirty: initialPrepared?.success ? initialPrepared.value.migrated : false,
-    persistenceStatus: initialPrepared?.success && initialPrepared.value.migrated
-      ? "dirty"
-      : "saved",
+    dirty: initialPersistenceDirty,
+    persistenceStatus: initialPersistenceDirty ? "dirty" : "saved",
     persistenceMessage: null,
     commitId: 0,
     history: EMPTY_HISTORY,

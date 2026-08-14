@@ -26,8 +26,11 @@ describe("IndexedDbProjectRepository", () => {
     const reopened = new IndexedDbProjectRepository(options);
 
     await expect(reopened.load(project.projectId)).resolves.toMatchObject({
-      name: "Saved Commerce Site",
-      revision: 1,
+      document: {
+        name: "Saved Commerce Site",
+        revision: 1,
+      },
+      migrated: false,
     });
     await expect(reopened.list()).resolves.toMatchObject({
       items: [

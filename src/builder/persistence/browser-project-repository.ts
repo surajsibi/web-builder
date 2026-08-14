@@ -1,5 +1,6 @@
 import { IndexedDbProjectRepository } from "./indexeddb-project-repository";
 import type {
+  ProjectLoadResult,
   ProjectListInput,
   ProjectListResult,
   ProjectRepository,
@@ -26,7 +27,7 @@ class LazyBrowserProjectRepository implements ProjectRepository {
     return this.resolve().create(input);
   }
 
-  async load(projectId: string): Promise<ProjectDocument> {
+  async load(projectId: string): Promise<ProjectLoadResult> {
     return this.resolve().load(projectId);
   }
 

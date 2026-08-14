@@ -35,8 +35,8 @@ describe("MemoryProjectRepository", () => {
       ],
       nextCursor: null,
     });
-    expect(loaded).toEqual(created);
-    expect(loaded).not.toBe(created);
+    expect(loaded).toEqual({ document: created, migrated: false });
+    expect(loaded.document).not.toBe(created);
   });
 
   it("should increment revisions and reject a stale save", async () => {
@@ -56,8 +56,11 @@ describe("MemoryProjectRepository", () => {
       }),
     ).rejects.toMatchObject({ code: "revision-conflict", currentRevision: 1 });
     await expect(repository.load(project.projectId)).resolves.toMatchObject({
-      name: "Published Store",
-      revision: 1,
+      document: {
+        name: "Published Store",
+        revision: 1,
+      },
+      migrated: false,
     });
   });
 
@@ -72,8 +75,11 @@ describe("MemoryProjectRepository", () => {
     const duplicate = await repository.duplicate(project.projectId);
 
     expect(await repository.load(project.projectId)).toMatchObject({
-      name: "Storefront",
-      revision: 1,
+      document: {
+        name: "Storefront",
+        revision: 1,
+      },
+      migrated: false,
     });
     expect(duplicate).toMatchObject({ name: "Storefront Copy", revision: 0 });
     expect(duplicate.projectId).not.toBe(project.projectId);
@@ -87,6 +93,27 @@ describe("MemoryProjectRepository", () => {
 
     expect(duplicate.name).toHaveLength(120);
     expect(duplicate.name).toMatch(/ Copy$/);
+  });
+
+  it("should report supported stored-document migration without rewriting the source", async () => {
+    const repository = createRepository();
+    const project = await repository.create({ name: "Legacy Store" });
+    const versionTwoProject = structuredClone(project);
+    versionTwoProject.schemaVersion = 2;
+    repository.putRaw(project.projectId, {
+      storageKey: project.projectId,
+      document: versionTwoProject,
+      lastOpenedAt: null,
+    });
+
+    const firstLoad = await repository.load(project.projectId);
+    const secondLoad = await repository.load(project.projectId);
+
+    expect(firstLoad).toMatchObject({
+      document: { schemaVersion: 3, revision: 0 },
+      migrated: true,
+    });
+    expect(secondLoad.migrated).toBe(true);
   });
 
   it("should isolate a corrupt record while keeping valid projects available", async () => {

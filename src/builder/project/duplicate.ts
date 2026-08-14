@@ -8,6 +8,7 @@ import type {
 
 import { prepareProjectHydration } from "./hydration";
 import { createId, type IdGenerator } from "./id-generator";
+import { remapNodeReferences, remapStateBinding } from "./node-references";
 
 type DuplicateProjectOptions = {
   name?: string;
@@ -30,6 +31,11 @@ export function duplicateProjectDocument(
     }
   }
 
+  const nodeIdMap = Object.create(null) as Record<NodeId, NodeId>;
+  for (const [sourceNodeId, duplicateNodeId] of nodeIds) {
+    nodeIdMap[sourceNodeId] = duplicateNodeId;
+  }
+
   const pages = Object.create(null) as Record<PageId, PageDocument>;
   for (const sourcePageId of source.pageOrder) {
     const sourcePage = source.pages[sourcePageId];
@@ -50,6 +56,10 @@ export function duplicateProjectDocument(
           }
           return nextChildId;
         }),
+        props: remapNodeReferences(sourceNode, nodeIdMap),
+        ...(sourceNode.stateBinding
+          ? { stateBinding: remapStateBinding(sourceNode, nodeIdMap) }
+          : {}),
       };
     }
 

@@ -25,7 +25,7 @@ The dashboard and editor depend on `ProjectRepository`, not directly on IndexedD
 
 ## Problem and evidence
 
-The editor has a versioned, JSON-compatible project model but has no durable project repository, project dashboard route, or project API. The implemented application routes are the editor, Preview, and a fail-closed form-submission endpoint. Preview browser storage is a one-use transfer and is not project persistence.
+The editor has a versioned, JSON-compatible project model, a browser-local project repository, and a project dashboard route, but it has no authenticated backend project API. Preview browser storage remains a one-use transfer and is not project persistence.
 
 Verified current authorities:
 
@@ -422,19 +422,22 @@ Validation failures and revision conflicts must not partially write the project.
 - Require HTTPS and secure authentication before remote project storage is made available.
 - Keep asset, publishing, deployment, and form-submission lifecycles separate from project-document persistence.
 
-## Candidate delivery slices requiring separate approval
+## Delivery status and future slices
 
-These are candidates, not authorized tasks:
+The project owner approved and the feature branch implements these local slices:
 
-1. Define repository contract tests and an IndexedDB adapter.
-2. Add a local-only project dashboard and project-specific editor route.
-3. Add debounced local autosave and explicit save-state UI.
-4. Add JSON export/import and corrupt-source recovery.
-5. Select backend, database, deployment, and authentication architecture.
-6. Implement the API adapter, durable storage, authorization, and operational controls.
-7. Offer an explicit local-project upload/migration flow.
+1. Repository contract tests and an IndexedDB adapter.
+2. A local-only project dashboard and project-specific editor route.
+3. Debounced local autosave and explicit save-state UI.
 
-Only the slice explicitly selected by the project owner may move into implementation planning.
+These future slices remain candidates that require separate approval:
+
+1. Add JSON export/import and corrupt-source recovery.
+2. Select backend, database, deployment, and authentication architecture.
+3. Implement the API adapter, durable storage, authorization, and operational controls.
+4. Offer an explicit local-project upload/migration flow.
+
+Only a future slice explicitly selected by the project owner may move into implementation planning.
 
 ## Risks and open questions
 

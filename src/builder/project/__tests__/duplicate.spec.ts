@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { duplicateProjectDocument } from "@/builder/project/duplicate";
 import { prepareProjectHydration } from "@/builder/project/hydration";
-import { createTestProject } from "@/builder/testing/project-fixtures";
+import {
+  createTestNode,
+  createTestProject,
+} from "@/builder/testing/project-fixtures";
 
 describe("duplicateProjectDocument", () => {
   it("should create an independent valid project with fresh IDs", () => {
@@ -33,5 +36,50 @@ describe("duplicateProjectDocument", () => {
 
     duplicate.pages[duplicate.homePageId].name = "Changed duplicate";
     expect(source.pages[source.homePageId].name).toBe("Home");
+  });
+
+  it("should remap schema-version-3 node references in the duplicate", () => {
+    const source = createTestProject();
+    const page = source.pages[source.homePageId];
+    const state = createTestNode("boolean-state", "node-project-state");
+    const button = createTestNode("button", "node-project-action");
+    const connected = createTestNode("container", "node-project-connected");
+    button.props.targetStateNodeId = state.id;
+    button.props.stateAction = "toggle";
+    connected.stateBinding = {
+      stateNodeId: state.id,
+      on: "show",
+      off: "hide",
+    };
+    Object.assign(page.nodes, {
+      [state.id]: state,
+      [button.id]: button,
+      [connected.id]: connected,
+    });
+    page.rootIds.push(state.id, button.id, connected.id);
+    let sequence = 0;
+
+    const duplicate = duplicateProjectDocument(source, {
+      idGenerator: (prefix) => `${prefix}-state-copy-${++sequence}`,
+    });
+    const duplicatePage = duplicate.pages[duplicate.homePageId];
+    const duplicateState = Object.values(duplicatePage.nodes).find(
+      (node) => node.type === "boolean-state",
+    );
+    const duplicateButton = Object.values(duplicatePage.nodes).find(
+      (node) => node.type === "button",
+    );
+    const duplicateConnected = Object.values(duplicatePage.nodes).find(
+      (node) => node.stateBinding !== undefined,
+    );
+
+    expect(duplicateState).toBeDefined();
+    expect(duplicateButton?.props.targetStateNodeId).toBe(duplicateState?.id);
+    expect(duplicateConnected?.stateBinding?.stateNodeId).toBe(
+      duplicateState?.id,
+    );
+    expect(duplicateButton?.props.targetStateNodeId).not.toBe(state.id);
+    expect(duplicateConnected?.stateBinding?.stateNodeId).not.toBe(state.id);
+    expect(prepareProjectHydration(duplicate).success).toBe(true);
   });
 });

@@ -16,6 +16,7 @@ import {
   type ProjectListInput,
   type ProjectListItem,
   type ProjectListResult,
+  type ProjectLoadResult,
   type ProjectRepository,
   ProjectRepositoryError,
   type SaveProjectInput,
@@ -179,7 +180,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
     return structuredClone(project);
   }
 
-  async load(projectId: string): Promise<ProjectDocument> {
+  async load(projectId: string): Promise<ProjectLoadResult> {
     const store = await this.readonlyStore();
     const stored = await requestResult(store.get(projectId));
     if (stored === undefined) {
@@ -236,7 +237,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
     projectId: string,
     input?: { name?: string },
   ): Promise<ProjectDocument> {
-    const source = await this.load(projectId);
+    const { document: source } = await this.load(projectId);
     const duplicate = duplicateProjectDocument(source, {
       name: input?.name
         ? normalizeProjectName(input.name)
@@ -281,7 +282,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
       if (stored === undefined) {
         throw new ProjectRepositoryError("not-found", "Project not found");
       }
-      const current = assertReadyStoredProject(projectId, stored);
+      const { document: current } = assertReadyStoredProject(projectId, stored);
       const next = mutate(current);
       await requestResult(store.put(asStoredRecord(next.document)));
       await done;
