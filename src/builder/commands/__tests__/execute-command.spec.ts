@@ -7,7 +7,10 @@ import {
 import { asNodeId, asPageId } from "@/builder/model/ids";
 import { prepareProjectHydration } from "@/builder/project/hydration";
 import { componentRegistry } from "@/builder/registry/component-registry";
-import { createTestProject } from "@/builder/testing/project-fixtures";
+import {
+  createTestNode,
+  createTestProject,
+} from "@/builder/testing/project-fixtures";
 
 function createSnapshot(options?: {
   includeAboutPage?: boolean;
@@ -97,6 +100,196 @@ describe("executeEditorCommand", () => {
     expect(deleted.candidate.document.pages[asPageId("page-about")]).toBeUndefined();
     expect(deleted.candidate.activePageId).toBe("page-home");
     expect(deleted.candidate.selectedNodeId).toBeNull();
+  });
+
+  it("should duplicate a page with new page and node identities and activate the copy", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+    const generatedIds = [
+      "page-home-copy",
+      "node-section-copy",
+      "node-card-copy",
+      "node-text-copy",
+    ];
+
+    const result = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      { idGenerator: () => generatedIds.shift() ?? "unexpected-id" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    const duplicate =
+      result.candidate.document.pages[asPageId("page-home-copy")];
+    expect(result.candidate.document.pageOrder).toEqual([
+      "page-home",
+      "page-home-copy",
+      "page-about",
+    ]);
+    expect(duplicate).toMatchObject({
+      name: "Home Copy",
+      slug: "/home-copy",
+      rootIds: ["node-section-copy"],
+    });
+    expect(duplicate.nodes[asNodeId("node-section-copy")].childIds).toEqual([
+      "node-card-copy",
+    ]);
+    expect(duplicate.nodes[asNodeId("node-card-copy")].childIds).toEqual([
+      "node-text-copy",
+    ]);
+    expect(duplicate.nodes[asNodeId("node-text-copy")]).toMatchObject({
+      type: "text",
+      props: snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].props,
+      styles: snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles,
+    });
+    expect(result.candidate.activePageId).toBe("page-home-copy");
+    expect(result.candidate.selectedNodeId).toBeNull();
+    expect(snapshot.document.pages[asPageId("page-home-copy")]).toBeUndefined();
+  });
+
+  it("should promote a page to home and give the previous home a unique generated slug", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "page.setHome",
+      pageId: asPageId("page-about"),
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.candidate.document).toMatchObject({
+      homePageId: "page-about",
+      pages: {
+        "page-home": { name: "Home", slug: "/home" },
+        "page-about": { name: "About", slug: "/" },
+      },
+    });
+    expect(result.candidate.activePageId).toBe("page-home");
+  });
+
+  it("should treat promoting the current home page as a no-op", () => {
+    const snapshot = createSnapshot();
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "page.setHome",
+      pageId: asPageId("page-home"),
+    });
+
+    expect(result).toEqual({ status: "noop", reason: "value-unchanged" });
+  });
+
+  it("should reject page duplication when it cannot reserve unique identities without mutating the source", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+    const original = structuredClone(snapshot.document);
+
+    const pageIdCollision = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      { idGenerator: () => "page-home" },
+    );
+    expect(pageIdCollision).toMatchObject({
+      status: "rejected",
+      error: { code: "id-collision", pageId: "page-home" },
+    });
+
+    const nodeIdCollision = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      {
+        idGenerator: (prefix) =>
+          prefix === "page" ? "page-copy" : "node-section",
+      },
+    );
+    expect(nodeIdCollision).toMatchObject({
+      status: "rejected",
+      error: {
+        code: "id-collision",
+        pageId: "page-home",
+        nodeId: "node-section",
+      },
+    });
+    expect(snapshot.document).toEqual(original);
+  });
+
+  it("should reject a duplicated page that would exceed the project node limit", () => {
+    const project = createTestProject({ includeAboutPage: true });
+    const about = project.pages[asPageId("page-about")];
+    for (let index = 0; index < 9_995; index += 1) {
+      const node = createTestNode("text", `node-filler-${index}`);
+      about.nodes[node.id] = node;
+      about.rootIds.push(node.id);
+    }
+    const prepared = prepareProjectHydration(project);
+    if (!prepared.success) throw new Error(prepared.error.reason);
+    const snapshot: CommandSnapshot = {
+      document: prepared.value.document,
+      parentById: prepared.value.parentById,
+      activePageId: asPageId("page-home"),
+      selectedNodeId: null,
+    };
+
+    let nodeCounter = 0;
+    const result = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      {
+        idGenerator: (prefix) => {
+          if (prefix === "page") return "page-copy";
+          nodeCounter += 1;
+          return `node-copy-${nodeCounter}`;
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: "rejected",
+      error: {
+        code: "tree-invalid",
+        reason: "Project exceeds the 10000 node limit",
+      },
+    });
+    expect(snapshot.document.pages[asPageId("page-copy")]).toBeUndefined();
+  });
+
+  it("should generate a conflict-free slug for the previous home page", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+    const reserved = executeEditorCommand(
+      snapshot,
+      { kind: "page.create", name: "Reserved", slug: "/home" },
+      { idGenerator: () => "page-reserved" },
+    );
+    expect(reserved.status).toBe("applied");
+    if (reserved.status !== "applied") return;
+
+    const promoted = executeEditorCommand(reserved.candidate, {
+      kind: "page.setHome",
+      pageId: asPageId("page-about"),
+    });
+    expect(promoted.status).toBe("applied");
+    if (promoted.status !== "applied") return;
+    expect(promoted.candidate.document.pages[asPageId("page-home")].slug).toBe(
+      "/home-2",
+    );
+  });
+
+  it("should reject page duplication and home promotion for a missing page", () => {
+    const snapshot = createSnapshot();
+
+    for (const kind of ["page.duplicate", "page.setHome"] as const) {
+      expect(
+        executeEditorCommand(snapshot, {
+          kind,
+          pageId: asPageId("page-missing"),
+        }),
+      ).toMatchObject({
+        status: "rejected",
+        error: { code: "page-not-found", pageId: "page-missing" },
+      });
+    }
   });
 
   it("should insert validated registry defaults and select the new node", () => {

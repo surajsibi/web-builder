@@ -26,6 +26,7 @@ afterEach(() => {
 
 function createEditorTestStore() {
   let nodeCounter = 0;
+  let pageCounter = 0;
   const project = createNewProject({
     name: "Editor Test Project",
     now: "2026-08-07T00:00:00.000Z",
@@ -36,6 +37,10 @@ function createEditorTestStore() {
   return createBuilderStore({
     initialDocument: project,
     idGenerator: (prefix) => {
+      if (prefix === "page") {
+        pageCounter += 1;
+        return "page-editor-generated-" + pageCounter;
+      }
       if (prefix === "node") {
         nodeCounter += 1;
         return "node-editor-" + nodeCounter;
@@ -123,6 +128,107 @@ describe("EditorShell", () => {
       activePageId: "page-editor-test",
       document: { projectId: "project-editor-test" },
     });
+  });
+
+  it("should manage project pages from the Pages tab and keep the toolbar switcher in sync", () => {
+    const store = createEditorTestStore();
+    const previewStorage = createMemoryPreviewStorage();
+    render(<EditorShell previewStorage={previewStorage} store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Pages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create new page" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Page name" }), {
+      target: { value: "Contact" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(screen.getByRole("combobox", { name: "Active page" })).toHaveValue(
+      "page-editor-generated-1",
+    );
+    expect(screen.getByRole("button", { name: "Open Contact page" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Contact" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Rename Contact" }), {
+      target: { value: "Portfolio" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Portfolio" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    expect(screen.getByRole("combobox", { name: "Active page" })).toHaveValue(
+      "page-editor-generated-2",
+    );
+    expect(screen.getByRole("button", { name: "Open Portfolio Copy page" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Portfolio" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set as home" }));
+    expect(
+      screen.getByRole("button", { name: "Open Portfolio page" }),
+    ).toContainElement(screen.getByText("Home", { selector: ".page-home-badge" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Portfolio Copy" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "Delete Portfolio Copy?" })).getByRole(
+        "button",
+        { name: "Delete page" },
+      ),
+    );
+
+    expect(screen.queryByRole("button", { name: "Open Portfolio Copy page" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Active page" })).toHaveValue(
+      "page-editor-generated-1",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Deleted Portfolio Copy.");
+    expect(store.getState().history.past).toHaveLength(5);
+
+    const previewLink = screen.getByRole("link", { name: "Preview" });
+    expect(previewLink).toHaveAttribute(
+      "href",
+      "/preview?snapshot=project-editor-test%3Apage-editor-generated-1%3A5",
+    );
+    previewLink.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(previewLink);
+    expect(
+      takePreviewSnapshot(
+        previewStorage,
+        "project-editor-test:page-editor-generated-1:5",
+      ),
+    ).toMatchObject({
+      activePageId: "page-editor-generated-1",
+      document: { homePageId: "page-editor-generated-1" },
+    });
+  });
+
+  it("should navigate left-panel tabs with arrow keys", () => {
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    const componentsTab = screen.getByRole("tab", { name: "Components" });
+    componentsTab.focus();
+    fireEvent.keyDown(componentsTab, { key: "ArrowLeft" });
+
+    const pagesTab = screen.getByRole("tab", { name: "Pages" });
+    expect(pagesTab).toHaveFocus();
+    expect(pagesTab).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("heading", { name: "Website pages" }),
+    ).toBeInTheDocument();
+  });
+
+  it("should announce the active left panel when it is collapsed", () => {
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Pages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Pages" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Pages collapsed.");
   });
 
   it("should independently collapse, restore, and remember both editor panels", async () => {

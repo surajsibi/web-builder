@@ -59,6 +59,14 @@ export type PageCommand =
       name: string;
     }
   | {
+      kind: "page.duplicate";
+      pageId: PageId;
+    }
+  | {
+      kind: "page.setHome";
+      pageId: PageId;
+    }
+  | {
       kind: "page.delete";
       pageId: PageId;
     };
@@ -170,6 +178,13 @@ export type CommandValidationError = {
 export type CommandAppliedValue =
   | { pageId: PageId; index: number }
   | { pageId: PageId }
+  | {
+      sourcePageId: PageId;
+      pageId: PageId;
+      index: number;
+      idMap: Readonly<Record<NodeId, NodeId>>;
+    }
+  | { pageId: PageId; previousHomePageId: PageId }
   | { pageId: PageId; removedNodeIds: readonly NodeId[] }
   | { nodeId: NodeId; destination: NodeDestination }
   | {

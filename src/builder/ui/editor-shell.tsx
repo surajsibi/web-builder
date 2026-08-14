@@ -526,6 +526,51 @@ export function EditorShell({
     setAnnouncement(actionMessage(result, "Opened " + page.name + "."));
   };
 
+  const createPage = (name: string): boolean => {
+    resetVisualEditing();
+    const result = state.dispatchEditorCommand({ kind: "page.create", name });
+    setAnnouncement(actionMessage(result, `Created ${name}.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const renamePage = (pageId: PageId, name: string): boolean => {
+    resetVisualEditing();
+    const previousName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({
+      kind: "page.rename",
+      pageId,
+      name,
+    });
+    setAnnouncement(
+      actionMessage(result, `Renamed ${previousName} to ${name}.`),
+    );
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const duplicatePage = (pageId: PageId): boolean => {
+    resetVisualEditing();
+    const pageName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({ kind: "page.duplicate", pageId });
+    setAnnouncement(actionMessage(result, `Duplicated ${pageName}.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const setHomePage = (pageId: PageId): boolean => {
+    resetVisualEditing();
+    const pageName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({ kind: "page.setHome", pageId });
+    setAnnouncement(actionMessage(result, `Set ${pageName} as the home page.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const deletePage = (pageId: PageId): boolean => {
+    resetVisualEditing();
+    const pageName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({ kind: "page.delete", pageId });
+    setAnnouncement(actionMessage(result, `Deleted ${pageName}.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
   const updateProps = (nextProps: JsonObject) => {
     if (!selectedNode) return;
     const command = {
@@ -752,6 +797,7 @@ export function EditorShell({
         data-left-panel-collapsed={panelPreferences.leftPanelCollapsed}
       >
         <EditorLeftSidebar
+          activePageId={activePageId}
           collapsed={panelPreferences.leftPanelCollapsed}
           document={document}
           dragSource={state.dragSession?.source ?? null}
@@ -763,13 +809,19 @@ export function EditorShell({
           }
           onInsertBlock={insertBlock}
           onInsertComponent={insertComponent}
-          onCollapsedChange={(collapsed) => {
+          onCreatePage={createPage}
+          onDeletePage={deletePage}
+          onDuplicatePage={duplicatePage}
+          onRenamePage={renamePage}
+          onSelectPage={switchPage}
+          onSetHomePage={setHomePage}
+          onCollapsedChange={(collapsed, panelName) => {
             saveEditorPanelPreferences({
               ...panelPreferences,
               leftPanelCollapsed: collapsed,
             });
             setAnnouncement(
-              `Component Library ${collapsed ? "collapsed" : "expanded"}.`,
+              `${panelName} ${collapsed ? "collapsed" : "expanded"}.`,
             );
           }}
           onSelectNode={selectNode}

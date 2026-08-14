@@ -102,6 +102,61 @@ describe("createBuilderStore", () => {
     expect(store.getState().history.past).toHaveLength(1);
   });
 
+  it("should undo and redo page duplication and home-page promotion", () => {
+    const store = createStore();
+
+    const duplicated = store.getState().dispatchEditorCommand({
+      kind: "page.duplicate",
+      pageId: asPageId("page-home"),
+    });
+    expect(duplicated.status).toBe("applied");
+    expect(store.getState()).toMatchObject({
+      activePageId: "page-generated-1",
+      selectedNodeId: null,
+      dirty: true,
+      commitId: 1,
+    });
+
+    const promoted = store.getState().dispatchEditorCommand({
+      kind: "page.setHome",
+      pageId: asPageId("page-about"),
+    });
+    expect(promoted.status).toBe("applied");
+    expect(store.getState().document).toMatchObject({
+      homePageId: "page-about",
+      pages: {
+        "page-home": { slug: "/home" },
+        "page-about": { slug: "/" },
+      },
+    });
+
+    expect(store.getState().undo().status).toBe("applied");
+    expect(store.getState().document).toMatchObject({
+      homePageId: "page-home",
+      pages: {
+        "page-home": { slug: "/" },
+        "page-about": { slug: "/about" },
+      },
+    });
+
+    expect(store.getState().redo().status).toBe("applied");
+    expect(store.getState().document?.homePageId).toBe("page-about");
+
+    expect(store.getState().undo().status).toBe("applied");
+    expect(store.getState().undo().status).toBe("applied");
+    expect(
+      store.getState().document?.pages[asPageId("page-generated-1")],
+    ).toBeUndefined();
+
+    expect(store.getState().redo().status).toBe("applied");
+    expect(
+      store.getState().document?.pages[asPageId("page-generated-1")],
+    ).toMatchObject({ name: "Home Copy", slug: "/home-copy" });
+
+    expect(store.getState().redo().status).toBe("applied");
+    expect(store.getState().document?.homePageId).toBe("page-about");
+  });
+
   it("should undo and redo content snapshots without restoring selection", () => {
     const store = createStore();
 

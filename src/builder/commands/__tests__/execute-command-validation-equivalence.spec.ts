@@ -151,6 +151,22 @@ const equivalenceCases: EquivalenceCase[] = [
     command: { kind: "page.delete", pageId: asPageId("page-about") },
   },
   {
+    name: "should match full validation when duplicating a page",
+    createSnapshot: () => createSnapshot({ includeAboutPage: true }),
+    command: { kind: "page.duplicate", pageId: asPageId("page-home") },
+    generatedIds: [
+      "page-home-copy",
+      "node-section-copy",
+      "node-card-copy",
+      "node-text-copy",
+    ],
+  },
+  {
+    name: "should match full validation when promoting a home page",
+    createSnapshot: () => createSnapshot({ includeAboutPage: true }),
+    command: { kind: "page.setHome", pageId: asPageId("page-about") },
+  },
+  {
     name: "should match full validation when inserting a node",
     command: {
       kind: "node.insert",
