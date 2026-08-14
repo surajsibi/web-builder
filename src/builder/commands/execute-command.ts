@@ -8,6 +8,7 @@ import type {
   ProjectDocument,
 } from "@/builder/model/project-document";
 import { booleanStateBindingSchema } from "@/builder/model/state-binding";
+import { evaluatePositioningEligibility } from "@/builder/positioning/eligibility";
 import {
   blockRegistry,
   resolveBlockTemplate,
@@ -94,17 +95,27 @@ const commandDestinationSchema = z
     index: z.number(),
   })
   .strict();
-const commandStyleChangeSchema = z
+const commandStyleTargetSchema = z
   .object({
-    target: z
-      .object({
-        property: z.string().min(1),
-        field: z.string().min(1).optional(),
-      })
-      .strict(),
-    value: z.unknown(),
+    property: z.string().min(1),
+    field: z.string().min(1).optional(),
   })
   .strict();
+const commandStyleChangeSchema = z.union([
+  z
+    .object({
+      operation: z.literal("reset"),
+      target: commandStyleTargetSchema,
+    })
+    .strict(),
+  z
+    .object({
+      operation: z.literal("set").optional(),
+      target: commandStyleTargetSchema,
+      value: z.unknown(),
+    })
+    .strict(),
+]);
 const commandViewportSchema = z.enum(["desktop", "tablet", "mobile"]);
 const editorCommandEnvelopeSchema = z.discriminatedUnion("kind", [
   z
@@ -120,6 +131,12 @@ const editorCommandEnvelopeSchema = z.discriminatedUnion("kind", [
       pageId: commandIdSchema,
       name: z.string(),
     })
+    .strict(),
+  z
+    .object({ kind: z.literal("page.duplicate"), pageId: commandIdSchema })
+    .strict(),
+  z
+    .object({ kind: z.literal("page.setHome"), pageId: commandIdSchema })
     .strict(),
   z
     .object({ kind: z.literal("page.delete"), pageId: commandIdSchema })
@@ -253,6 +270,7 @@ const STYLE_PROPERTIES = new Set<keyof StyleValues>([
   "boxShadow",
   "backdropBlur",
   "position",
+  "positionOffset",
   "zIndex",
   "grid",
   "flex",
@@ -418,6 +436,23 @@ function uniquePageId(
     }
   }
   return null;
+}
+
+function uniquePageCopyName(
+  document: Readonly<ProjectDocument>,
+  sourceName: string,
+): string {
+  const names = new Set(Object.values(document.pages).map((page) => page.name));
+  const base = `${sourceName} Copy`;
+  if (!names.has(base)) return base;
+
+  let suffix = 2;
+  let candidate = `${base} ${suffix}`;
+  while (names.has(candidate)) {
+    suffix += 1;
+    candidate = `${base} ${suffix}`;
+  }
+  return candidate;
 }
 
 function collectProjectNodeIds(
@@ -678,6 +713,145 @@ function renamePage(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { pageId: command.pageId },
+    "local",
+    services,
+  );
+}
+
+function duplicatePage(
+  snapshot: CommandSnapshot,
+  command: Extract<EditorCommand, { kind: "page.duplicate" }>,
+  services: CommandExecutorServices,
+): CommandPreparationResult {
+  const page = getPage(snapshot.document, command.pageId);
+  if (!page) {
+    return rejected({
+      code: "page-not-found",
+      pageId: command.pageId,
+      reason: `Page does not exist: ${command.pageId}`,
+    });
+  }
+
+  const pageId = uniquePageId(snapshot.document, services.idGenerator);
+  if (!pageId) {
+    return rejected({
+      code: "id-collision",
+      pageId: command.pageId,
+      reason: "Could not generate a unique page ID",
+    });
+  }
+
+  const sourceNodeIds = Object.keys(page.nodes) as NodeId[];
+  const reservedNodeIds = collectProjectNodeIds(snapshot.document);
+  const idMap = Object.create(null) as Record<NodeId, NodeId>;
+
+  for (const sourceNodeId of sourceNodeIds) {
+    const duplicateNodeId = reserveUniqueNodeId(
+      reservedNodeIds,
+      services.idGenerator,
+    );
+    if (!duplicateNodeId) {
+      return rejected({
+        code: "id-collision",
+        pageId: command.pageId,
+        nodeId: sourceNodeId,
+        reason: "Could not generate unique node IDs for the duplicated page",
+      });
+    }
+    idMap[sourceNodeId] = duplicateNodeId;
+  }
+
+  const name = uniquePageCopyName(snapshot.document, page.name);
+  const existingSlugs = new Set(
+    Object.values(snapshot.document.pages).map((candidatePage) => candidatePage.slug),
+  );
+  const slug = createGeneratedPageSlug(name, existingSlugs);
+  const duplicateNodes = Object.create(null) as Record<NodeId, BuilderNode>;
+
+  for (const sourceNodeId of sourceNodeIds) {
+    const sourceNode = page.nodes[sourceNodeId];
+    const duplicateNodeId = idMap[sourceNodeId];
+    duplicateNodes[duplicateNodeId] = {
+      ...structuredClone(sourceNode),
+      id: duplicateNodeId,
+      childIds: sourceNode.childIds.map((childId) => idMap[childId]),
+      props: remapNodeReferences(sourceNode, idMap),
+      ...(sourceNode.stateBinding
+        ? { stateBinding: remapStateBinding(sourceNode, idMap) }
+        : {}),
+    };
+  }
+
+  const candidate = cloneProjectDocument(snapshot.document);
+  candidate.pages[pageId] = {
+    id: pageId,
+    name,
+    slug,
+    rootIds: page.rootIds.map((rootId) => idMap[rootId]),
+    nodes: duplicateNodes,
+  };
+  const sourceIndex = candidate.pageOrder.indexOf(page.id);
+  const duplicateIndex = sourceIndex + 1;
+  candidate.pageOrder.splice(duplicateIndex, 0, pageId);
+
+  return finalizeCandidate(
+    {
+      document: candidate,
+      parentById: snapshot.parentById,
+      activePageId: pageId,
+      selectedNodeId: null,
+    },
+    {
+      sourcePageId: page.id,
+      pageId,
+      index: duplicateIndex,
+      idMap,
+    },
+    "tree",
+    services,
+  );
+}
+
+function setHomePage(
+  snapshot: CommandSnapshot,
+  command: Extract<EditorCommand, { kind: "page.setHome" }>,
+  services: CommandExecutorServices,
+): CommandPreparationResult {
+  const page = getPage(snapshot.document, command.pageId);
+  if (!page) {
+    return rejected({
+      code: "page-not-found",
+      pageId: command.pageId,
+      reason: `Page does not exist: ${command.pageId}`,
+    });
+  }
+  if (page.id === snapshot.document.homePageId) {
+    return noop("value-unchanged");
+  }
+
+  const previousHomePageId = snapshot.document.homePageId;
+  const previousHomePage = snapshot.document.pages[previousHomePageId];
+  const reservedSlugs = new Set(
+    Object.values(snapshot.document.pages)
+      .filter(
+        (candidatePage) =>
+          candidatePage.id !== page.id && candidatePage.id !== previousHomePageId,
+      )
+      .map((candidatePage) => candidatePage.slug),
+  );
+  const previousHomeSlug = createGeneratedPageSlug(
+    previousHomePage.name,
+    reservedSlugs,
+  );
+
+  const candidate = cloneProjectDocument(snapshot.document);
+  candidate.homePageId = page.id;
+  candidate.pages[page.id].slug = "/";
+  candidate.pages[previousHomePageId].slug = previousHomeSlug;
+
+  return finalizeCandidate(
+    { ...snapshot, document: candidate },
+    { pageId: page.id, previousHomePageId },
     "local",
     services,
   );
@@ -1529,17 +1703,56 @@ function applyStyleChange(
   styles: ResponsiveStyles,
   viewport: Viewport,
   change: StyleChange,
-): boolean {
-  if (!validateStyleTarget(change.target) || !isJsonValue(change.value)) {
-    return false;
+): "applied" | "already-reset" | "invalid" {
+  if (!validateStyleTarget(change.target)) {
+    return "invalid";
   }
 
-  const layer = styleLayer(styles, viewport) as Record<string, unknown>;
   const { property, field } = change.target;
+
+  if (change.operation === "reset") {
+    const currentLayer =
+      viewport === "desktop" ? styles.base : styles[viewport];
+    if (!currentLayer) return "already-reset";
+
+    const layer = currentLayer as Record<string, unknown>;
+    if (field === undefined) {
+      if (!Object.hasOwn(layer, property)) return "already-reset";
+      delete layer[property];
+    } else {
+      const current = layer[property];
+      if (
+        typeof current !== "object" ||
+        current === null ||
+        Array.isArray(current) ||
+        !Object.hasOwn(current, field)
+      ) {
+        return "already-reset";
+      }
+
+      const nested = { ...current } as Record<string, unknown>;
+      delete nested[field];
+      if (Object.keys(nested).length === 0) delete layer[property];
+      else layer[property] = nested;
+    }
+
+    if (
+      viewport !== "desktop" &&
+      styles[viewport] &&
+      Object.keys(styles[viewport]).length === 0
+    ) {
+      delete styles[viewport];
+    }
+    return "applied";
+  }
+
+  if (!isJsonValue(change.value)) return "invalid";
+
+  const layer = styleLayer(styles, viewport) as Record<string, unknown>;
 
   if (field === undefined) {
     layer[property] = structuredClone(change.value);
-    return true;
+    return "applied";
   }
 
   const current = layer[property];
@@ -1549,7 +1762,7 @@ function applyStyleChange(
       : {};
   (nested as Record<string, unknown>)[field] = structuredClone(change.value);
   layer[property] = nested;
-  return true;
+  return "applied";
 }
 
 function updateStyles(
@@ -1576,8 +1789,10 @@ function updateStyles(
   }
 
   const nextStyles = structuredClone(resolved.node.styles);
+  let appliedChangeCount = 0;
   for (const change of command.changes) {
-    if (!applyStyleChange(nextStyles, command.viewport, change)) {
+    const result = applyStyleChange(nextStyles, command.viewport, change);
+    if (result === "invalid") {
       return rejected({
         code: "styles-invalid",
         pageId: resolved.page.id,
@@ -1585,7 +1800,10 @@ function updateStyles(
         reason: "Style change contains an invalid target or value",
       });
     }
+    if (result === "applied") appliedChangeCount += 1;
   }
+
+  if (appliedChangeCount === 0) return noop("style-already-reset");
 
   const parsed = responsiveStylesSchema.safeParse(nextStyles);
   if (!parsed.success) {
@@ -1598,6 +1816,29 @@ function updateStyles(
       ),
       reason: parsed.error.issues[0]?.message ?? "Styles are invalid",
     });
+  }
+
+  const setsPositionOffset = command.changes.some(
+    (change) =>
+      change.operation !== "reset" &&
+      change.target.property === "positionOffset",
+  );
+  if (setsPositionOffset) {
+    const eligibility = evaluatePositioningEligibility({
+      node: { ...resolved.node, styles: parsed.data },
+      parentId: snapshot.parentById[resolved.node.id],
+      viewport: command.viewport,
+      operation: "inspector-set",
+      rendered: true,
+    });
+    if (eligibility.status !== "allowed") {
+      return rejected({
+        code: "positioning-ineligible",
+        pageId: resolved.page.id,
+        nodeId: resolved.node.id,
+        reason: eligibility.reason,
+      });
+    }
   }
   if (valuesEqual(resolved.node.styles, parsed.data)) return noop("value-unchanged");
 
@@ -1688,6 +1929,10 @@ function executeEditorCommandInternal(
       return createPage(snapshot, validatedCommand, services);
     case "page.rename":
       return renamePage(snapshot, validatedCommand, services);
+    case "page.duplicate":
+      return duplicatePage(snapshot, validatedCommand, services);
+    case "page.setHome":
+      return setHomePage(snapshot, validatedCommand, services);
     case "page.delete":
       return deletePage(snapshot, validatedCommand, services);
     case "node.insert":

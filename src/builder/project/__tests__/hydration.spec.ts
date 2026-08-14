@@ -9,6 +9,25 @@ import {
 } from "@/builder/testing/project-fixtures";
 
 describe("prepareProjectHydration", () => {
+  it("should migrate a version 1 project envelope without changing its nodes", () => {
+    const input = createTestProject();
+    input.schemaVersion = 1;
+    const originalNodes = structuredClone(input.pages[input.homePageId].nodes);
+
+    const result = prepareProjectHydration(input);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.value.migrated).toBe(true);
+    expect(result.value.document.schemaVersion).toBe(
+      CURRENT_PROJECT_SCHEMA_VERSION,
+    );
+    expect(result.value.document.pages[input.homePageId].nodes).toEqual(
+      originalNodes,
+    );
+    expect(input.schemaVersion).toBe(1);
+  });
+
   it("should validate a current document and build the project-wide parent index", () => {
     const input = createTestProject();
     const original = structuredClone(input);
@@ -45,6 +64,44 @@ describe("prepareProjectHydration", () => {
       borderWidth: { value: 1, unit: "px" },
       borderStyle: "solid",
       borderColor: "#2563eb",
+    });
+  });
+
+  it("should hydrate atomic responsive position offsets without changing their values", () => {
+    const input = createTestProject();
+    const text = input.pages[input.homePageId].nodes[asNodeId("node-text")];
+    text.styles.base.positionOffset = {
+      x: { value: 120, unit: "px" },
+      y: { value: -45, unit: "px" },
+    };
+    text.styles.mobile = {
+      positionOffset: {
+        x: { value: 0, unit: "px" },
+        y: { value: 0, unit: "px" },
+      },
+    };
+
+    const result = prepareProjectHydration(input);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.value.migrated).toBe(false);
+    expect(
+      result.value.document.pages[input.homePageId].nodes[asNodeId("node-text")]
+        .styles,
+    ).toMatchObject({
+      base: {
+        positionOffset: {
+          x: { value: 120, unit: "px" },
+          y: { value: -45, unit: "px" },
+        },
+      },
+      mobile: {
+        positionOffset: {
+          x: { value: 0, unit: "px" },
+          y: { value: 0, unit: "px" },
+        },
+      },
     });
   });
 

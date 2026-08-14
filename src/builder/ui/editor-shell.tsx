@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
@@ -65,6 +72,93 @@ type EditorShellProps = {
   store?: StoreApi<BuilderStoreState>;
 };
 
+const EDITOR_PANEL_PREFERENCES_STORAGE_KEY =
+  "canvas-studio:editor-panel-preferences:v1";
+const EDITOR_PANEL_PREFERENCES_EVENT =
+  "canvas-studio:editor-panel-preferences-change";
+
+type EditorPanelPreferences = {
+  leftPanelCollapsed: boolean;
+  inspectorCollapsed: boolean;
+};
+
+const DEFAULT_EDITOR_PANEL_PREFERENCES: EditorPanelPreferences = {
+  leftPanelCollapsed: false,
+  inspectorCollapsed: false,
+};
+const DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED = JSON.stringify(
+  DEFAULT_EDITOR_PANEL_PREFERENCES,
+);
+let unavailablePanelPreferencesSnapshot =
+  DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED;
+
+function parseEditorPanelPreferences(value: string | null): EditorPanelPreferences {
+  if (value === null) return DEFAULT_EDITOR_PANEL_PREFERENCES;
+  try {
+    const parsed = JSON.parse(value) as Partial<EditorPanelPreferences>;
+    if (
+      typeof parsed.leftPanelCollapsed === "boolean" &&
+      typeof parsed.inspectorCollapsed === "boolean"
+    ) {
+      return {
+        leftPanelCollapsed: parsed.leftPanelCollapsed,
+        inspectorCollapsed: parsed.inspectorCollapsed,
+      };
+    }
+  } catch {
+    // Ignore malformed preferences and use the accessible expanded default.
+  }
+  return DEFAULT_EDITOR_PANEL_PREFERENCES;
+}
+
+function readEditorPanelPreferencesSnapshot(): string {
+  try {
+    const stored = window.localStorage.getItem(
+      EDITOR_PANEL_PREFERENCES_STORAGE_KEY,
+    );
+    return stored === null
+      ? DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED
+      : JSON.stringify(parseEditorPanelPreferences(stored));
+  } catch {
+    return unavailablePanelPreferencesSnapshot;
+  }
+}
+
+function subscribeToEditorPanelPreferences(onStoreChange: () => void) {
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key === EDITOR_PANEL_PREFERENCES_STORAGE_KEY) onStoreChange();
+  };
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(EDITOR_PANEL_PREFERENCES_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(EDITOR_PANEL_PREFERENCES_EVENT, onStoreChange);
+  };
+}
+
+function useEditorPanelPreferences(): EditorPanelPreferences {
+  const snapshot = useSyncExternalStore(
+    subscribeToEditorPanelPreferences,
+    readEditorPanelPreferencesSnapshot,
+    () => DEFAULT_EDITOR_PANEL_PREFERENCES_SERIALIZED,
+  );
+  return parseEditorPanelPreferences(snapshot);
+}
+
+function saveEditorPanelPreferences(preferences: EditorPanelPreferences) {
+  const snapshot = JSON.stringify(preferences);
+  unavailablePanelPreferencesSnapshot = snapshot;
+  try {
+    window.localStorage.setItem(
+      EDITOR_PANEL_PREFERENCES_STORAGE_KEY,
+      snapshot,
+    );
+  } catch {
+    // Panel controls continue to work through the in-memory snapshot.
+  }
+  window.dispatchEvent(new Event(EDITOR_PANEL_PREFERENCES_EVENT));
+}
+
 type VisualEditingState = {
   session: VisualEditSession | null;
   mode: VisualOverlayMode;
@@ -119,15 +213,13 @@ function actionMessage(result: EditorActionResult, successMessage: string): stri
   return "Change failed: " + result.message;
 }
 
-function isEditableTarget(target: EventTarget | null): boolean {
+function shouldIgnoreEditorShortcut(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   return (
     target.isContentEditable ||
-    target.closest('[contenteditable="true"], [contenteditable="plaintext-only"]') !==
-      null ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
+    target.closest(
+      'a[href], button, input, select, summary, textarea, [contenteditable="true"], [contenteditable="plaintext-only"], [role="alertdialog"], [role="dialog"], [role="menu"], [role="menuitem"]',
+    ) !== null
   );
 }
 
@@ -179,6 +271,7 @@ export function EditorShell({
   const [announcement, setAnnouncement] = useState(
     "Editor ready. Choose a component to begin.",
   );
+  const panelPreferences = useEditorPanelPreferences();
   const [visualEditing, dispatchVisualEditing] = useReducer(
     reduceVisualEditing,
     INITIAL_VISUAL_EDITING_STATE,
@@ -197,7 +290,7 @@ export function EditorShell({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      if (event.defaultPrevented || shouldIgnoreEditorShortcut(event.target)) return;
       const current = store.getState();
       if (
         !current.document ||
@@ -432,6 +525,51 @@ export function EditorShell({
     setAnnouncement(actionMessage(result, "Opened " + page.name + "."));
   };
 
+  const createPage = (name: string): boolean => {
+    resetVisualEditing();
+    const result = state.dispatchEditorCommand({ kind: "page.create", name });
+    setAnnouncement(actionMessage(result, `Created ${name}.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const renamePage = (pageId: PageId, name: string): boolean => {
+    resetVisualEditing();
+    const previousName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({
+      kind: "page.rename",
+      pageId,
+      name,
+    });
+    setAnnouncement(
+      actionMessage(result, `Renamed ${previousName} to ${name}.`),
+    );
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const duplicatePage = (pageId: PageId): boolean => {
+    resetVisualEditing();
+    const pageName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({ kind: "page.duplicate", pageId });
+    setAnnouncement(actionMessage(result, `Duplicated ${pageName}.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const setHomePage = (pageId: PageId): boolean => {
+    resetVisualEditing();
+    const pageName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({ kind: "page.setHome", pageId });
+    setAnnouncement(actionMessage(result, `Set ${pageName} as the home page.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
+  const deletePage = (pageId: PageId): boolean => {
+    resetVisualEditing();
+    const pageName = document.pages[pageId]?.name ?? "page";
+    const result = state.dispatchEditorCommand({ kind: "page.delete", pageId });
+    setAnnouncement(actionMessage(result, `Deleted ${pageName}.`));
+    return result.status === "applied" || result.status === "noop";
+  };
+
   const updateProps = (nextProps: JsonObject) => {
     if (!selectedNode) return;
     const command = {
@@ -545,6 +683,7 @@ export function EditorShell({
   const previewVisualEdit = (session: VisualEditSession) => {
     visualEditSessionRef.current = session;
     dispatchVisualEditing({ type: "preview", session });
+    if (session.announcement) setAnnouncement(session.announcement);
   };
 
   const cancelVisualEdit = () => {
@@ -682,8 +821,14 @@ export function EditorShell({
         projectName={document.name}
       />
 
-      <div className="editor-workspace">
+      <div
+        className="editor-workspace"
+        data-inspector-collapsed={panelPreferences.inspectorCollapsed}
+        data-left-panel-collapsed={panelPreferences.leftPanelCollapsed}
+      >
         <EditorLeftSidebar
+          activePageId={activePageId}
+          collapsed={panelPreferences.leftPanelCollapsed}
           document={document}
           dragSource={state.dragSession?.source ?? null}
           getBlockInsertionLabel={(type) =>
@@ -694,6 +839,21 @@ export function EditorShell({
           }
           onInsertBlock={insertBlock}
           onInsertComponent={insertComponent}
+          onCreatePage={createPage}
+          onDeletePage={deletePage}
+          onDuplicatePage={duplicatePage}
+          onRenamePage={renamePage}
+          onSelectPage={switchPage}
+          onSetHomePage={setHomePage}
+          onCollapsedChange={(collapsed, panelName) => {
+            saveEditorPanelPreferences({
+              ...panelPreferences,
+              leftPanelCollapsed: collapsed,
+            });
+            setAnnouncement(
+              `${panelName} ${collapsed ? "collapsed" : "expanded"}.`,
+            );
+          }}
           onSelectNode={selectNode}
           page={activePage}
           parentById={state.parentById}
@@ -709,6 +869,11 @@ export function EditorShell({
           onCancelTextEdit={cancelTextEdit}
           onCommitVisualEdit={commitVisualEdit}
           onCommitTextEdit={commitTextEdit}
+          onExitPositionMode={() => {
+            visualEditSessionRef.current = null;
+            dispatchVisualEditing({ type: "set-mode", mode: "none" });
+            setAnnouncement("Move on canvas mode off.");
+          }}
           onPreviewVisualEdit={previewVisualEdit}
           onSelectNode={selectNode}
           onStartTextEdit={startTextEdit}
@@ -722,6 +887,7 @@ export function EditorShell({
         />
 
         <InspectorPanel
+          collapsed={panelPreferences.inspectorCollapsed}
           document={document}
           isRoot={
             selectedNode
@@ -729,9 +895,17 @@ export function EditorShell({
               : false
           }
           node={selectedNode}
-          page={activePage}
-          onDelete={deleteSelectedNode}
           onCreateStateAndConnect={createStateAndConnect}
+          parentId={selectedNode ? (state.parentById[selectedNode.id] ?? null) : null}
+          onDelete={deleteSelectedNode}
+          onCollapsedChange={(collapsed) => {
+            saveEditorPanelPreferences({
+              ...panelPreferences,
+              inspectorCollapsed: collapsed,
+            });
+            setAnnouncement(`Inspector ${collapsed ? "collapsed" : "expanded"}.`);
+          }}
+          page={activePage}
           onRename={renameSelectedNode}
           onUpdateProps={updateProps}
           onUpdateStateBinding={updateStateBinding}

@@ -13,6 +13,7 @@ import type {
   FlexConfig,
   GridConfig,
   LengthValue,
+  PositionOffsetValue,
   ResponsiveStyles,
   SpacingValue,
   StylePatch,
@@ -101,6 +102,20 @@ export const effectLengthValueSchema: z.ZodType<EffectLengthValue> = z
   .object({
     value: finiteNumberSchema.nonnegative(),
     unit: effectUnitSchema,
+  })
+  .strict();
+
+const positionOffsetLengthValueSchema = z
+  .object({
+    value: finiteNumberSchema,
+    unit: z.literal("px"),
+  })
+  .strict();
+
+export const positionOffsetValueSchema: z.ZodType<PositionOffsetValue> = z
+  .object({
+    x: positionOffsetLengthValueSchema,
+    y: positionOffsetLengthValueSchema,
   })
   .strict();
 
@@ -217,6 +232,7 @@ const styleValuesObjectSchema = z
     position: z
       .enum(["static", "relative", "absolute", "fixed", "sticky"])
       .optional(),
+    positionOffset: positionOffsetValueSchema.optional(),
     zIndex: z.union([z.literal("auto"), finiteNumberSchema]).optional(),
     grid: gridConfigSchema.optional(),
     flex: flexConfigSchema.optional(),
@@ -295,6 +311,7 @@ const stylePatchObjectSchema = z
     position: z
       .enum(["static", "relative", "absolute", "fixed", "sticky"])
       .optional(),
+    positionOffset: positionOffsetValueSchema.optional(),
     zIndex: z.union([z.literal("auto"), finiteNumberSchema]).optional(),
     grid: gridPatchSchema.optional(),
     flex: flexPatchSchema.optional(),

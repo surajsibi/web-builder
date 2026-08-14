@@ -6,6 +6,28 @@ import type { ResponsiveStyles } from "@/builder/styles/types";
 const px = (value: number) => ({ value, unit: "px" as const });
 
 describe("resolveResponsiveStyles", () => {
+  it("should atomically cascade and clone responsive position offsets", () => {
+    const styles = {
+      base: {
+        positionOffset: { x: px(24), y: px(-12) },
+      },
+      tablet: {
+        positionOffset: { x: px(0), y: px(0) },
+      },
+    } satisfies ResponsiveStyles;
+
+    const desktop = resolveResponsiveStyles(styles, "desktop");
+    const tablet = resolveResponsiveStyles(styles, "tablet");
+    const mobile = resolveResponsiveStyles(styles, "mobile");
+
+    expect(desktop.positionOffset).toEqual({ x: px(24), y: px(-12) });
+    expect(tablet.positionOffset).toEqual({ x: px(0), y: px(0) });
+    expect(mobile.positionOffset).toEqual({ x: px(0), y: px(0) });
+    expect(desktop.positionOffset).not.toBe(styles.base.positionOffset);
+    expect(tablet.positionOffset).not.toBe(styles.tablet?.positionOffset);
+    expect(styles.base.positionOffset).toEqual({ x: px(24), y: px(-12) });
+  });
+
   it("should cascade base, tablet, and mobile patches with field-level merges", () => {
     const styles = {
       base: {

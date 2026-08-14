@@ -36,10 +36,17 @@ export type StyleTarget =
       field: keyof FlexConfig;
     };
 
-export type StyleChange = {
-  target: StyleTarget;
-  value: JsonValue;
-};
+export type StyleChange =
+  | {
+      operation?: "set";
+      target: StyleTarget;
+      value: JsonValue;
+    }
+  | {
+      operation: "reset";
+      target: StyleTarget;
+      value?: never;
+    };
 
 export type PageCommand =
   | {
@@ -51,6 +58,14 @@ export type PageCommand =
       kind: "page.rename";
       pageId: PageId;
       name: string;
+    }
+  | {
+      kind: "page.duplicate";
+      pageId: PageId;
+    }
+  | {
+      kind: "page.setHome";
+      pageId: PageId;
     }
   | {
       kind: "page.delete";
@@ -163,6 +178,7 @@ export type CommandValidationError = {
     | "placement-rejected"
     | "props-invalid"
     | "styles-invalid"
+    | "positioning-ineligible"
     | "slug-invalid"
     | "slug-conflict"
     | "home-page-protected"
@@ -178,6 +194,13 @@ export type CommandValidationError = {
 export type CommandAppliedValue =
   | { pageId: PageId; index: number }
   | { pageId: PageId }
+  | {
+      sourcePageId: PageId;
+      pageId: PageId;
+      index: number;
+      idMap: Readonly<Record<NodeId, NodeId>>;
+    }
+  | { pageId: PageId; previousHomePageId: PageId }
   | { pageId: PageId; removedNodeIds: readonly NodeId[] }
   | { nodeId: NodeId; destination: NodeDestination }
   | {

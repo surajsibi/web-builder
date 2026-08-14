@@ -51,6 +51,41 @@ describe("NodeRenderingController", () => {
     });
   });
 
+  it("should render the same committed position offset in editor and preview runtimes", () => {
+    const heading = createTestNode("heading", "node-heading");
+    heading.styles.base.positionOffset = {
+      x: { value: 42, unit: "px" },
+      y: { value: -17, unit: "px" },
+    };
+    const page = createTestPage("page-home", "Home", "/", [heading]);
+
+    const { container } = render(
+      <>
+        <NodeRenderingController
+          getClassName={() => "editor-runtime"}
+          nodeId={heading.id}
+          page={page}
+          runtime={{ mode: "editor" }}
+          viewport="desktop"
+        />
+        <NodeRenderingController
+          getClassName={() => "preview-runtime"}
+          nodeId={heading.id}
+          page={page}
+          runtime={{ mode: "preview" }}
+          viewport="desktop"
+        />
+      </>,
+    );
+
+    expect(container.querySelector(".editor-runtime")).toHaveStyle({
+      translate: "42px -17px",
+    });
+    expect(container.querySelector(".preview-runtime")).toHaveStyle({
+      translate: "42px -17px",
+    });
+  });
+
   it("should expose semantic roots and editor-only empty-container content", () => {
     const card = createTestNode("card", "node-card-empty");
     const page = createTestPage("page-home", "Home", "/", [card]);

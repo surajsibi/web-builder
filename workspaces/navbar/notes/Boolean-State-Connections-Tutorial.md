@@ -111,7 +111,7 @@ To switch between two components, use opposite mappings:
 
 - To disconnect a component, expand **Component visibility** and choose **Not connected**.
 - To stop a Button action, choose **No state action** under **Button action**.
-- If a referenced state was deleted, the State tab reports it as unavailable. Choose another state or disconnect the component.
+- If a referenced state is missing or points to a node that is not a Boolean State, the State tab reports it as unavailable. Choose or create a replacement, disconnect the component, or clear the Button action.
 - Connections are page-scoped; a component cannot target a state on another page.
 
 ## Current boundary and future growth

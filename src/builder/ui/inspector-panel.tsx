@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 
 import type { StyleChange } from "@/builder/commands/types";
-import { asNodeId } from "@/builder/model/ids";
+import { asNodeId, type NodeId } from "@/builder/model/ids";
 import type { JsonObject, JsonValue } from "@/builder/model/json";
 import type {
   BuilderNode,
@@ -13,6 +13,10 @@ import {
   listNodeReferenceCandidates,
   resolveNodeReference,
 } from "@/builder/project/node-references";
+import {
+  evaluatePositioningEligibility,
+  type PositioningEligibilityReason,
+} from "@/builder/positioning/eligibility";
 import {
   componentRegistry,
   referencesForComponentType,
@@ -41,6 +45,7 @@ import {
   DEFAULT_GRID_CONFIG,
   INSPECTOR_UNITS,
   layoutModeStyleChanges,
+  positionOffsetStyleChange,
   spacingSidesForMode,
   spacingStyleChanges,
   type InspectorUnit,
@@ -51,9 +56,11 @@ import {
 } from "@/builder/ui/visual-editing";
 
 type InspectorPanelProps = {
+  collapsed: boolean;
   document: Readonly<ProjectDocument>;
   page: Readonly<PageDocument>;
   node: Readonly<BuilderNode> | null;
+  parentId: NodeId | null;
   isRoot: boolean;
   viewport: Viewport;
   visualMode: VisualOverlayMode;
@@ -66,6 +73,7 @@ type InspectorPanelProps = {
   onUpdateStateBinding: (binding: BooleanStateBinding | null) => void;
   onCreateStateAndConnect: (name: string, defaultValue: boolean) => void;
   onUpdateStyles: (changes: readonly [StyleChange, ...StyleChange[]]) => void;
+  onCollapsedChange: (collapsed: boolean) => void;
 };
 
 type DimensionProperty = "width" | "height";
@@ -170,6 +178,41 @@ type NodeReferenceControlData = {
 
 function titleCase(value: string): string {
   return value.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function positionOffsetOrigin(
+  node: Readonly<BuilderNode>,
+  viewport: Viewport,
+): Viewport | null {
+  if (viewport === "mobile" && node.styles.mobile?.positionOffset) {
+    return "mobile";
+  }
+  if (
+    (viewport === "tablet" || viewport === "mobile") &&
+    node.styles.tablet?.positionOffset
+  ) {
+    return "tablet";
+  }
+  return node.styles.base.positionOffset ? "desktop" : null;
+}
+
+function positioningRestrictionMessage(
+  reason: PositioningEligibilityReason,
+): string {
+  switch (reason) {
+    case "root-node":
+      return "Root positioning remains disabled until container verification passes.";
+    case "container-capable":
+      return "Container positioning remains disabled until stacking-context and containing-block verification passes.";
+    case "position-mode":
+      return "Offsets are disabled for absolute, fixed, and sticky positioning in this release.";
+    case "locked":
+      return "Unlock this component before changing its offset.";
+    case "not-rendered":
+      return "This component is not rendered in the active viewport.";
+    case "capability-missing":
+      return "This component does not support visual positioning.";
+  }
 }
 
 function asStringArray(value: JsonValue | undefined): readonly string[] | undefined {
@@ -1757,9 +1800,13 @@ function StateControls({
   } | null>(null);
   const options = booleanStateOptions(page);
   const binding = node.stateBinding;
-  const connectedState = binding
-    ? page.nodes[binding.stateNodeId] ?? null
-    : null;
+  const connectedStateCandidate = binding
+    ? page.nodes[binding.stateNodeId]
+    : undefined;
+  const connectedState =
+    connectedStateCandidate?.type === "boolean-state"
+      ? connectedStateCandidate
+      : null;
   const visibilityOptions = [
     { label: "Show", value: "show" },
     { label: "Hide", value: "hide" },
@@ -1775,6 +1822,12 @@ function StateControls({
     node.type === "button" && typeof node.props.targetStateNodeId === "string"
       ? node.props.targetStateNodeId
       : "";
+  const actionTargetNode = actionTarget
+    ? page.nodes[asNodeId(actionTarget)]
+    : undefined;
+  const actionTargetAvailable = actionTargetNode?.type === "boolean-state";
+  const actionTargetUnavailable =
+    actionTarget !== "" && !actionTargetAvailable;
   const buttonCanRunStateAction =
     node.type === "button" &&
     node.props.href === "" &&
@@ -1821,7 +1874,7 @@ function StateControls({
             value: "",
           },
           ...options,
-          ...(binding && !page.nodes[binding.stateNodeId]
+          ...(binding && !connectedState
             ? [
                 {
                   label: `Unavailable (${binding.stateNodeId})`,
@@ -1837,8 +1890,9 @@ function StateControls({
         <>
           {!connectedState ? (
             <p className="inspector-field-error" role="alert">
-              The connected Boolean State no longer exists. Choose another state
-              or disconnect this component.
+              {connectedStateCandidate
+                ? "The connected node is not a Boolean State. Choose another state or disconnect this component."
+                : "The connected Boolean State no longer exists. Choose another state or disconnect this component."}
             </p>
           ) : null}
           <div className="inspector-two-column">
@@ -1939,7 +1993,7 @@ function StateControls({
               disabled ||
               !buttonCanRunStateAction ||
               action === "none" ||
-              options.length === 0
+              (options.length === 0 && !actionTargetUnavailable)
             }
             label="Action Boolean State"
             onChange={(targetStateNodeId) =>
@@ -1954,7 +2008,7 @@ function StateControls({
                 value: "",
               },
               ...options,
-              ...(actionTarget && !page.nodes[asNodeId(actionTarget)]
+              ...(actionTargetUnavailable
                 ? [
                     {
                       label: `Unavailable (${actionTarget})`,
@@ -1965,6 +2019,13 @@ function StateControls({
             ]}
             value={actionTarget}
           />
+          {action !== "none" && actionTargetUnavailable ? (
+            <p className="inspector-field-error" role="alert">
+              {actionTargetNode
+                ? "The selected action target is not a Boolean State. Choose another state or clear the selection."
+                : "The selected action Boolean State no longer exists. Choose another state or clear the selection."}
+            </p>
+          ) : null}
           {options.length === 0 ? (
             <p className="inspector-help">
               First create a state from the component this Button should control.
@@ -1993,7 +2054,11 @@ function StateControls({
             <small>Optional</small>
           </span>
           <span className="state-disclosure-status">
-            {binding ? "Connected" : "Always visible"}
+            {binding
+              ? connectedState
+                ? "Connected"
+                : "Unavailable"
+              : "Always visible"}
             <span aria-hidden="true">{visibilityExpanded ? "−" : "+"}</span>
           </span>
         </button>
@@ -2019,9 +2084,11 @@ function StateControls({
 }
 
 export function InspectorPanel({
+  collapsed,
   document,
   page,
   node,
+  parentId,
   isRoot,
   viewport,
   spacingModes,
@@ -2034,14 +2101,52 @@ export function InspectorPanel({
   onUpdateProps,
   onUpdateStateBinding,
   onUpdateStyles,
+  onCollapsedChange,
 }: InspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<"design" | "state">("design");
+  const panelRail = collapsed ? (
+    <button
+      aria-controls="inspector-panel-content"
+      aria-expanded="false"
+      aria-label="Expand Inspector"
+      className="inspector-rail-toggle"
+      onClick={() => onCollapsedChange(false)}
+      title="Expand Inspector"
+      type="button"
+    >
+      <span aria-hidden="true" className="inspector-rail-icon">‹</span>
+      <span aria-hidden="true" className="inspector-rail-label">Inspector</span>
+    </button>
+  ) : null;
+  const collapseButton = (
+    <button
+      aria-controls="inspector-panel-content"
+      aria-expanded="true"
+      aria-label="Collapse Inspector"
+      className="inspector-collapse-toggle"
+      onClick={() => onCollapsedChange(true)}
+      title="Collapse Inspector"
+      type="button"
+    >
+      <span aria-hidden="true">›</span>
+    </button>
+  );
 
   if (!node) {
     return (
-      <aside aria-labelledby="inspector-title" className="editor-sidebar inspector-panel">
-        <div className="panel-heading"><div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div></div>
-        <div className="inspector-empty"><span aria-hidden="true">◇</span><strong>No component selected</strong><p>Select a component on the canvas to edit its content and layout.</p></div>
+      <aside
+        aria-label={collapsed ? "Inspector" : undefined}
+        aria-labelledby={collapsed ? undefined : "inspector-title"}
+        className={`editor-sidebar inspector-panel${collapsed ? " is-collapsed" : ""}`}
+      >
+        {panelRail}
+        <div hidden={collapsed} id="inspector-panel-content">
+          <div className="panel-heading">
+            <div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div>
+            {collapseButton}
+          </div>
+          <div className="inspector-empty"><span aria-hidden="true">◇</span><strong>No component selected</strong><p>Select a component on the canvas to edit its content and layout.</p></div>
+        </div>
       </aside>
     );
   }
@@ -2070,6 +2175,31 @@ export function InspectorPanel({
         : undefined;
   const letterSpacing =
     resolved.letterSpacing ?? resolvedDefaults.letterSpacing;
+  const resolvedPositionOffset = resolved.positionOffset ?? {
+    x: { value: 0, unit: "px" as const },
+    y: { value: 0, unit: "px" as const },
+  };
+  const offsetOrigin = positionOffsetOrigin(node, viewport);
+  const localPositionOffset =
+    viewport === "desktop"
+      ? node.styles.base.positionOffset
+      : node.styles[viewport]?.positionOffset;
+  const offsetSetEligibility = evaluatePositioningEligibility({
+    node,
+    parentId,
+    viewport,
+    operation: "inspector-set",
+    rendered: resolved.display !== "none",
+  });
+  const offsetResetEligibility = evaluatePositioningEligibility({
+    node,
+    parentId,
+    viewport,
+    operation: "inspector-reset",
+    rendered: resolved.display !== "none",
+  });
+  const offsetDisabled = disabled || offsetSetEligibility.status !== "allowed";
+  const positionMoveHelpId = `position-move-help-${node.id}`;
   const updateOne = (property: keyof StyleValues, value: JsonValue) =>
     onUpdateStyles([{ target: { property }, value }]);
   const contentControls = (
@@ -2188,8 +2318,20 @@ export function InspectorPanel({
   );
 
   return (
-    <aside aria-labelledby="inspector-title" className="editor-sidebar inspector-panel">
-      <div className="panel-heading"><div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div><span className="component-type-badge">{definition.library.label}</span></div>
+    <aside
+      aria-label={collapsed ? "Inspector" : undefined}
+      aria-labelledby={collapsed ? undefined : "inspector-title"}
+      className={`editor-sidebar inspector-panel${collapsed ? " is-collapsed" : ""}`}
+    >
+      {panelRail}
+      <div hidden={collapsed} id="inspector-panel-content">
+      <div className="panel-heading">
+        <div><p className="panel-eyebrow">Edit</p><h2 id="inspector-title">Inspector</h2></div>
+        <div className="panel-heading-actions">
+          <span className="component-type-badge">{definition.library.label}</span>
+          {collapseButton}
+        </div>
+      </div>
 
       <div aria-label="Inspector tabs" className="inspector-tabs" role="tablist">
         <button
@@ -2351,10 +2493,113 @@ export function InspectorPanel({
       </InspectorGroup>
 
       {capabilities.has("positioning") ? (
-        <InspectorGroup title="Position">
-          <div className="inspector-two-column position-controls">
-            <SelectField disabled={disabled} label="Position" onChange={(value) => updateOne("position", value)} options={["static", "relative", "absolute", "fixed", "sticky"].map((value) => ({ label: titleCase(value), value }))} value={resolved.position ?? "static"} />
-            <label className="inspector-field compact"><span>Z index</span><NumberDraft disabled={disabled || resolved.zIndex === "auto"} label="Z index" onCommit={(value) => updateOne("zIndex", value)} value={typeof resolved.zIndex === "number" ? resolved.zIndex : undefined} /><button className="inline-value-button" disabled={disabled} onClick={() => updateOne("zIndex", resolved.zIndex === "auto" ? 0 : "auto")} type="button">{resolved.zIndex === "auto" ? "Use number" : "Use auto"}</button></label>
+        <InspectorGroup
+          suffix={<span className="responsive-layer-badge">{viewport}</span>}
+          title="Position"
+        >
+          <div className="inspector-control-stack">
+            <div className="inspector-two-column position-controls">
+              <SelectField disabled={disabled} label="Position" onChange={(value) => {
+                if (visualMode === "position") onVisualModeChange("none");
+                updateOne("position", value);
+              }} options={["static", "relative", "absolute", "fixed", "sticky"].map((value) => ({ label: titleCase(value), value }))} value={resolved.position ?? "static"} />
+              <label className="inspector-field compact"><span>Z index</span><NumberDraft disabled={disabled || resolved.zIndex === "auto"} label="Z index" onCommit={(value) => updateOne("zIndex", value)} value={typeof resolved.zIndex === "number" ? resolved.zIndex : undefined} /><button className="inline-value-button" disabled={disabled} onClick={() => updateOne("zIndex", resolved.zIndex === "auto" ? 0 : "auto")} type="button">{resolved.zIndex === "auto" ? "Use number" : "Use auto"}</button></label>
+            </div>
+            <div className="position-move-mode">
+              <p className="inspector-help" id={positionMoveHelpId}>
+                Activate the temporary canvas handle to drag or nudge this component.
+              </p>
+              <button
+                aria-describedby={positionMoveHelpId}
+                aria-pressed={visualMode === "position"}
+                className="inspector-overlay-toggle"
+                disabled={offsetDisabled}
+                onClick={() =>
+                  onVisualModeChange(
+                    visualMode === "position" ? "none" : "position",
+                  )
+                }
+                type="button"
+              >
+                Move on canvas
+              </button>
+            </div>
+            <div className="inspector-two-column position-offset-controls">
+              <label className="inspector-field compact">
+                <span>Offset X</span>
+                <div className="number-with-unit">
+                  <NumberDraft
+                    disabled={offsetDisabled}
+                    label="Offset X"
+                    onCommit={(value) =>
+                      onUpdateStyles([
+                        positionOffsetStyleChange({
+                          x: value,
+                          y: resolvedPositionOffset.y.value,
+                        }),
+                      ])
+                    }
+                    value={resolvedPositionOffset.x.value}
+                  />
+                  <span>px</span>
+                </div>
+              </label>
+              <label className="inspector-field compact">
+                <span>Offset Y</span>
+                <div className="number-with-unit">
+                  <NumberDraft
+                    disabled={offsetDisabled}
+                    label="Offset Y"
+                    onCommit={(value) =>
+                      onUpdateStyles([
+                        positionOffsetStyleChange({
+                          x: resolvedPositionOffset.x.value,
+                          y: value,
+                        }),
+                      ])
+                    }
+                    value={resolvedPositionOffset.y.value}
+                  />
+                  <span>px</span>
+                </div>
+              </label>
+            </div>
+            <div className="position-offset-meta">
+              <p className="inspector-help">
+                {localPositionOffset
+                  ? `Offset is set for ${viewport}.`
+                  : offsetOrigin
+                    ? `Offset is inherited from ${offsetOrigin}.`
+                    : "Offset uses the default 0px position."}
+              </p>
+              <button
+                className="inline-value-button"
+                disabled={
+                  !localPositionOffset ||
+                  offsetResetEligibility.status !== "allowed"
+                }
+                onClick={() =>
+                  onUpdateStyles([
+                    {
+                      operation: "reset",
+                      target: { property: "positionOffset" },
+                    },
+                  ])
+                }
+                type="button"
+              >
+                Reset offset
+              </button>
+            </div>
+            {offsetSetEligibility.status !== "allowed" ? (
+              <p className="inspector-help positioning-restriction" role="note">
+                {positioningRestrictionMessage(offsetSetEligibility.reason)}
+              </p>
+            ) : (
+              <p className="inspector-help">
+                Offset moves this component visually without changing its layout slot.
+              </p>
+            )}
           </div>
         </InspectorGroup>
       ) : null}
@@ -2372,6 +2617,7 @@ export function InspectorPanel({
       )}
 
       {disabled ? <p className="inspector-lock-note">Unlock this component before changing its name, content, or styles.</p> : null}
+      </div>
     </aside>
   );
 }

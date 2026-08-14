@@ -1,0 +1,661 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Component positioning affordance comparison</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        color: #18212f;
+        background: #eef1f5;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid #6747d8;
+        outline-offset: 3px;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 18px 24px;
+        color: white;
+        background: #20242d;
+        box-shadow: 0 8px 24px #10141c26;
+      }
+
+      header p,
+      header h1 {
+        margin: 0;
+      }
+
+      header p {
+        margin-bottom: 4px;
+        color: #b8c1d1;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      header h1 {
+        font-size: 18px;
+      }
+
+      .prototype-badge {
+        border: 1px solid #ffffff33;
+        border-radius: 999px;
+        padding: 7px 11px;
+        color: #dce3ef;
+        font-size: 12px;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(220px, 260px) minmax(420px, 1fr) minmax(230px, 280px);
+        min-height: 0;
+      }
+
+      .sidebar,
+      .inspector {
+        padding: 20px;
+        background: white;
+      }
+
+      .sidebar {
+        border-right: 1px solid #d9dee7;
+      }
+
+      .inspector {
+        border-left: 1px solid #d9dee7;
+      }
+
+      h2,
+      h3 {
+        margin: 0;
+      }
+
+      h2 {
+        font-size: 16px;
+      }
+
+      h3 {
+        font-size: 13px;
+      }
+
+      .muted {
+        color: #667085;
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .variant-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .variant-button {
+        min-height: 44px;
+        border: 1px solid #d7dce5;
+        border-radius: 10px;
+        padding: 10px 12px;
+        text-align: left;
+        color: #303846;
+        background: #f8fafc;
+        cursor: pointer;
+      }
+
+      .variant-button[aria-pressed="true"] {
+        border-color: #6b4bd3;
+        color: #4b2db5;
+        background: #f1edff;
+        box-shadow: inset 3px 0 #6b4bd3;
+      }
+
+      .variant-button strong,
+      .variant-button small {
+        display: block;
+      }
+
+      .variant-button small {
+        margin-top: 3px;
+        color: #747d8c;
+      }
+
+      .task-card {
+        margin-top: 20px;
+        border: 1px solid #e0e4eb;
+        border-radius: 12px;
+        padding: 14px;
+        background: #fbfcfe;
+      }
+
+      .task-card ol {
+        margin: 10px 0 0;
+        padding-left: 20px;
+        color: #525b6a;
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .canvas-column {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-width: 0;
+        padding: 18px;
+        background: #e9edf3;
+      }
+
+      .canvas-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .mode-button,
+      .reset-button {
+        min-height: 44px;
+        border: 1px solid #cbc3ed;
+        border-radius: 9px;
+        padding: 8px 12px;
+        color: #4b2db5;
+        background: #f4f0ff;
+        cursor: pointer;
+      }
+
+      .mode-button[aria-pressed="true"] {
+        color: white;
+        background: #6345c7;
+      }
+
+      .canvas-stage {
+        position: relative;
+        min-height: 460px;
+        overflow: auto;
+        border: 1px solid #cfd5df;
+        border-radius: 14px;
+        background:
+          linear-gradient(#ffffffb8, #ffffffb8),
+          repeating-linear-gradient(0deg, transparent 0 23px, #dce2eb 24px),
+          repeating-linear-gradient(90deg, transparent 0 23px, #dce2eb 24px);
+        box-shadow: 0 16px 36px #3440541f;
+      }
+
+      .artboard {
+        position: relative;
+        width: 760px;
+        min-height: 520px;
+        margin: 24px auto 120px;
+        overflow: visible;
+        border: 1px solid #d6dae2;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 8px 22px #34405417;
+      }
+
+      .artboard-copy {
+        padding: 30px;
+      }
+
+      .artboard-copy p {
+        max-width: 460px;
+        color: #667085;
+      }
+
+      .component-wrap {
+        position: absolute;
+        left: 190px;
+        top: 205px;
+        width: 360px;
+        height: 116px;
+        translate: var(--offset-x, 0px) var(--offset-y, 0px);
+      }
+
+      .component {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        align-content: center;
+        gap: 7px;
+        border: 1px solid #d7d0f0;
+        border-radius: 13px;
+        padding: 20px 24px;
+        color: #332368;
+        background: linear-gradient(135deg, #f8f5ff, #eee9ff);
+        box-shadow: 0 10px 24px #4b2db51c;
+      }
+
+      .component strong {
+        font-size: 17px;
+      }
+
+      .selection-outline {
+        position: absolute;
+        inset: -5px;
+        pointer-events: none;
+        border: 2px solid #694ad4;
+        border-radius: 16px;
+      }
+
+      .selection-outline span {
+        position: absolute;
+        left: -2px;
+        top: -27px;
+        border-radius: 5px 5px 0 0;
+        padding: 4px 8px;
+        color: white;
+        background: #694ad4;
+        font-size: 11px;
+      }
+
+      .position-handle {
+        position: absolute;
+        right: -24px;
+        top: 50%;
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        translate: 50% -50%;
+        border: 3px solid white;
+        border-radius: 999px;
+        color: white;
+        background: #694ad4;
+        box-shadow: 0 5px 16px #2f1d6d4d;
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .position-handle:active {
+        cursor: grabbing;
+      }
+
+      .position-handle[aria-pressed="true"] {
+        background: #3b267f;
+      }
+
+      .inspector-section {
+        margin-top: 18px;
+        border-top: 1px solid #e4e7ec;
+        padding-top: 16px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: #5a6474;
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      input {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid #ccd2dc;
+        border-radius: 8px;
+        padding: 8px 10px;
+        color: #222b38;
+        background: white;
+      }
+
+      .value-origin {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 9px;
+        color: #6a7382;
+        font-size: 11px;
+      }
+
+      .status {
+        min-height: 52px;
+        margin-top: 14px;
+        border-radius: 9px;
+        padding: 11px 12px;
+        color: #3f2b82;
+        background: #f2eeff;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .shortcut {
+        display: inline-flex;
+        border: 1px solid #d0d5dd;
+        border-bottom-width: 2px;
+        border-radius: 5px;
+        padding: 1px 5px;
+        color: #344054;
+        background: white;
+        font-size: 11px;
+      }
+
+      @media (max-width: 980px) {
+        .workspace {
+          grid-template-columns: 210px minmax(430px, 1fr);
+        }
+
+        .inspector {
+          grid-column: 1 / -1;
+          border-top: 1px solid #d9dee7;
+          border-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <div>
+          <p>Disposable CP-01A prototype</p>
+          <h1>Component positioning affordance comparison</h1>
+        </div>
+        <span class="prototype-badge">No builder documents are written</span>
+      </header>
+
+      <div class="workspace">
+        <aside class="sidebar" aria-labelledby="variants-title">
+          <h2 id="variants-title">Interaction variant</h2>
+          <p class="muted">Compare the same positioning task without changing structural drag.</p>
+          <div class="variant-list" aria-label="Positioning variants">
+            <button class="variant-button" data-variant="handle" aria-pressed="true" type="button">
+              <strong>Selection handle</strong>
+              <small>Direct primary candidate</small>
+            </button>
+            <button class="variant-button" data-variant="mode" aria-pressed="false" type="button">
+              <strong>Dedicated mode</strong>
+              <small>Explicit activation</small>
+            </button>
+            <button class="variant-button" data-variant="modifier" aria-pressed="false" type="button">
+              <strong>Modifier accelerator</strong>
+              <small>Optional expert path only</small>
+            </button>
+          </div>
+
+          <div class="task-card">
+            <h3>Task script</h3>
+            <ol>
+              <li>Start positioning.</li>
+              <li>Move right and down.</li>
+              <li>Nudge with arrow keys.</li>
+              <li>Commit, then reset from Inspector.</li>
+              <li>Move fully off-canvas and recover from Layers/Inspector.</li>
+            </ol>
+          </div>
+        </aside>
+
+        <main class="canvas-column">
+          <div class="canvas-toolbar">
+            <div>
+              <h2>Home canvas</h2>
+              <span class="muted" id="variant-summary">Selection handle: drag or focus the purple position control.</span>
+            </div>
+            <button class="mode-button" id="mode-button" aria-pressed="false" hidden type="button">
+              Enter positioning mode
+            </button>
+          </div>
+
+          <section class="canvas-stage" aria-label="Prototype page canvas">
+            <div class="artboard">
+              <div class="artboard-copy">
+                <p class="muted">Section / Content</p>
+                <h2>Move the selected promotional card</h2>
+                <p>Normal layout remains unchanged. The purple outline and handle are editor controls outside the component renderer.</p>
+              </div>
+
+              <div class="component-wrap" id="component-wrap">
+                <article class="component">
+                  <strong>Launch your next idea</strong>
+                  <span>Responsive visual offsets keep this component in its original layout slot.</span>
+                </article>
+                <div class="selection-outline" aria-hidden="true"><span>Card</span></div>
+                <button
+                  class="position-handle"
+                  id="position-handle"
+                  aria-label="Position Card. Use arrow keys to move, Shift plus arrow for 10 pixels, Enter to commit, or Escape to cancel."
+                  aria-pressed="false"
+                  type="button"
+                >
+                  <span aria-hidden="true">✥</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <aside class="inspector" aria-labelledby="inspector-title">
+          <h2 id="inspector-title">Inspector</h2>
+          <p class="muted">Card · desktop values</p>
+
+          <section class="inspector-section">
+            <h3>Layers recovery</h3>
+            <button class="reset-button" id="select-layer" type="button">Select Card from Layers</button>
+          </section>
+
+          <section class="inspector-section">
+            <h3>Position</h3>
+            <div class="field-grid">
+              <label>Offset X <input id="offset-x" type="number" step="1" value="0" /></label>
+              <label>Offset Y <input id="offset-y" type="number" step="1" value="0" /></label>
+            </div>
+            <div class="value-origin"><span>Origin: desktop</span><span>Unit: px</span></div>
+            <button class="reset-button" id="reset-position" type="button">Reset desktop position</button>
+            <p class="muted">Reset deletes the active layer value. Stored zero and reset are distinct in production.</p>
+          </section>
+
+          <div class="status" id="status" aria-live="polite" role="status">
+            Card selected. Position is X 0, Y 0 pixels.
+          </div>
+          <p class="muted">
+            Keyboard: <span class="shortcut">Arrow</span> 1 px,
+            <span class="shortcut">Shift</span> + <span class="shortcut">Arrow</span> 10 px,
+            <span class="shortcut">Enter</span> commit,
+            <span class="shortcut">Esc</span> cancel.
+          </p>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const wrap = document.querySelector("#component-wrap");
+      const handle = document.querySelector("#position-handle");
+      const modeButton = document.querySelector("#mode-button");
+      const xInput = document.querySelector("#offset-x");
+      const yInput = document.querySelector("#offset-y");
+      const status = document.querySelector("#status");
+      const variantSummary = document.querySelector("#variant-summary");
+      const variants = [...document.querySelectorAll("[data-variant]")];
+      let variant = "handle";
+      let committed = { x: 0, y: 0 };
+      let preview = { ...committed };
+      let sessionStart = null;
+      let pointerStart = null;
+      let modeActive = false;
+
+      function render(message) {
+        wrap.style.setProperty("--offset-x", `${preview.x}px`);
+        wrap.style.setProperty("--offset-y", `${preview.y}px`);
+        xInput.value = String(preview.x);
+        yInput.value = String(preview.y);
+        if (message) status.textContent = message;
+      }
+
+      function canStart() {
+        if (variant === "mode" && !modeActive) {
+          status.textContent = "Enter positioning mode before moving the Card.";
+          modeButton.focus();
+          return false;
+        }
+        return true;
+      }
+
+      function startSession() {
+        if (!canStart()) return false;
+        if (!sessionStart) sessionStart = { ...committed };
+        handle.setAttribute("aria-pressed", "true");
+        status.textContent = `Positioning Card. Preview X ${preview.x}, Y ${preview.y} pixels.`;
+        return true;
+      }
+
+      function commitSession() {
+        if (!sessionStart) return;
+        committed = { ...preview };
+        sessionStart = null;
+        pointerStart = null;
+        handle.setAttribute("aria-pressed", "false");
+        status.textContent = `Committed Card position at X ${committed.x}, Y ${committed.y} pixels.`;
+      }
+
+      function cancelSession() {
+        if (!sessionStart) return;
+        preview = { ...sessionStart };
+        sessionStart = null;
+        pointerStart = null;
+        handle.setAttribute("aria-pressed", "false");
+        render(`Canceled positioning. Restored X ${preview.x}, Y ${preview.y} pixels.`);
+      }
+
+      function setVariant(next) {
+        cancelSession();
+        variant = next;
+        modeActive = false;
+        variants.forEach((button) => {
+          button.setAttribute("aria-pressed", String(button.dataset.variant === next));
+        });
+        modeButton.hidden = next !== "mode";
+        modeButton.setAttribute("aria-pressed", "false");
+        if (next === "handle") {
+          variantSummary.textContent = "Selection handle: drag or focus the purple position control.";
+          handle.hidden = false;
+        } else if (next === "mode") {
+          variantSummary.textContent = "Dedicated mode: activate the mode, then use the position control.";
+          handle.hidden = false;
+        } else {
+          variantSummary.textContent = "Modifier accelerator: Alt-drag is demonstrated only as an optional expert path; keyboard uses the same position control.";
+          handle.hidden = false;
+        }
+        status.textContent = `${variants.find((button) => button.dataset.variant === next).querySelector("strong").textContent} variant selected.`;
+      }
+
+      variants.forEach((button) => button.addEventListener("click", () => setVariant(button.dataset.variant)));
+
+      modeButton.addEventListener("click", () => {
+        modeActive = !modeActive;
+        modeButton.setAttribute("aria-pressed", String(modeActive));
+        modeButton.textContent = modeActive ? "Exit positioning mode" : "Enter positioning mode";
+        status.textContent = modeActive ? "Positioning mode active. Use the purple position control." : "Positioning mode exited.";
+        if (modeActive) handle.focus();
+      });
+
+      handle.addEventListener("pointerdown", (event) => {
+        if (variant === "modifier" && !event.altKey) {
+          status.textContent = "Modifier accelerator requires Alt for pointer dragging; keyboard remains available on this control.";
+          return;
+        }
+        if (!startSession()) return;
+        pointerStart = { clientX: event.clientX, clientY: event.clientY, ...preview };
+        handle.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+
+      handle.addEventListener("pointermove", (event) => {
+        if (!pointerStart || !sessionStart) return;
+        preview = {
+          x: Math.round(pointerStart.x + event.clientX - pointerStart.clientX),
+          y: Math.round(pointerStart.y + event.clientY - pointerStart.clientY),
+        };
+        render(`Previewing Card at X ${preview.x}, Y ${preview.y} pixels.`);
+      });
+
+      handle.addEventListener("pointerup", commitSession);
+      handle.addEventListener("pointercancel", cancelSession);
+
+      handle.addEventListener("keydown", (event) => {
+        const direction = {
+          ArrowLeft: [-1, 0],
+          ArrowRight: [1, 0],
+          ArrowUp: [0, -1],
+          ArrowDown: [0, 1],
+        }[event.key];
+        if (direction) {
+          if (!startSession()) return;
+          const step = event.shiftKey ? 10 : 1;
+          preview = { x: preview.x + direction[0] * step, y: preview.y + direction[1] * step };
+          render(`Previewing Card at X ${preview.x}, Y ${preview.y} pixels.`);
+          event.preventDefault();
+          return;
+        }
+        if (event.key === "Enter") {
+          if (sessionStart) commitSession();
+          else startSession();
+          event.preventDefault();
+        } else if (event.key === "Escape") {
+          cancelSession();
+          event.preventDefault();
+        }
+      });
+
+      function commitInputs() {
+        const x = Number(xInput.value);
+        const y = Number(yInput.value);
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        preview = { x, y };
+        committed = { ...preview };
+        sessionStart = null;
+        render(`Inspector committed Card at X ${x}, Y ${y} pixels.`);
+      }
+
+      xInput.addEventListener("input", commitInputs);
+      yInput.addEventListener("input", commitInputs);
+      document.querySelector("#reset-position").addEventListener("click", () => {
+        committed = { x: 0, y: 0 };
+        preview = { ...committed };
+        sessionStart = null;
+        render("Reset desktop position. Card returned to X 0, Y 0 pixels.");
+        handle.focus();
+      });
+      document.querySelector("#select-layer").addEventListener("click", () => {
+        status.textContent = `Card selected from Layers at X ${preview.x}, Y ${preview.y}. Inspector recovery remains available.`;
+        xInput.focus();
+      });
+
+      render();
+    </script>
+  </body>
+</html>

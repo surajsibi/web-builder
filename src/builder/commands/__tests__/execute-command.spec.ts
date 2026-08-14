@@ -103,6 +103,244 @@ describe("executeEditorCommand", () => {
     expect(deleted.candidate.selectedNodeId).toBeNull();
   });
 
+  it("should duplicate a page with new page and node identities and activate the copy", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+    const generatedIds = [
+      "page-home-copy",
+      "node-section-copy",
+      "node-card-copy",
+      "node-text-copy",
+    ];
+
+    const result = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      { idGenerator: () => generatedIds.shift() ?? "unexpected-id" },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    const duplicate =
+      result.candidate.document.pages[asPageId("page-home-copy")];
+    expect(result.candidate.document.pageOrder).toEqual([
+      "page-home",
+      "page-home-copy",
+      "page-about",
+    ]);
+    expect(duplicate).toMatchObject({
+      name: "Home Copy",
+      slug: "/home-copy",
+      rootIds: ["node-section-copy"],
+    });
+    expect(duplicate.nodes[asNodeId("node-section-copy")].childIds).toEqual([
+      "node-card-copy",
+    ]);
+    expect(duplicate.nodes[asNodeId("node-card-copy")].childIds).toEqual([
+      "node-text-copy",
+    ]);
+    expect(duplicate.nodes[asNodeId("node-text-copy")]).toMatchObject({
+      type: "text",
+      props: snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].props,
+      styles: snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles,
+    });
+    expect(result.candidate.activePageId).toBe("page-home-copy");
+    expect(result.candidate.selectedNodeId).toBeNull();
+    expect(snapshot.document.pages[asPageId("page-home-copy")]).toBeUndefined();
+  });
+
+  it("should remap page-local Boolean State references when duplicating a page", () => {
+    const snapshot = createSnapshot();
+    const page = snapshot.document.pages[asPageId("page-home")];
+    const state = createTestNode("boolean-state", "node-page-state");
+    const button = createTestNode("button", "node-page-action");
+    const connected = createTestNode("container", "node-page-connected");
+    button.props.targetStateNodeId = state.id;
+    button.props.stateAction = "toggle";
+    connected.stateBinding = {
+      stateNodeId: state.id,
+      on: "show",
+      off: "hide",
+    };
+    Object.assign(page.nodes, {
+      [state.id]: state,
+      [button.id]: button,
+      [connected.id]: connected,
+    });
+    page.rootIds.push(state.id, button.id, connected.id);
+    let nodeCounter = 0;
+
+    const result = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: page.id },
+      {
+        idGenerator: (prefix) => {
+          if (prefix === "page") return "page-state-copy";
+          nodeCounter += 1;
+          return `node-page-copy-${nodeCounter}`;
+        },
+      },
+    );
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied" || !("idMap" in result.value)) return;
+    const duplicate =
+      result.candidate.document.pages[asPageId("page-state-copy")];
+    const duplicateStateId = result.value.idMap[state.id];
+    expect(
+      duplicate.nodes[result.value.idMap[button.id]].props.targetStateNodeId,
+    ).toBe(duplicateStateId);
+    expect(
+      duplicate.nodes[result.value.idMap[connected.id]].stateBinding?.stateNodeId,
+    ).toBe(duplicateStateId);
+    expect(page.nodes[button.id].props.targetStateNodeId).toBe(state.id);
+    expect(page.nodes[connected.id].stateBinding?.stateNodeId).toBe(state.id);
+  });
+
+  it("should promote a page to home and give the previous home a unique generated slug", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "page.setHome",
+      pageId: asPageId("page-about"),
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.candidate.document).toMatchObject({
+      homePageId: "page-about",
+      pages: {
+        "page-home": { name: "Home", slug: "/home" },
+        "page-about": { name: "About", slug: "/" },
+      },
+    });
+    expect(result.candidate.activePageId).toBe("page-home");
+  });
+
+  it("should treat promoting the current home page as a no-op", () => {
+    const snapshot = createSnapshot();
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "page.setHome",
+      pageId: asPageId("page-home"),
+    });
+
+    expect(result).toEqual({ status: "noop", reason: "value-unchanged" });
+  });
+
+  it("should reject page duplication when it cannot reserve unique identities without mutating the source", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+    const original = structuredClone(snapshot.document);
+
+    const pageIdCollision = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      { idGenerator: () => "page-home" },
+    );
+    expect(pageIdCollision).toMatchObject({
+      status: "rejected",
+      error: { code: "id-collision", pageId: "page-home" },
+    });
+
+    const nodeIdCollision = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      {
+        idGenerator: (prefix) =>
+          prefix === "page" ? "page-copy" : "node-section",
+      },
+    );
+    expect(nodeIdCollision).toMatchObject({
+      status: "rejected",
+      error: {
+        code: "id-collision",
+        pageId: "page-home",
+        nodeId: "node-section",
+      },
+    });
+    expect(snapshot.document).toEqual(original);
+  });
+
+  it("should reject a duplicated page that would exceed the project node limit", () => {
+    const project = createTestProject({ includeAboutPage: true });
+    const about = project.pages[asPageId("page-about")];
+    for (let index = 0; index < 9_995; index += 1) {
+      const node = createTestNode("text", `node-filler-${index}`);
+      about.nodes[node.id] = node;
+      about.rootIds.push(node.id);
+    }
+    const prepared = prepareProjectHydration(project);
+    if (!prepared.success) throw new Error(prepared.error.reason);
+    const snapshot: CommandSnapshot = {
+      document: prepared.value.document,
+      parentById: prepared.value.parentById,
+      activePageId: asPageId("page-home"),
+      selectedNodeId: null,
+    };
+
+    let nodeCounter = 0;
+    const result = executeEditorCommand(
+      snapshot,
+      { kind: "page.duplicate", pageId: asPageId("page-home") },
+      {
+        idGenerator: (prefix) => {
+          if (prefix === "page") return "page-copy";
+          nodeCounter += 1;
+          return `node-copy-${nodeCounter}`;
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      status: "rejected",
+      error: {
+        code: "tree-invalid",
+        reason: "Project exceeds the 10000 node limit",
+      },
+    });
+    expect(snapshot.document.pages[asPageId("page-copy")]).toBeUndefined();
+  });
+
+  it("should generate a conflict-free slug for the previous home page", () => {
+    const snapshot = createSnapshot({ includeAboutPage: true });
+    const reserved = executeEditorCommand(
+      snapshot,
+      { kind: "page.create", name: "Reserved", slug: "/home" },
+      { idGenerator: () => "page-reserved" },
+    );
+    expect(reserved.status).toBe("applied");
+    if (reserved.status !== "applied") return;
+
+    const promoted = executeEditorCommand(reserved.candidate, {
+      kind: "page.setHome",
+      pageId: asPageId("page-about"),
+    });
+    expect(promoted.status).toBe("applied");
+    if (promoted.status !== "applied") return;
+    expect(promoted.candidate.document.pages[asPageId("page-home")].slug).toBe(
+      "/home-2",
+    );
+  });
+
+  it("should reject page duplication and home promotion for a missing page", () => {
+    const snapshot = createSnapshot();
+
+    for (const kind of ["page.duplicate", "page.setHome"] as const) {
+      expect(
+        executeEditorCommand(snapshot, {
+          kind,
+          pageId: asPageId("page-missing"),
+        }),
+      ).toMatchObject({
+        status: "rejected",
+        error: { code: "page-not-found", pageId: "page-missing" },
+      });
+    }
+  });
+
   it("should insert validated registry defaults and select the new node", () => {
     const snapshot = createSnapshot();
 
@@ -450,6 +688,12 @@ describe("executeEditorCommand", () => {
     snapshot.document.pages[asPageId("page-home")].nodes[
       asNodeId("node-card")
     ].meta.locked = true;
+    snapshot.document.pages[asPageId("page-home")].nodes[
+      asNodeId("node-text")
+    ].styles.base.positionOffset = {
+      x: { value: 18, unit: "px" },
+      y: { value: -9, unit: "px" },
+    };
     const generatedIds = ["node-card-copy", "node-text-copy"];
 
     const result = executeEditorCommand(
@@ -486,6 +730,13 @@ describe("executeEditorCommand", () => {
       styles: page.nodes[asNodeId("node-text")].styles,
       meta: { name: "Text 1", locked: false },
     });
+    expect(duplicateChild.styles.base.positionOffset).toEqual({
+      x: { value: 18, unit: "px" },
+      y: { value: -9, unit: "px" },
+    });
+    expect(duplicateChild.styles.base.positionOffset).not.toBe(
+      page.nodes[asNodeId("node-text")].styles.base.positionOffset,
+    );
     expect(result.candidate.parentById[duplicate.id]).toBe("node-section");
     expect(result.candidate.parentById[duplicateChild.id]).toBe(duplicate.id);
     expect(result.candidate.selectedNodeId).toBe(duplicate.id);
@@ -866,6 +1117,136 @@ describe("executeEditorCommand", () => {
     });
     expect(snapshot.document).toEqual(original);
   });
+
+  it("should set an atomic position offset on the targeted responsive layer", () => {
+    const snapshot = createSnapshot({ selectedNodeId: "node-text" });
+    const positionOffset = {
+      x: { value: 36, unit: "px" as const },
+      y: { value: -18, unit: "px" as const },
+    };
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "tablet",
+      changes: [
+        {
+          target: { property: "positionOffset" },
+          value: positionOffset,
+        },
+      ],
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(
+      result.candidate.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles.tablet?.positionOffset,
+    ).toEqual(positionOffset);
+    expect(
+      snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles,
+    ).not.toHaveProperty("tablet.positionOffset");
+  });
+
+  it("should reset only the targeted position-offset layer and remove an empty patch", () => {
+    const snapshot = createSnapshot({ selectedNodeId: "node-text" });
+    const node =
+      snapshot.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ];
+    node.styles.base.positionOffset = {
+      x: { value: 10, unit: "px" },
+      y: { value: 20, unit: "px" },
+    };
+    node.styles.tablet = {
+      positionOffset: {
+        x: { value: 0, unit: "px" },
+        y: { value: 0, unit: "px" },
+      },
+    };
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "tablet",
+      changes: [
+        {
+          operation: "reset",
+          target: { property: "positionOffset" },
+        },
+      ],
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    const updated =
+      result.candidate.document.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ];
+    expect(updated.styles.tablet).toBeUndefined();
+    expect(updated.styles.base.positionOffset).toEqual({
+      x: { value: 10, unit: "px" },
+      y: { value: 20, unit: "px" },
+    });
+  });
+
+  it("should return style-already-reset when the targeted layer has no offset", () => {
+    const snapshot = createSnapshot({ selectedNodeId: "node-text" });
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "mobile",
+      changes: [
+        {
+          operation: "reset",
+          target: { property: "positionOffset" },
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      status: "noop",
+      reason: "style-already-reset",
+    });
+  });
+
+  it.each([
+    ["node-section", "root-node"],
+    ["node-card", "container-capable"],
+  ])(
+    "should reject position-offset writes for high-risk node %s",
+    (nodeId, reason) => {
+      const snapshot = createSnapshot({ selectedNodeId: nodeId });
+
+      const result = executeEditorCommand(snapshot, {
+        kind: "node.updateStyles",
+        pageId: asPageId("page-home"),
+        nodeId: asNodeId(nodeId),
+        viewport: "desktop",
+        changes: [
+          {
+            target: { property: "positionOffset" },
+            value: {
+              x: { value: 10, unit: "px" },
+              y: { value: 5, unit: "px" },
+            },
+          },
+        ],
+      });
+
+      expect(result).toMatchObject({
+        status: "rejected",
+        error: { code: "positioning-ineligible", reason },
+      });
+    },
+  );
 
   it("should apply a uniform border batch to one responsive layer atomically", () => {
     const snapshot = createSnapshot({ selectedNodeId: "node-card" });

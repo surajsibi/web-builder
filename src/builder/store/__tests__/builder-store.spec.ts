@@ -102,6 +102,61 @@ describe("createBuilderStore", () => {
     expect(store.getState().history.past).toHaveLength(1);
   });
 
+  it("should undo and redo page duplication and home-page promotion", () => {
+    const store = createStore();
+
+    const duplicated = store.getState().dispatchEditorCommand({
+      kind: "page.duplicate",
+      pageId: asPageId("page-home"),
+    });
+    expect(duplicated.status).toBe("applied");
+    expect(store.getState()).toMatchObject({
+      activePageId: "page-generated-1",
+      selectedNodeId: null,
+      dirty: true,
+      commitId: 1,
+    });
+
+    const promoted = store.getState().dispatchEditorCommand({
+      kind: "page.setHome",
+      pageId: asPageId("page-about"),
+    });
+    expect(promoted.status).toBe("applied");
+    expect(store.getState().document).toMatchObject({
+      homePageId: "page-about",
+      pages: {
+        "page-home": { slug: "/home" },
+        "page-about": { slug: "/" },
+      },
+    });
+
+    expect(store.getState().undo().status).toBe("applied");
+    expect(store.getState().document).toMatchObject({
+      homePageId: "page-home",
+      pages: {
+        "page-home": { slug: "/" },
+        "page-about": { slug: "/about" },
+      },
+    });
+
+    expect(store.getState().redo().status).toBe("applied");
+    expect(store.getState().document?.homePageId).toBe("page-about");
+
+    expect(store.getState().undo().status).toBe("applied");
+    expect(store.getState().undo().status).toBe("applied");
+    expect(
+      store.getState().document?.pages[asPageId("page-generated-1")],
+    ).toBeUndefined();
+
+    expect(store.getState().redo().status).toBe("applied");
+    expect(
+      store.getState().document?.pages[asPageId("page-generated-1")],
+    ).toMatchObject({ name: "Home Copy", slug: "/home-copy" });
+
+    expect(store.getState().redo().status).toBe("applied");
+    expect(store.getState().document?.homePageId).toBe("page-about");
+  });
+
   it("should undo and redo content snapshots without restoring selection", () => {
     const store = createStore();
 
@@ -133,6 +188,53 @@ describe("createBuilderStore", () => {
     ).toBeDefined();
     expect(store.getState().selectedNodeId).toBeNull();
     expect(store.getState()).toMatchObject({ dirty: true, commitId: 3 });
+  });
+
+  it("should undo and redo an atomic responsive position offset", () => {
+    const store = createStore();
+
+    const applied = store.getState().dispatchEditorCommand({
+      kind: "node.updateStyles",
+      pageId: asPageId("page-home"),
+      nodeId: asNodeId("node-text"),
+      viewport: "tablet",
+      changes: [
+        {
+          target: { property: "positionOffset" },
+          value: {
+            x: { value: 24, unit: "px" },
+            y: { value: -8, unit: "px" },
+          },
+        },
+      ],
+    });
+
+    expect(applied.status).toBe("applied");
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles.tablet?.positionOffset,
+    ).toEqual({
+      x: { value: 24, unit: "px" },
+      y: { value: -8, unit: "px" },
+    });
+
+    store.getState().undo();
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles,
+    ).not.toHaveProperty("tablet.positionOffset");
+
+    store.getState().redo();
+    expect(
+      store.getState().document?.pages[asPageId("page-home")].nodes[
+        asNodeId("node-text")
+      ].styles.tablet?.positionOffset,
+    ).toEqual({
+      x: { value: 24, unit: "px" },
+      y: { value: -8, unit: "px" },
+    });
   });
 
   it("should commit and undo a complete Navbar block as one history entry", () => {

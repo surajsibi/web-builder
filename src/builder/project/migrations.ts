@@ -39,9 +39,13 @@ function buttonProps(
 }
 
 function migrateLegacyInteractions(value: unknown): unknown {
-  const document = structuredClone(value);
-  const documentRecord = asRecord(document);
-  if (!documentRecord) return document;
+  const sourceDocument = asRecord(value);
+  if (!sourceDocument) {
+    throw new Error("Version 1 document must be an object");
+  }
+
+  const document = structuredClone(sourceDocument);
+  const documentRecord = asRecord(document)!;
 
   const pages = asRecord(documentRecord.pages);
   if (!pages) {
@@ -170,7 +174,6 @@ function migrateLegacyInteractions(value: unknown): unknown {
   documentRecord.schemaVersion = 2;
   return document;
 }
-
 export const documentMigrations: readonly DocumentMigration[] = [
   {
     fromVersion: 1,

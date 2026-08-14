@@ -152,6 +152,12 @@ export function compileStyleValues(
     style.WebkitBackdropFilter = blur;
   }
   if (values.position !== undefined) style.position = values.position;
+  if (
+    values.positionOffset !== undefined &&
+    (values.positionOffset.x.value !== 0 || values.positionOffset.y.value !== 0)
+  ) {
+    style.translate = `${values.positionOffset.x.value}px ${values.positionOffset.y.value}px`;
+  }
   if (values.zIndex !== undefined) style.zIndex = values.zIndex;
 
   if (values.display === "grid" && values.grid !== undefined) {

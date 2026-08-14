@@ -20,6 +20,7 @@ import type {
   PageDocument,
   ProjectDocument,
 } from "@/builder/model/project-document";
+import { evaluatePositioningEligibility } from "@/builder/positioning/eligibility";
 import type { ParentById } from "@/builder/project/tree";
 import {
   componentRegistry,
@@ -29,7 +30,7 @@ import type { RendererBaseProps } from "@/builder/registry/define-component-regi
 import { NodeRenderingController } from "@/builder/rendering/node-rendering-controller";
 import { VIEWPORT_MIN_HEIGHT } from "@/builder/styles/compile";
 import { resolveResponsiveStyles } from "@/builder/styles/resolve";
-import type { Viewport } from "@/builder/styles/types";
+import type { ResponsiveStyles, Viewport } from "@/builder/styles/types";
 import {
   dragSourceId,
   dropTargetId,
@@ -39,6 +40,10 @@ import {
 import { EditorBreadcrumbs } from "@/builder/ui/editor-breadcrumbs";
 import {
   resizeStyleChanges,
+  positionDeltaInArtboard,
+  positionOffsetStyleChange,
+  positionProposal,
+  positioningKeyAction,
   spacingSidesForMode,
   spacingStyleChanges,
   type ResizeContext,
@@ -65,6 +70,7 @@ type EditorCanvasProps = {
   onPreviewVisualEdit: (session: VisualEditSession) => void;
   onCommitVisualEdit: (session: VisualEditSession) => void;
   onCancelVisualEdit: () => void;
+  onExitPositionMode: () => void;
   onStartTextEdit: (nodeId: NodeId) => void;
   onCommitTextEdit: (nodeId: NodeId, text: string) => boolean;
   onCancelTextEdit: (nodeId: NodeId) => void;
@@ -377,6 +383,195 @@ function CanvasNodeDragHandle({
       type="button"
     >
       ⋮⋮
+    </button>
+  );
+}
+
+function pointerSample(
+  event: PointerEvent<HTMLButtonElement>,
+): {
+  clientX: number;
+  clientY: number;
+  scrollX: number;
+  scrollY: number;
+} {
+  const stage = event.currentTarget.closest<HTMLElement>(".canvas-stage");
+  return {
+    clientX: event.clientX,
+    clientY: event.clientY,
+    scrollX: stage?.scrollLeft ?? 0,
+    scrollY: stage?.scrollTop ?? 0,
+  };
+}
+
+function CanvasPositionHandle({
+  nodeId,
+  nodeName,
+  nodeStyles,
+  rect,
+  viewport,
+  onPreviewVisualEdit,
+  onCommitVisualEdit,
+  onCancelVisualEdit,
+  onExitPositionMode,
+}: VisualEditCallbacks & {
+  nodeId: NodeId;
+  nodeName: string;
+  nodeStyles: Readonly<ResponsiveStyles>;
+  rect: CanvasRect;
+  viewport: Viewport;
+  onExitPositionMode: () => void;
+}) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const pointerStart = useRef<{
+    sample: ReturnType<typeof pointerSample>;
+    offset: { x: number; y: number };
+    rect: CanvasRect;
+  } | null>(null);
+  const keyboardOffset = useRef<{ x: number; y: number } | null>(null);
+  const latestSession = useRef<VisualEditSession | null>(null);
+  const instructionsId = `position-instructions-${nodeId}`;
+  const resolvedOffset = resolveResponsiveStyles(nodeStyles, viewport)
+    .positionOffset ?? {
+    x: { value: 0, unit: "px" as const },
+    y: { value: 0, unit: "px" as const },
+  };
+
+  useEffect(() => {
+    buttonRef.current?.focus();
+  }, []);
+
+  const sessionFor = (offset: Readonly<{ x: number; y: number }>) => ({
+    nodeId,
+    changes: [positionOffsetStyleChange(offset)] as const,
+    announcement: `Position preview: X ${offset.x} pixels, Y ${offset.y} pixels.`,
+  }) satisfies VisualEditSession;
+
+  const resetInteraction = () => {
+    pointerStart.current = null;
+    keyboardOffset.current = null;
+    latestSession.current = null;
+  };
+
+  const previewPointer = (event: PointerEvent<HTMLButtonElement>) => {
+    const start = pointerStart.current;
+    if (!start) return null;
+    const delta = positionDeltaInArtboard(
+      start.sample,
+      pointerSample(event),
+      1,
+    );
+    const proposal = positionProposal(
+      start.offset,
+      {
+        x: start.rect.left,
+        y: start.rect.top,
+        width: start.rect.width,
+        height: start.rect.height,
+      },
+      delta,
+    );
+    const session = sessionFor(proposal.adjusted.offset);
+    latestSession.current = session;
+    onPreviewVisualEdit(session);
+    return session;
+  };
+
+  return (
+    <button
+      aria-describedby={instructionsId}
+      aria-label={`Move ${nodeName} on canvas`}
+      className="canvas-position-handle"
+      data-editor-control="true"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onKeyDown={(event) => {
+        const action = positioningKeyAction(event.key, event.shiftKey);
+        if (!action) return;
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (action.kind === "commit") {
+          if (latestSession.current) onCommitVisualEdit(latestSession.current);
+          resetInteraction();
+          return;
+        }
+        if (action.kind === "cancel") {
+          if (latestSession.current) onCancelVisualEdit();
+          else onExitPositionMode();
+          resetInteraction();
+          return;
+        }
+
+        keyboardOffset.current ??= {
+          x: resolvedOffset.x.value,
+          y: resolvedOffset.y.value,
+        };
+        keyboardOffset.current = {
+          x: keyboardOffset.current.x + action.delta.x,
+          y: keyboardOffset.current.y + action.delta.y,
+        };
+        const session = sessionFor(keyboardOffset.current);
+        latestSession.current = session;
+        onPreviewVisualEdit(session);
+      }}
+      onPointerCancel={(event) => {
+        if (!pointerStart.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        onCancelVisualEdit();
+        resetInteraction();
+      }}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        pointerStart.current = {
+          sample: pointerSample(event),
+          offset: {
+            x: resolvedOffset.x.value,
+            y: resolvedOffset.y.value,
+          },
+          rect: { ...rect },
+        };
+        event.currentTarget.setPointerCapture(event.pointerId);
+        const session = sessionFor(pointerStart.current.offset);
+        latestSession.current = session;
+        onPreviewVisualEdit(session);
+      }}
+      onPointerMove={(event) => {
+        if (!pointerStart.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        previewPointer(event);
+      }}
+      onPointerUp={(event) => {
+        if (!pointerStart.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const session = previewPointer(event);
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+        if (session) onCommitVisualEdit(session);
+        resetInteraction();
+      }}
+      ref={buttonRef}
+      style={{ left: rect.left, top: rect.top + rect.height / 2 }}
+      title="Drag to move visually. Arrow keys preview; Shift moves 10 pixels; Enter commits; Escape cancels a preview or exits move mode."
+      type="button"
+    >
+      <span aria-hidden="true">{"\u2194"}</span>
+      <span className="canvas-position-instructions" id={instructionsId}>
+        Drag to move visually. Use arrow keys for one pixel or Shift plus arrow
+        keys for ten pixels. Press Enter to commit. Escape cancels a preview;
+        press Escape again to exit move mode.
+      </span>
     </button>
   );
 }
@@ -869,6 +1064,7 @@ function CanvasInteractionOverlay({
   onPreviewVisualEdit,
   onCommitVisualEdit,
   onCancelVisualEdit,
+  onExitPositionMode,
 }: Pick<
   EditorCanvasProps,
   | "document"
@@ -882,6 +1078,7 @@ function CanvasInteractionOverlay({
   | "onPreviewVisualEdit"
   | "onCommitVisualEdit"
   | "onCancelVisualEdit"
+  | "onExitPositionMode"
 > & {
   rects: NodeRects;
   boxModels: NodeBoxModels;
@@ -907,6 +1104,15 @@ function CanvasInteractionOverlay({
     : false;
   const selectedStyles = selectedNode
     ? resolveResponsiveStyles(selectedNode.styles, viewport)
+    : null;
+  const positioningEligibility = selectedNode
+    ? evaluatePositioningEligibility({
+        node: selectedNode,
+        parentId,
+        viewport,
+        operation: "canvas-start",
+        rendered: selectedRect !== null && selectedStyles?.display !== "none",
+      })
     : null;
   const parentRect = parentId ? rects[parentId] : null;
   const parentContentSize = parentId
@@ -962,6 +1168,23 @@ function CanvasInteractionOverlay({
               nodeId={selectedNodeId}
               page={page}
               rect={selectedRect}
+            />
+          ) : null}
+          {!dragSource &&
+          textEditingNodeId === null &&
+          visualMode === "position" &&
+          selectedNode &&
+          positioningEligibility?.status === "allowed" ? (
+            <CanvasPositionHandle
+              nodeId={selectedNode.id}
+              nodeName={selectedNode.meta.name}
+              nodeStyles={selectedNode.styles}
+              onCancelVisualEdit={onCancelVisualEdit}
+              onCommitVisualEdit={onCommitVisualEdit}
+              onExitPositionMode={onExitPositionMode}
+              onPreviewVisualEdit={onPreviewVisualEdit}
+              rect={selectedRect}
+              viewport={viewport}
             />
           ) : null}
           {!dragSource &&
@@ -1094,6 +1317,7 @@ export function EditorCanvas({
   onPreviewVisualEdit,
   onCommitVisualEdit,
   onCancelVisualEdit,
+  onExitPositionMode,
   onStartTextEdit,
   onCommitTextEdit,
   onCancelTextEdit,
@@ -1417,6 +1641,15 @@ export function EditorCanvas({
   };
 
   const handleCanvasClick = (event: MouseEvent<HTMLElement>) => {
+    const targetsEditorControl = event.nativeEvent
+      .composedPath()
+      .some(
+        (target) =>
+          target instanceof HTMLElement &&
+          target.dataset.editorControl === "true",
+      );
+    if (targetsEditorControl) return;
+
     const nodeId = nodeIdFromEvent(event);
     if (nodeId) {
       const element = elementsByNode.current.get(nodeId);
@@ -1521,6 +1754,7 @@ export function EditorCanvas({
               parentById={parentById}
               onCancelVisualEdit={onCancelVisualEdit}
               onCommitVisualEdit={onCommitVisualEdit}
+              onExitPositionMode={onExitPositionMode}
               onPreviewVisualEdit={onPreviewVisualEdit}
               rects={rects}
               resizeUnitMetrics={resizeUnitMetrics}

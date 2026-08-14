@@ -7,6 +7,7 @@ import type {
   FlexConfig,
   GridConfig,
   LengthValue,
+  PositionOffsetValue,
   ResponsiveStyles,
   SpacingValue,
   StylePatch,
@@ -24,6 +25,13 @@ function cloneBorderWidth(value: BorderWidthValue): BorderWidthValue {
 
 function cloneEffectLength(value: EffectLengthValue): EffectLengthValue {
   return { ...value };
+}
+
+function clonePositionOffset(value: PositionOffsetValue): PositionOffsetValue {
+  return {
+    x: { ...value.x },
+    y: { ...value.y },
+  };
 }
 
 function cloneBoxShadow(value: BoxShadowValue): BoxShadowValue {
@@ -96,6 +104,9 @@ export function cloneStyleValues(styles: Readonly<StyleValues>): StyleValues {
     }),
     ...(styles.backdropBlur && {
       backdropBlur: cloneEffectLength(styles.backdropBlur),
+    }),
+    ...(styles.positionOffset && {
+      positionOffset: clonePositionOffset(styles.positionOffset),
     }),
     ...(styles.grid && { grid: cloneGrid(styles.grid) }),
     ...(styles.flex && { flex: cloneFlex(styles.flex) }),
@@ -222,6 +233,9 @@ export function mergeStylePatch(
     merged.backdropBlur = cloneEffectLength(patch.backdropBlur);
   }
   if (patch.position !== undefined) merged.position = patch.position;
+  if (patch.positionOffset !== undefined) {
+    merged.positionOffset = clonePositionOffset(patch.positionOffset);
+  }
   if (patch.zIndex !== undefined) merged.zIndex = patch.zIndex;
   if (patch.grid !== undefined) {
     merged.grid = mergeGridPatch(merged.grid, patch.grid);

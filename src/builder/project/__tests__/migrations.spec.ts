@@ -4,6 +4,26 @@ import { CURRENT_PROJECT_SCHEMA_VERSION } from "@/builder/model/project-document
 import { runDocumentMigrations } from "@/builder/project/migrations";
 
 describe("runDocumentMigrations", () => {
+  it("should migrate a version 1 document to version 2 without changing its content", () => {
+    const input = {
+      schemaVersion: 1,
+      pages: { home: { rootIds: ["node-1"] } },
+    };
+    const original = structuredClone(input);
+
+    const result = runDocumentMigrations(input);
+
+    expect(result).toEqual({
+      success: true,
+      value: {
+        schemaVersion: 2,
+        pages: { home: { rootIds: ["node-1"] } },
+      },
+      migrated: true,
+    });
+    expect(input).toEqual(original);
+  });
+
   it("should return a current document unchanged without marking it migrated", () => {
     const input = { schemaVersion: CURRENT_PROJECT_SCHEMA_VERSION, value: "kept" };
 

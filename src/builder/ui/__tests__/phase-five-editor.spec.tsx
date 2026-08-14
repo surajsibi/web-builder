@@ -66,6 +66,7 @@ function createPhaseFiveStore() {
 }
 
 const FIRST_NODE_ID = asNodeId("node-phase-five-1");
+const SECOND_NODE_ID = asNodeId("node-phase-five-2");
 
 function inspectorGroupNames(): string[] {
   return Array.from(document.querySelectorAll(".inspector-disclosure > summary"))
@@ -73,6 +74,355 @@ function inspectorGroupNames(): string[] {
 }
 
 describe("Phase 5 editor UI", () => {
+  it("should edit and reset an eligible leaf offset through exact Inspector controls", () => {
+    const store = createPhaseFiveStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+
+    const offsetX = screen.getByLabelText("Offset X");
+    fireEvent.change(offsetX, { target: { value: "35" } });
+    fireEvent.blur(offsetX);
+    const offsetY = screen.getByLabelText("Offset Y");
+    fireEvent.change(offsetY, { target: { value: "-12" } });
+    fireEvent.blur(offsetY);
+
+    expect(
+      store.getState().document?.pages[asPageId("page-phase-five")].nodes[
+        SECOND_NODE_ID
+      ].styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 35, unit: "px" },
+      y: { value: -12, unit: "px" },
+    });
+    expect(document.querySelector("h2.canvas-node")).toHaveStyle({
+      translate: "35px -12px",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset offset" }));
+
+    expect(
+      store.getState().document?.pages[asPageId("page-phase-five")].nodes[
+        SECOND_NODE_ID
+      ].styles.base,
+    ).not.toHaveProperty("positionOffset");
+    expect(
+      document.querySelector<HTMLElement>("h2.canvas-node")?.style.translate,
+    ).toBe("");
+  });
+
+  it("should recover and reset a leaf moved off-canvas through Layers and breadcrumbs", () => {
+    const store = createPhaseFiveStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+
+    const offsetX = screen.getByLabelText("Offset X");
+    fireEvent.change(offsetX, { target: { value: "2000" } });
+    fireEvent.blur(offsetX);
+    const offsetY = screen.getByLabelText("Offset Y");
+    fireEvent.change(offsetY, { target: { value: "-1200" } });
+    fireEvent.blur(offsetY);
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    const layers = screen.getByRole("tree", { name: "Page layers" });
+
+    fireEvent.click(within(layers).getByRole("button", { name: "Select Section 1" }));
+    fireEvent.click(within(layers).getByRole("button", { name: "Select Heading 1" }));
+
+    const breadcrumbs = screen.getByRole("navigation", {
+      name: "Selected node breadcrumbs",
+    });
+    expect(within(breadcrumbs).getByRole("button", { name: "Section 1" })).toBeVisible();
+    expect(within(breadcrumbs).getByRole("button", { name: "Heading 1" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByLabelText("Offset X")).toHaveValue(2000);
+    expect(screen.getByLabelText("Offset Y")).toHaveValue(-1200);
+    expect(screen.getByText("Offset is set for desktop.")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset offset" }));
+
+    expect(
+      store.getState().document?.pages[asPageId("page-phase-five")].nodes[
+        SECOND_NODE_ID
+      ].styles.base,
+    ).not.toHaveProperty("positionOffset");
+    expect(
+      document.querySelector<HTMLElement>("h2.canvas-node")?.style.translate,
+    ).toBe("");
+  });
+
+  it("should identify and reset the responsible responsive offset layer", () => {
+    render(<EditorShell store={createPhaseFiveStore()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+
+    const desktopX = screen.getByLabelText("Offset X");
+    fireEvent.change(desktopX, { target: { value: "24" } });
+    fireEvent.blur(desktopX);
+    const desktopY = screen.getByLabelText("Offset Y");
+    fireEvent.change(desktopY, { target: { value: "-8" } });
+    fireEvent.blur(desktopY);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tablet" }));
+    expect(screen.getByText("Offset is inherited from desktop.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Reset offset" })).toBeDisabled();
+
+    const tabletX = screen.getByLabelText("Offset X");
+    fireEvent.change(tabletX, { target: { value: "40" } });
+    fireEvent.blur(tabletX);
+    expect(screen.getByText("Offset is set for tablet.")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mobile" }));
+    expect(screen.getByLabelText("Offset X")).toHaveValue(40);
+    expect(screen.getByLabelText("Offset Y")).toHaveValue(-8);
+    expect(screen.getByText("Offset is inherited from tablet.")).toBeVisible();
+
+    const mobileY = screen.getByLabelText("Offset Y");
+    fireEvent.change(mobileY, { target: { value: "12" } });
+    fireEvent.blur(mobileY);
+    expect(screen.getByText("Offset is set for mobile.")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset offset" }));
+    expect(screen.getByLabelText("Offset X")).toHaveValue(40);
+    expect(screen.getByLabelText("Offset Y")).toHaveValue(-8);
+    expect(screen.getByText("Offset is inherited from tablet.")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Tablet" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset offset" }));
+    expect(screen.getByLabelText("Offset X")).toHaveValue(24);
+    expect(screen.getByLabelText("Offset Y")).toHaveValue(-8);
+    expect(screen.getByText("Offset is inherited from desktop.")).toBeVisible();
+  });
+
+  it("should keep root and container offset controls restricted", () => {
+    render(<EditorShell store={createPhaseFiveStore()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+
+    expect(screen.getByLabelText("Offset X")).toBeDisabled();
+    expect(screen.getByLabelText("Offset Y")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Move on canvas" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/Root positioning remains disabled until container verification passes/),
+    ).toBeVisible();
+  });
+
+  it("should keep the position handle hidden until Move on canvas is activated", () => {
+    mockRootResizeGeometry();
+    render(<EditorShell store={createPhaseFiveStore()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    const moveMode = screen.getByRole("button", { name: "Move on canvas" });
+    expect(moveMode).toBeEnabled();
+    expect(moveMode).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(moveMode);
+
+    const handle = screen.getByRole("button", {
+      name: "Move Heading 1 on canvas",
+    });
+    expect(moveMode).toHaveAttribute("aria-pressed", "true");
+    expect(handle).toBeVisible();
+    expect(handle).toHaveFocus();
+
+    fireEvent.click(moveMode);
+
+    expect(moveMode).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("should preview a touch-pointer gesture in move mode and commit one history entry", () => {
+    mockRootResizeGeometry();
+    const store = createPhaseFiveStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
+    const historyBefore = store.getState().history.past.length;
+    const handle = screen.getByRole("button", {
+      name: "Move Heading 1 on canvas",
+    });
+
+    fireEvent.pointerDown(handle, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: 120,
+      clientY: 85,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+
+    expect(document.querySelector("h2.canvas-node")).toHaveStyle({
+      translate: "20px -15px",
+    });
+    expect(
+      store.getState().document?.pages[asPageId("page-phase-five")].nodes[
+        SECOND_NODE_ID
+      ].styles.base,
+    ).not.toHaveProperty("positionOffset");
+
+    fireEvent.pointerUp(handle, {
+      clientX: 120,
+      clientY: 85,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+
+    expect(
+      store.getState().document?.pages[asPageId("page-phase-five")].nodes[
+        SECOND_NODE_ID
+      ].styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 20, unit: "px" },
+      y: { value: -15, unit: "px" },
+    });
+    expect(store.getState().history.past).toHaveLength(historyBefore + 1);
+
+    fireEvent.click(handle);
+    expect(store.getState().selectedNodeId).toBe(SECOND_NODE_ID);
+    expect(handle).toBeVisible();
+  });
+
+  it("should keyboard-preview, commit, and cancel while move mode is active", () => {
+    mockRootResizeGeometry();
+    const store = createPhaseFiveStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
+    const handle = screen.getByRole("button", {
+      name: "Move Heading 1 on canvas",
+    });
+    const historyBefore = store.getState().history.past.length;
+
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    fireEvent.keyDown(handle, { key: "ArrowDown", shiftKey: true });
+
+    expect(document.querySelector("h2.canvas-node")).toHaveStyle({
+      translate: "1px 10px",
+    });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Position preview: X 1 pixels, Y 10 pixels.",
+    );
+
+    fireEvent.keyDown(handle, { key: "Enter" });
+    expect(
+      store.getState().document?.pages[asPageId("page-phase-five")].nodes[
+        SECOND_NODE_ID
+      ].styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 1, unit: "px" },
+      y: { value: 10, unit: "px" },
+    });
+    expect(store.getState().history.past).toHaveLength(historyBefore + 1);
+
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    fireEvent.keyDown(handle, { key: "Escape" });
+    expect(document.querySelector("h2.canvas-node")).toHaveStyle({
+      translate: "1px 10px",
+    });
+    expect(store.getState().history.past).toHaveLength(historyBefore + 1);
+
+    fireEvent.keyDown(handle, { key: "Escape" });
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move on canvas" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Move on canvas mode off.",
+    );
+  });
+
+  it("should keep move mode mutually exclusive with other editor interactions", () => {
+    mockRootResizeGeometry();
+    const store = createPhaseFiveStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Heading" }));
+    const historyBefore = store.getState().history.past.length;
+
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
+    expect(
+      screen.getByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit on canvas" })[0]);
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Adjust Heading 1 padding left" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit on canvas" })[0]);
+    fireEvent.doubleClick(screen.getByRole("heading", { level: 2, name: "Heading" }));
+    const textEditor = screen.getByRole("textbox", { name: "Edit Heading 1 text" });
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.keyDown(textEditor, { key: "Escape" });
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Move on canvas" }));
+    expect(
+      screen.getByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).toBeVisible();
+
+    act(() => {
+      store.getState().setDragSession({
+        source: { kind: "node", nodeId: SECOND_NODE_ID, surface: "canvas" },
+      });
+    });
+    expect(
+      screen.queryByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      store.getState().setDragSession(null);
+    });
+    expect(
+      screen.getByRole("button", { name: "Move Heading 1 on canvas" }),
+    ).toBeVisible();
+    expect(
+      store.getState().document?.pages[asPageId("page-phase-five")].nodes[
+        SECOND_NODE_ID
+      ].styles.base,
+    ).not.toHaveProperty("positionOffset");
+    expect(store.getState().history.past).toHaveLength(historyBefore);
+  });
+
   it("should preserve the finalized component capability matrix", () => {
     expect(componentRegistry.section.inspector.styles).toEqual([
       "sizing", "spacing", "background", "backgroundImage", "border", "layout", "positioning",

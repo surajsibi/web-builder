@@ -36,11 +36,40 @@ export type ResizeContext = {
 export type SpacingProperty = "padding" | "margin";
 export type SpacingSide = keyof SpacingValue;
 export type SpacingMode = "axes" | "all";
-export type VisualOverlayMode = "none" | "padding" | "margin" | "layout";
+export type VisualOverlayMode =
+  | "none"
+  | "padding"
+  | "margin"
+  | "layout"
+  | "position";
+export type PositionPoint = { x: number; y: number };
+export type PositionPointerSample = {
+  clientX: number;
+  clientY: number;
+  scrollX: number;
+  scrollY: number;
+};
+export type PositionRect = PositionPoint & { width: number; height: number };
+export type PositionGeometry = {
+  offset: PositionPoint;
+  rect: PositionRect;
+};
+export type PositionProposal = {
+  raw: PositionGeometry;
+  adjusted: PositionGeometry;
+};
+export type PositionAdjustment = (
+  raw: Readonly<PositionGeometry>,
+) => PositionGeometry;
+export type PositioningKeyAction =
+  | { kind: "nudge"; delta: PositionPoint }
+  | { kind: "commit" }
+  | { kind: "cancel" };
 
 export type VisualEditSession = {
   nodeId: BuilderNode["id"];
   changes: readonly [StyleChange, ...StyleChange[]];
+  announcement?: string;
 };
 
 export function spacingSidesForMode(
@@ -97,6 +126,21 @@ function applyStyleChanges(
 
   for (const change of changes) {
     const property = change.target.property;
+    if (change.operation === "reset") {
+      if ("field" in change.target && change.target.field !== undefined) {
+        const current = next[property];
+        if (typeof current === "object" && current !== null) {
+          const nested = { ...(current as Record<string, unknown>) };
+          delete nested[change.target.field];
+          if (Object.keys(nested).length === 0) delete next[property];
+          else next[property] = nested;
+        }
+      } else {
+        delete next[property];
+      }
+      continue;
+    }
+
     if ("field" in change.target && change.target.field !== undefined) {
       const current = next[property];
       const nested =
@@ -111,6 +155,91 @@ function applyStyleChanges(
   }
 
   return next as StyleValues;
+}
+
+export function positionDeltaInArtboard(
+  start: Readonly<PositionPointerSample>,
+  current: Readonly<PositionPointerSample>,
+  zoom: number,
+): PositionPoint {
+  if (!Number.isFinite(zoom) || zoom <= 0) {
+    throw new Error("Zoom must be a positive finite number");
+  }
+
+  return {
+    x: (current.clientX - start.clientX + current.scrollX - start.scrollX) / zoom,
+    y: (current.clientY - start.clientY + current.scrollY - start.scrollY) / zoom,
+  };
+}
+
+function clonePositionGeometry(value: Readonly<PositionGeometry>): PositionGeometry {
+  return {
+    offset: { ...value.offset },
+    rect: { ...value.rect },
+  };
+}
+
+export function positionProposal(
+  startOffset: Readonly<PositionPoint>,
+  startRect: Readonly<PositionRect>,
+  delta: Readonly<PositionPoint>,
+  adjust: PositionAdjustment = clonePositionGeometry,
+): PositionProposal {
+  const raw: PositionGeometry = {
+    offset: {
+      x: startOffset.x + delta.x,
+      y: startOffset.y + delta.y,
+    },
+    rect: {
+      x: startRect.x + delta.x,
+      y: startRect.y + delta.y,
+      width: startRect.width,
+      height: startRect.height,
+    },
+  };
+
+  return {
+    raw: clonePositionGeometry(raw),
+    adjusted: clonePositionGeometry(adjust(clonePositionGeometry(raw))),
+  };
+}
+
+export function positionOffsetStyleChange(
+  offset: Readonly<PositionPoint>,
+): StyleChange {
+  if (!Number.isFinite(offset.x) || !Number.isFinite(offset.y)) {
+    throw new Error("Position offset values must be finite");
+  }
+
+  return {
+    target: { property: "positionOffset" },
+    value: {
+      x: { value: offset.x, unit: "px" },
+      y: { value: offset.y, unit: "px" },
+    },
+  };
+}
+
+export function positioningKeyAction(
+  key: string,
+  shiftKey: boolean,
+): PositioningKeyAction | null {
+  if (key === "Enter") return { kind: "commit" };
+  if (key === "Escape") return { kind: "cancel" };
+
+  const step = shiftKey ? 10 : 1;
+  switch (key) {
+    case "ArrowLeft":
+      return { kind: "nudge", delta: { x: -step, y: 0 } };
+    case "ArrowRight":
+      return { kind: "nudge", delta: { x: step, y: 0 } };
+    case "ArrowUp":
+      return { kind: "nudge", delta: { x: 0, y: -step } };
+    case "ArrowDown":
+      return { kind: "nudge", delta: { x: 0, y: step } };
+    default:
+      return null;
+  }
 }
 
 export function previewStyleForChanges(

@@ -6,33 +6,47 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Profiler } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { asNodeId, asPageId } from "@/builder/model/ids";
+import type { ProjectDocument } from "@/builder/model/project-document";
 import { createNewProject } from "@/builder/project/factory";
 import { createBuilderStore } from "@/builder/store/builder-store";
 import { editorStore } from "@/builder/store/editor-store";
 import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
+import { createTestNode } from "@/builder/testing/project-fixtures";
 import { takePreviewSnapshot } from "@/builder/preview/preview-snapshot";
 import { EditorShell } from "@/builder/ui/editor-shell";
 
 afterEach(() => {
   cleanup();
+  window.localStorage.removeItem(
+    "canvas-studio:editor-panel-preferences:v1",
+  );
 });
 
-function createEditorTestStore() {
+function createEditorTestStore(
+  configureProject?: (project: ProjectDocument) => void,
+) {
   let nodeCounter = 0;
+  let pageCounter = 0;
   const project = createNewProject({
     name: "Editor Test Project",
     now: "2026-08-07T00:00:00.000Z",
     idGenerator: (prefix) =>
       prefix === "project" ? "project-editor-test" : "page-editor-test",
   });
+  configureProject?.(project);
 
   return createBuilderStore({
     initialDocument: project,
     idGenerator: (prefix) => {
+      if (prefix === "page") {
+        pageCounter += 1;
+        return "page-editor-generated-" + pageCounter;
+      }
       if (prefix === "node") {
         nodeCounter += 1;
         return "node-editor-" + nodeCounter;
@@ -120,6 +134,212 @@ describe("EditorShell", () => {
       activePageId: "page-editor-test",
       document: { projectId: "project-editor-test" },
     });
+  });
+
+  it("should manage project pages from the Pages tab and keep the toolbar switcher in sync", () => {
+    const store = createEditorTestStore();
+    const previewStorage = createMemoryPreviewStorage();
+    render(<EditorShell previewStorage={previewStorage} store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Pages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create new page" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Page name" }), {
+      target: { value: "Contact" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(screen.getByRole("combobox", { name: "Active page" })).toHaveValue(
+      "page-editor-generated-1",
+    );
+    expect(screen.getByRole("button", { name: "Open Contact page" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Contact" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Rename" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Rename Contact" }), {
+      target: { value: "Portfolio" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Portfolio" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate" }));
+    expect(screen.getByRole("combobox", { name: "Active page" })).toHaveValue(
+      "page-editor-generated-2",
+    );
+    expect(screen.getByRole("button", { name: "Open Portfolio Copy page" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Portfolio" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Set as home" }));
+    expect(
+      screen.getByRole("button", { name: "Open Portfolio page" }),
+    ).toContainElement(screen.getByText("Home", { selector: ".page-home-badge" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Portfolio Copy" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "Delete Portfolio Copy?" })).getByRole(
+        "button",
+        { name: "Delete page" },
+      ),
+    );
+
+    expect(screen.queryByRole("button", { name: "Open Portfolio Copy page" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Active page" })).toHaveValue(
+      "page-editor-generated-1",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Deleted Portfolio Copy.");
+    expect(store.getState().history.past).toHaveLength(5);
+
+    const previewLink = screen.getByRole("link", { name: "Preview" });
+    expect(previewLink).toHaveAttribute(
+      "href",
+      "/preview?snapshot=project-editor-test%3Apage-editor-generated-1%3A5",
+    );
+    previewLink.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(previewLink);
+    expect(
+      takePreviewSnapshot(
+        previewStorage,
+        "project-editor-test:page-editor-generated-1:5",
+      ),
+    ).toMatchObject({
+      activePageId: "page-editor-generated-1",
+      document: { homePageId: "page-editor-generated-1" },
+    });
+  });
+
+  it("should expose the left-panel tab rail as vertical", () => {
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    expect(screen.getByRole("tablist", { name: "Left panel" })).toHaveAttribute(
+      "aria-orientation",
+      "vertical",
+    );
+  });
+
+  it.each([
+    ["{ArrowUp}", "Pages"],
+    ["{ArrowDown}", "Layers"],
+  ])("should navigate vertical left-panel tabs with %s", async (key, tabName) => {
+    const user = userEvent.setup();
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    const componentsTab = screen.getByRole("tab", { name: "Components" });
+    componentsTab.focus();
+    await user.keyboard(key);
+
+    const selectedTab = screen.getByRole("tab", { name: tabName });
+    expect(selectedTab).toHaveFocus();
+    expect(selectedTab).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("should ignore removal shortcuts while page deletion confirmation has focus", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    await user.click(screen.getByRole("tab", { name: "Pages" }));
+    await user.click(screen.getByRole("button", { name: "Create new page" }));
+    await user.type(screen.getByRole("textbox", { name: "Page name" }), "Contact");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    await user.click(screen.getByRole("button", { name: "Open Home page" }));
+    await user.click(screen.getByRole("tab", { name: "Components" }));
+    await user.click(screen.getByRole("button", { name: "Add Text" }));
+    const selectedNodeId = store.getState().selectedNodeId;
+    const historyLength = store.getState().history.past.length;
+    await user.click(screen.getByRole("tab", { name: "Pages" }));
+    await user.click(screen.getByRole("button", { name: "Actions for Contact" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete" }));
+    const confirmation = screen.getByRole("alertdialog", {
+      name: "Delete Contact?",
+    });
+    expect(
+      within(confirmation).getByRole("button", { name: "Delete page" }),
+    ).toHaveFocus();
+
+    await user.keyboard("{Delete}{Backspace}");
+
+    expect(store.getState().history.past).toHaveLength(historyLength);
+    expect(
+      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
+        selectedNodeId!
+      ],
+    ).toBeDefined();
+    expect(confirmation).toBeInTheDocument();
+  });
+
+  it("should announce the active left panel when it is collapsed", () => {
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Pages" }));
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Pages" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("Pages collapsed.");
+  });
+
+  it("should independently collapse, restore, and remember both editor panels", async () => {
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    const workspace = document.querySelector(".editor-workspace");
+    expect(workspace).toHaveAttribute("data-left-panel-collapsed", "false");
+    expect(workspace).toHaveAttribute("data-inspector-collapsed", "false");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Collapse Component Library" }),
+    );
+    expect(workspace).toHaveAttribute("data-left-panel-collapsed", "true");
+    expect(
+      screen.getByRole("button", { name: "Expand Component Library" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("heading", { name: "Components" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("main")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Components" }));
+    expect(workspace).toHaveAttribute("data-left-panel-collapsed", "false");
+    expect(
+      screen.getByRole("heading", { name: "Components" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Collapse Component Library" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Inspector" }));
+    expect(workspace).toHaveAttribute("data-inspector-collapsed", "true");
+    expect(
+      screen.getByRole("button", { name: "Expand Inspector" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(
+          "canvas-studio:editor-panel-preferences:v1",
+        ) ?? "null",
+      ),
+    ).toEqual({
+      inspectorCollapsed: true,
+      leftPanelCollapsed: true,
+    });
+
+    cleanup();
+    render(<EditorShell store={createEditorTestStore()} />);
+
+    expect(
+      await screen.findByRole("button", { name: "Expand Component Library" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Expand Inspector" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand Inspector" }));
+    expect(
+      screen.getByRole("heading", { name: "Inspector" }),
+    ).toBeInTheDocument();
   });
 
   it("should keep the editor open and announce when preview storage is unavailable", () => {
@@ -603,6 +823,106 @@ describe("EditorShell", () => {
     ).toBe(replacementState.id);
   });
 
+  it("should report and disconnect a visibility binding that targets a non-state node", () => {
+    const store = createEditorTestStore((project) => {
+      const page = project.pages[asPageId("page-editor-test")];
+      const wrongTarget = createTestNode("text", "node-wrong-state-target");
+      const connected = createTestNode("container", "node-wrong-state-binding");
+      wrongTarget.meta.name = "Wrong state target";
+      connected.meta.name = "Bound component";
+      connected.stateBinding = {
+        stateNodeId: wrongTarget.id,
+        on: "show",
+        off: "hide",
+      };
+      Object.assign(page.nodes, {
+        [wrongTarget.id]: wrongTarget,
+        [connected.id]: connected,
+      });
+      page.rootIds.push(wrongTarget.id, connected.id);
+    });
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select Bound component" }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+
+    const visibilitySettings = screen.getByRole("button", {
+      name: "Component visibility settings",
+    });
+    expect(within(visibilitySettings).getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The connected node is not a Boolean State.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Create state & connect" }),
+    ).toBeInTheDocument();
+    const stateSelect = screen.getByRole("combobox", { name: "Boolean State" });
+    expect(stateSelect).toHaveValue("node-wrong-state-target");
+    expect(
+      screen.getByRole("option", {
+        name: "Unavailable (node-wrong-state-target)",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(stateSelect, { target: { value: "" } });
+
+    expect(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-wrong-state-binding")
+      ].stateBinding,
+    ).toBeUndefined();
+  });
+
+  it("should report and clear a Button action that targets a non-state node", () => {
+    const store = createEditorTestStore((project) => {
+      const page = project.pages[asPageId("page-editor-test")];
+      const wrongTarget = createTestNode("text", "node-wrong-action-target");
+      const button = createTestNode("button", "node-wrong-action-button");
+      wrongTarget.meta.name = "Wrong action target";
+      button.meta.name = "Action button";
+      button.props.targetStateNodeId = wrongTarget.id;
+      button.props.stateAction = "toggle";
+      Object.assign(page.nodes, {
+        [wrongTarget.id]: wrongTarget,
+        [button.id]: button,
+      });
+      page.rootIds.push(wrongTarget.id, button.id);
+    });
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select Action button" }),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+
+    const actionTarget = screen.getByRole("combobox", {
+      name: "Action Boolean State",
+    });
+    expect(actionTarget).toBeEnabled();
+    expect(actionTarget).toHaveValue("node-wrong-action-target");
+    expect(
+      screen.getByRole("option", {
+        name: "Unavailable (node-wrong-action-target)",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The selected action target is not a Boolean State.",
+    );
+
+    fireEvent.change(actionTarget, { target: { value: "" } });
+
+    expect(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-wrong-action-button")
+      ].props.targetStateNodeId,
+    ).toBe("");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("should insert and configure a linked SVG Image through the Inspector", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);
@@ -713,6 +1033,44 @@ describe("EditorShell", () => {
     });
     expect(screen.getByRole("link", { name: "Work" })).toHaveStyle({
       width: "100%",
+    });
+  });
+
+  it("should restrict a block root while allowing an eligible block-created leaf offset", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add Navbar block" }));
+    fireEvent.click(screen.getByText("Position", { selector: "summary > span" }));
+
+    expect(screen.getByLabelText("Offset X")).toBeDisabled();
+    expect(
+      screen.getByText(/Root positioning remains disabled until container verification passes/),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    const layers = screen.getByRole("tree", { name: "Page layers" });
+    fireEvent.click(
+      within(layers).getAllByRole("button", { name: /Select Link/ })[0],
+    );
+
+    const offsetX = screen.getByLabelText("Offset X");
+    expect(offsetX).toBeEnabled();
+    fireEvent.change(offsetX, { target: { value: "18" } });
+    fireEvent.blur(offsetX);
+    const offsetY = screen.getByLabelText("Offset Y");
+    fireEvent.change(offsetY, { target: { value: "-6" } });
+    fireEvent.blur(offsetY);
+
+    expect(screen.getByRole("link", { name: "Work" })).toHaveStyle({
+      translate: "18px -6px",
+    });
+    expect(
+      store.getState().document?.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-editor-5")
+      ].styles.base.positionOffset,
+    ).toEqual({
+      x: { value: 18, unit: "px" },
+      y: { value: -6, unit: "px" },
     });
   });
 
