@@ -6,22 +6,200 @@ export type DocumentMigration = {
   migrate: (value: unknown) => unknown;
 };
 
+type MutableRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): MutableRecord | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as MutableRecord)
+    : null;
+}
+
 function migrateVersion1ToVersion2(value: unknown): unknown {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  const sourceDocument = asRecord(value);
+  if (!sourceDocument) {
     throw new Error("Version 1 document must be an object");
   }
 
   return {
-    ...value,
+    ...structuredClone(sourceDocument),
     schemaVersion: 2,
   };
 }
 
+function stringProp(node: MutableRecord | undefined, key: string): string {
+  const props = asRecord(node?.props);
+  const value = props?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function buttonProps(
+  text: string,
+  targetStateNodeId: string,
+  stateAction: "none" | "turn-on" | "turn-off" | "toggle",
+  disabled: boolean,
+): MutableRecord {
+  return {
+    text: text.trim() || "Button",
+    href: "",
+    openInNewTab: false,
+    icon: null,
+    iconPosition: "start",
+    iconAnimation: "none",
+    behavior: "button",
+    targetStateNodeId: disabled ? "" : targetStateNodeId,
+    stateAction: disabled ? "none" : stateAction,
+  };
+}
+
+function migrateVersion2ToVersion3(value: unknown): unknown {
+  const sourceDocument = asRecord(value);
+  if (!sourceDocument) {
+    throw new Error("Version 2 document must be an object");
+  }
+
+  const document = structuredClone(sourceDocument);
+  const documentRecord = asRecord(document)!;
+
+  const pages = asRecord(documentRecord.pages);
+  if (!pages) {
+    documentRecord.schemaVersion = 3;
+    return document;
+  }
+
+  for (const pageValue of Object.values(pages)) {
+    const page = asRecord(pageValue);
+    const nodes = asRecord(page?.nodes);
+    if (!nodes) continue;
+
+    const nodeById = new Map<string, MutableRecord>();
+    const parentById = new Map<string, string>();
+    const stateByDrawerPanelId = new Map<string, string>();
+
+    for (const [nodeId, nodeValue] of Object.entries(nodes)) {
+      const node = asRecord(nodeValue);
+      if (!node) continue;
+      nodeById.set(nodeId, node);
+      const childIds = Array.isArray(node.childIds) ? node.childIds : [];
+      for (const childId of childIds) {
+        if (typeof childId === "string") parentById.set(childId, nodeId);
+      }
+      if (node.type === "drawer-panel") {
+        stateByDrawerPanelId.set(
+          nodeId,
+          stringProp(node, "targetStateNodeId"),
+        );
+      }
+    }
+
+    const drawerStateForDescendant = (nodeId: string): string => {
+      const visited = new Set<string>();
+      let ancestorId = parentById.get(nodeId);
+      while (ancestorId && !visited.has(ancestorId)) {
+        visited.add(ancestorId);
+        if (stateByDrawerPanelId.has(ancestorId)) {
+          return stateByDrawerPanelId.get(ancestorId) ?? "";
+        }
+        ancestorId = parentById.get(ancestorId);
+      }
+      return "";
+    };
+
+    for (const [nodeId, node] of nodeById) {
+      if (node.type === "conditional-content") {
+        const targetStateNodeId = stringProp(node, "targetStateNodeId");
+        const showWhen = asRecord(node.props)?.showWhen !== false;
+        node.type = "container";
+        node.componentVersion = 3;
+        node.props = { semanticTag: "div" };
+        if (targetStateNodeId) {
+          node.stateBinding = {
+            stateNodeId: targetStateNodeId,
+            on: showWhen ? "show" : "hide",
+            off: showWhen ? "hide" : "show",
+          };
+        }
+        continue;
+      }
+
+      if (node.type === "drawer-panel") {
+        const targetStateNodeId = stateByDrawerPanelId.get(nodeId) ?? "";
+        node.type = "container";
+        node.componentVersion = 3;
+        node.props = { semanticTag: "aside" };
+        if (targetStateNodeId) {
+          node.stateBinding = {
+            stateNodeId: targetStateNodeId,
+            on: "show",
+            off: "hide",
+          };
+        }
+        continue;
+      }
+
+      if (node.type === "state-action") {
+        const props = asRecord(node.props);
+        const targetStateNodeId = stringProp(node, "targetStateNodeId");
+        const rawAction = props?.action;
+        const action =
+          rawAction === "turn-on" ||
+          rawAction === "turn-off" ||
+          rawAction === "toggle"
+            ? rawAction
+            : "toggle";
+        node.type = "button";
+        node.componentVersion = 5;
+        node.props = buttonProps(
+          typeof props?.text === "string" ? props.text : "Toggle state",
+          targetStateNodeId,
+          action,
+          props?.disabled === true,
+        );
+        continue;
+      }
+
+      if (node.type === "drawer-trigger") {
+        const props = asRecord(node.props);
+        const panelNodeId = stringProp(node, "targetDrawerNodeId");
+        const targetStateNodeId = stateByDrawerPanelId.get(panelNodeId) ?? "";
+        node.type = "button";
+        node.componentVersion = 5;
+        node.props = buttonProps(
+          typeof props?.text === "string" ? props.text : "Open drawer",
+          targetStateNodeId,
+          "turn-on",
+          props?.disabled === true,
+        );
+        continue;
+      }
+
+      if (node.type === "drawer-close") {
+        const props = asRecord(node.props);
+        const targetStateNodeId = drawerStateForDescendant(nodeId);
+        node.type = "button";
+        node.componentVersion = 5;
+        node.props = buttonProps(
+          typeof props?.text === "string" ? props.text : "Close drawer",
+          targetStateNodeId,
+          "turn-off",
+          props?.disabled === true,
+        );
+      }
+    }
+  }
+
+  documentRecord.schemaVersion = 3;
+  return document;
+}
 export const documentMigrations: readonly DocumentMigration[] = [
   {
     fromVersion: 1,
     toVersion: 2,
     migrate: migrateVersion1ToVersion2,
+  },
+  {
+    fromVersion: 2,
+    toVersion: 3,
+    migrate: migrateVersion2ToVersion3,
   },
 ];
 

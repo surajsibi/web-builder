@@ -217,6 +217,35 @@ describe("ComponentLibrary", () => {
     expect(screen.getByRole("button", { name: "Add Label" })).toBeInTheDocument();
   });
 
+  it("should keep nonvisual Boolean State out of the Component Library", () => {
+    renderComponentLibrary();
+    const familyNavigation = screen.getByRole("navigation", {
+      name: "Component families",
+    });
+
+    expect(
+      within(familyNavigation).queryByRole("button", {
+        name: /Interactions/,
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add Boolean State" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Search components" }),
+      { target: { value: "boolean" } },
+    );
+
+    expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Add Checkbox" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add Boolean State" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("should collect every prebuilt Navbar block in a dedicated Navbar section", () => {
     renderComponentLibrary();
     const familyNavigation = screen.getByRole("navigation", {

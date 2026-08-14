@@ -1,17 +1,23 @@
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { z } from "zod";
 
+import {
+  useBooleanStateRuntime,
+} from "@/builder/interaction/boolean-state-runtime";
+import { asNodeId } from "@/builder/model/ids";
 import { isJsonObject } from "@/builder/model/json";
 import type {
   ComponentDefinition,
   ContainerRendererProps,
   LeafRendererProps,
+  StyleInspectorCapability,
 } from "@/builder/registry/define-component-registry";
 import type { ResponsiveStyles } from "@/builder/styles/types";
 import { isSafeImageSource } from "@/builder/styles/schema";
 
 import {
   ButtonIcon,
+  BooleanStateIcon,
   CardIcon,
   CheckboxGroupIcon,
   CheckboxIcon,
@@ -34,11 +40,13 @@ import {
   ButtonContentIcon,
 } from "./button-icons";
 import { PasswordVisibilityIcon } from "./input-icons";
+import { nodeReferenceIdSchema } from "./reference-schemas";
 import { px, spacing } from "./style-defaults";
 
 export type V1ComponentType =
   | "section"
   | "container"
+  | "boolean-state"
   | "heading"
   | "text"
   | "label"
@@ -327,6 +335,55 @@ export const containerDefinition = {
   },
   render: ContainerRenderer,
 } satisfies ComponentDefinition<ContainerProps, V1ComponentType>;
+
+export const booleanStatePropsSchema = z
+  .object({
+    defaultValue: z.boolean(),
+  })
+  .strict();
+
+export type BooleanStateProps = z.infer<typeof booleanStatePropsSchema>;
+
+export function BooleanStateRenderer(): null {
+  return null;
+}
+
+const booleanStateStyles = {
+  base: {
+    display: "block",
+    width: { mode: "fit" },
+    height: { mode: "auto" },
+    position: "static",
+    zIndex: "auto",
+  },
+} satisfies ResponsiveStyles;
+
+export const booleanStateDefinition = {
+  version: 1,
+  library: {
+    label: "Boolean State",
+    category: "Interactions",
+    icon: BooleanStateIcon,
+    searchTerms: ["toggle", "logic", "on off", "condition"],
+  },
+  defaults: {
+    props: { defaultValue: false },
+    styles: booleanStateStyles,
+  },
+  children: { allowed: false },
+  propsSchema: booleanStatePropsSchema,
+  inspector: {
+    props: [
+      {
+        path: "defaultValue",
+        label: "Default value",
+        control: "boolean",
+      },
+    ],
+    styles: [] as readonly StyleInspectorCapability[],
+  },
+  render: BooleanStateRenderer,
+} satisfies ComponentDefinition<BooleanStateProps, V1ComponentType>;
 
 export const headingPropsSchema = z
   .object({
@@ -964,7 +1021,7 @@ const buttonV3PropsSchema = z
     }
   });
 
-export const buttonPropsSchema = z
+const buttonV4PropsSchema = z
   .object({
     text: z.string().min(1),
     href: safeHrefSchema,
@@ -993,6 +1050,61 @@ export const buttonPropsSchema = z
     }
   });
 
+export const buttonPropsSchema = z
+  .object({
+    text: z.string().min(1),
+    href: safeHrefSchema,
+    openInNewTab: z.boolean(),
+    icon: z.enum(BUTTON_ICON_NAMES).nullable(),
+    iconPosition: z.enum(["start", "end"]),
+    iconAnimation: z.enum(["none", "shift-right"]),
+    behavior: z.enum(["button", "submit"]),
+    targetStateNodeId: nodeReferenceIdSchema,
+    stateAction: z.enum(["none", "turn-on", "turn-off", "toggle"]),
+  })
+  .strict()
+  .superRefine((props, context) => {
+    if (props.href === "" && props.openInNewTab) {
+      context.addIssue({
+        code: "custom",
+        path: ["openInNewTab"],
+        message: "A button without a link cannot open in a new tab",
+      });
+    }
+
+    if (props.href !== "" && props.behavior === "submit") {
+      context.addIssue({
+        code: "custom",
+        path: ["behavior"],
+        message: "A linked button cannot submit a form",
+      });
+    }
+
+    if (props.stateAction !== "none" && props.href !== "") {
+      context.addIssue({
+        code: "custom",
+        path: ["stateAction"],
+        message: "A linked button cannot run a Boolean State action",
+      });
+    }
+
+    if (props.stateAction !== "none" && props.behavior !== "button") {
+      context.addIssue({
+        code: "custom",
+        path: ["stateAction"],
+        message: "A submit button cannot run a Boolean State action",
+      });
+    }
+
+    if (props.stateAction === "none" && props.targetStateNodeId !== "") {
+      context.addIssue({
+        code: "custom",
+        path: ["targetStateNodeId"],
+        message: "A button without a state action cannot keep a state target",
+      });
+    }
+  });
+
 export type ButtonProps = z.infer<typeof buttonPropsSchema>;
 
 export function ButtonRenderer({
@@ -1001,7 +1113,33 @@ export function ButtonRenderer({
   className,
   rootRef,
   rootAttributes,
+  runtime,
 }: LeafRendererProps<ButtonProps>) {
+  const stateRuntime = useBooleanStateRuntime();
+  const stateNodeId = asNodeId(props.targetStateNodeId);
+  const hasStateAction = props.stateAction !== "none";
+  const stateTargetExists =
+    hasStateAction &&
+    props.targetStateNodeId !== "" &&
+    stateRuntime?.has(stateNodeId) === true;
+  const handleClick = (event: MouseEvent<HTMLElement>) => {
+    if (!hasStateAction) {
+      if (runtime?.mode === "editor") event.preventDefault();
+      return;
+    }
+
+    event.preventDefault();
+    if (!stateRuntime || !stateTargetExists) return;
+    if (props.stateAction === "toggle") {
+      stateRuntime.dispatch({ kind: "boolean.toggle", stateNodeId });
+      return;
+    }
+    stateRuntime.dispatch({
+      kind: "boolean.set",
+      stateNodeId,
+      value: props.stateAction === "turn-on",
+    });
+  };
   const content = (
     <>
       {props.icon !== null && props.iconPosition === "start" ? (
@@ -1018,8 +1156,17 @@ export function ButtonRenderer({
     return (
       <button
         {...rootAttributes}
+        aria-disabled={hasStateAction && !stateTargetExists}
         className={className}
         data-button-icon-animation={props.iconAnimation}
+        data-state-target-status={
+          hasStateAction
+            ? stateTargetExists
+              ? "resolved"
+              : "unresolved"
+            : undefined
+        }
+        onClick={handleClick}
         ref={rootRef}
         style={style}
         type={props.behavior}
@@ -1035,6 +1182,7 @@ export function ButtonRenderer({
       className={className}
       data-button-icon-animation={props.iconAnimation}
       href={props.href}
+      onClick={handleClick}
       ref={rootRef}
       rel={props.openInNewTab ? "noopener noreferrer" : undefined}
       style={style}
@@ -1075,7 +1223,7 @@ const buttonStyles = {
 } satisfies ResponsiveStyles;
 
 export const buttonDefinition = {
-  version: 4,
+  version: 5,
   library: {
     label: "Button",
     category: "Actions",
@@ -1090,11 +1238,24 @@ export const buttonDefinition = {
       iconPosition: "start",
       iconAnimation: "none",
       behavior: "button",
+      targetStateNodeId: "",
+      stateAction: "none",
     },
     styles: buttonStyles,
   },
   children: { allowed: false },
+  editor: {
+    directInteraction: (props) => props.stateAction !== "none",
+  },
   propsSchema: buttonPropsSchema,
+  references: [
+    {
+      path: "targetStateNodeId",
+      targetType: "boolean-state",
+      scope: "page",
+      onDuplicate: "remap-if-target-cloned",
+    },
+  ],
   migrations: [
     {
       fromVersion: 1,
@@ -1128,6 +1289,22 @@ export const buttonDefinition = {
 
         return {
           props: { ...props, iconAnimation: "none" },
+          styles: { ...value.styles },
+        };
+      },
+    },
+    {
+      fromVersion: 4,
+      toVersion: 5,
+      migrate: (value) => {
+        const props = buttonV4PropsSchema.parse(value.props);
+
+        return {
+          props: {
+            ...props,
+            targetStateNodeId: "",
+            stateAction: "none",
+          },
           styles: { ...value.styles },
         };
       },

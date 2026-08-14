@@ -28,6 +28,25 @@ describe("prepareProjectHydration", () => {
     expect(input.schemaVersion).toBe(1);
   });
 
+  it("should migrate a version 2 project envelope to the current strict node shape", () => {
+    const input = createTestProject();
+    input.schemaVersion = 2;
+    const originalNodes = structuredClone(input.pages[input.homePageId].nodes);
+
+    const result = prepareProjectHydration(input);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.value.migrated).toBe(true);
+    expect(result.value.document.schemaVersion).toBe(
+      CURRENT_PROJECT_SCHEMA_VERSION,
+    );
+    expect(result.value.document.pages[input.homePageId].nodes).toEqual(
+      originalNodes,
+    );
+    expect(input.schemaVersion).toBe(2);
+  });
+
   it("should validate a current document and build the project-wide parent index", () => {
     const input = createTestProject();
     const original = structuredClone(input);
@@ -168,7 +187,7 @@ describe("prepareProjectHydration", () => {
     if (!result.success) return;
     expect(result.value.migrated).toBe(true);
     expect(result.value.document.pages[input.homePageId].nodes[button.id]).toMatchObject({
-      componentVersion: 4,
+      componentVersion: 5,
       props: {
         text: "Legacy action",
         href: "",
@@ -177,6 +196,8 @@ describe("prepareProjectHydration", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       },
     });
     expect(input.pages[input.homePageId].nodes[button.id]).toMatchObject({
@@ -212,13 +233,15 @@ describe("prepareProjectHydration", () => {
     expect(result.value.migrated).toBe(true);
     expect(result.value.document.pages[input.homePageId].nodes[button.id])
       .toMatchObject({
-        componentVersion: 4,
+        componentVersion: 5,
         props: {
           text: "Legacy arrow",
           icon: "arrow-right",
           iconPosition: "end",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         },
       });
   });

@@ -33,3 +33,14 @@ export type EditorDropTarget = {
 export type DragSession = {
   source: EditorDragSource;
 };
+
+export type InteractionAction =
+  | {
+      kind: "boolean.set";
+      stateNodeId: NodeId;
+      value: boolean;
+    }
+  | {
+      kind: "boolean.toggle";
+      stateNodeId: NodeId;
+    };

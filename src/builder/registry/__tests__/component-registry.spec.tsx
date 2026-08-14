@@ -4,15 +4,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   canPlaceType,
   componentRegistry,
+  componentUsesDirectInteraction,
 } from "@/builder/registry/component-registry";
+import { createTestNode } from "@/builder/testing/project-fixtures";
 
 afterEach(cleanup);
 
 describe("componentRegistry", () => {
-  it("should expose the sixteen primitives with valid defaults and versions", () => {
+  it("should expose the seventeen primitives with valid defaults and versions", () => {
     expect(Object.keys(componentRegistry)).toEqual([
       "section",
       "container",
+      "boolean-state",
       "heading",
       "text",
       "label",
@@ -45,13 +48,14 @@ describe("componentRegistry", () => {
     ).toEqual({
       section: 1,
       container: 3,
+      "boolean-state": 1,
       heading: 1,
       text: 1,
       label: 1,
       card: 1,
       image: 1,
       link: 1,
-      button: 4,
+      button: 5,
       form: 1,
       input: 3,
       textarea: 2,
@@ -63,6 +67,51 @@ describe("componentRegistry", () => {
     expect(componentRegistry.link.defaults.styles.base.textDecoration).toBe(
       "underline",
     );
+  });
+
+  it("should declare the Button Boolean State reference", () => {
+    expect(componentRegistry.button.references).toEqual([
+      {
+        path: "targetStateNodeId",
+        targetType: "boolean-state",
+        scope: "page",
+        onDuplicate: "remap-if-target-cloned",
+      },
+    ]);
+  });
+
+  it("should enable direct Canvas interaction only for a Button with a state action", () => {
+    const button = createTestNode("button", "button-action");
+
+    expect(componentUsesDirectInteraction(button)).toBe(false);
+
+    button.props.targetStateNodeId = "menu-state";
+    button.props.stateAction = "toggle";
+
+    expect(componentUsesDirectInteraction(button)).toBe(true);
+  });
+
+  it("should reject unsupported Boolean State and Button action values", () => {
+    expect(() =>
+      componentRegistry["boolean-state"].propsSchema.parse({
+        defaultValue: false,
+        persistedValue: true,
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry.button.propsSchema.parse({
+        ...componentRegistry.button.defaults.props,
+        stateAction: "open",
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry.button.propsSchema.parse({
+        ...componentRegistry.button.defaults.props,
+        href: "/docs",
+        targetStateNodeId: "menu-state",
+        stateAction: "toggle",
+      }),
+    ).toThrow();
   });
 
   it("should render an accessible image with authored fitting", () => {
@@ -220,6 +269,8 @@ describe("componentRegistry", () => {
           iconPosition: "start",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -247,6 +298,8 @@ describe("componentRegistry", () => {
           iconPosition: "start",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -275,6 +328,8 @@ describe("componentRegistry", () => {
           iconPosition: "end",
           iconAnimation: "shift-right",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -302,6 +357,8 @@ describe("componentRegistry", () => {
           iconPosition: "end",
           iconAnimation: "none",
           behavior: "button",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -372,6 +429,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
 
@@ -384,6 +443,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
 
@@ -396,6 +457,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
 
@@ -408,6 +471,8 @@ describe("componentRegistry", () => {
         iconPosition: "end",
         iconAnimation: "spin",
         behavior: "button",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
   });
@@ -425,6 +490,8 @@ describe("componentRegistry", () => {
           iconPosition: "start",
           iconAnimation: "none",
           behavior: "submit",
+          targetStateNodeId: "",
+          stateAction: "none",
         }}
         style={{}}
       />,
@@ -443,6 +510,8 @@ describe("componentRegistry", () => {
         iconPosition: "start",
         iconAnimation: "none",
         behavior: "submit",
+        targetStateNodeId: "",
+        stateAction: "none",
       }),
     ).toThrow();
   });
@@ -551,6 +620,8 @@ describe("componentRegistry", () => {
             iconPosition: "start",
             iconAnimation: "none",
             behavior: "submit",
+            targetStateNodeId: "",
+            stateAction: "none",
           }}
           style={{}}
         />

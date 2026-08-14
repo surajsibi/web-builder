@@ -1345,6 +1345,31 @@ describe("Phase 5 editor UI", () => {
     expect(store.getState().history.past).toHaveLength(historyBefore + 1);
   });
 
+  it("should retain drag, resize, and spacing controls for a Button without a state action", () => {
+    mockRootResizeGeometry();
+    const store = createPhaseFiveStore();
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Button" }));
+
+    expect(
+      screen.getByRole("button", { name: "Drag Button 1" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Resize Button 1 east" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Edit on canvas" })[0],
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Adjust Button 1 padding left",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("should cancel a live resize without changing document or history", () => {
     const store = createPhaseFiveStore();
     render(<EditorShell store={store} />);
@@ -1642,6 +1667,8 @@ describe("Phase 5 editor UI", () => {
       iconPosition: "start",
       iconAnimation: "none",
       behavior: "button",
+      targetStateNodeId: "",
+      stateAction: "none",
     });
     expect(screen.getByRole("status")).toHaveTextContent("Change rejected:");
   });

@@ -7,6 +7,7 @@ import type {
   PageDocument,
   ProjectDocument,
 } from "@/builder/model/project-document";
+import { booleanStateBindingSchema } from "@/builder/model/state-binding";
 import { evaluatePositioningEligibility } from "@/builder/positioning/eligibility";
 import {
   blockRegistry,
@@ -39,6 +40,10 @@ import {
 import { cloneProjectDocument, valuesEqual } from "../project/clone";
 import { prepareProjectHydration } from "../project/hydration";
 import { createId, type IdGenerator } from "../project/id-generator";
+import {
+  remapNodeReferences,
+  remapStateBinding,
+} from "../project/node-references";
 import {
   createGeneratedPageSlug,
   normalizeExplicitPageSlug,
@@ -207,6 +212,25 @@ const editorCommandEnvelopeSchema = z.discriminatedUnion("kind", [
       nodeId: commandIdSchema,
       viewport: commandViewportSchema,
       changes: z.array(commandStyleChangeSchema),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("node.updateStateBinding"),
+      pageId: commandIdSchema,
+      nodeId: commandIdSchema,
+      binding: booleanStateBindingSchema.nullable(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("state.createAndConnect"),
+      pageId: commandIdSchema,
+      nodeId: commandIdSchema,
+      name: z.string(),
+      defaultValue: z.boolean(),
+      on: z.enum(["show", "hide"]),
+      off: z.enum(["show", "hide"]),
     })
     .strict(),
   z
@@ -751,6 +775,10 @@ function duplicatePage(
       ...structuredClone(sourceNode),
       id: duplicateNodeId,
       childIds: sourceNode.childIds.map((childId) => idMap[childId]),
+      props: remapNodeReferences(sourceNode, idMap),
+      ...(sourceNode.stateBinding
+        ? { stateBinding: remapStateBinding(sourceNode, idMap) }
+        : {}),
     };
   }
 
@@ -1352,6 +1380,10 @@ function duplicateNode(
       ...structuredClone(source),
       id: duplicateId,
       childIds: source.childIds.map((childId) => idMap[childId]),
+      props: remapNodeReferences(source, idMap),
+      ...(source.stateBinding
+        ? { stateBinding: remapStateBinding(source, idMap) }
+        : {}),
       meta: {
         name: nextReadableNodeName(source.type, reservedNames),
         locked: source.meta.locked,
@@ -1495,6 +1527,158 @@ function updateProps(
     { ...snapshot, document: candidate },
     { nodeId: resolved.node.id },
     "local",
+    services,
+  );
+}
+
+function validateStateBindingTarget(
+  page: Readonly<PageDocument>,
+  node: Readonly<BuilderNode>,
+  stateNodeId: NodeId,
+): CommandPreparationResult | null {
+  if (node.type === "boolean-state") {
+    return rejected({
+      code: "invalid-input",
+      pageId: page.id,
+      nodeId: node.id,
+      reason: "A Boolean State cannot control its own visibility",
+    });
+  }
+
+  const target = page.nodes[stateNodeId];
+  if (!target) {
+    return rejected({
+      code: "node-not-found",
+      pageId: page.id,
+      nodeId: stateNodeId,
+      reason: `Boolean State does not exist on this page: ${stateNodeId}`,
+    });
+  }
+  if (target.type !== "boolean-state") {
+    return rejected({
+      code: "invalid-input",
+      pageId: page.id,
+      nodeId: stateNodeId,
+      reason: "A state connection must target a Boolean State",
+    });
+  }
+
+  return null;
+}
+
+function updateStateBinding(
+  snapshot: CommandSnapshot,
+  command: Extract<EditorCommand, { kind: "node.updateStateBinding" }>,
+  services: CommandExecutorServices,
+): CommandPreparationResult {
+  const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
+  if (isPreparationResult(resolved)) return resolved;
+  if (resolved.node.meta.locked) {
+    return lockedError(
+      resolved.page.id,
+      resolved.node.id,
+      "A locked node cannot change its state connection",
+    );
+  }
+
+  if (command.binding) {
+    const targetError = validateStateBindingTarget(
+      resolved.page,
+      resolved.node,
+      command.binding.stateNodeId,
+    );
+    if (targetError) return targetError;
+  }
+
+  if (valuesEqual(resolved.node.stateBinding, command.binding ?? undefined)) {
+    return noop("value-unchanged");
+  }
+
+  const candidate = cloneProjectDocument(snapshot.document);
+  const candidateNode = candidate.pages[resolved.page.id].nodes[resolved.node.id];
+  if (command.binding) {
+    candidateNode.stateBinding = structuredClone(command.binding);
+  } else {
+    delete candidateNode.stateBinding;
+  }
+
+  return finalizeCandidate(
+    { ...snapshot, document: candidate },
+    { nodeId: resolved.node.id },
+    "local",
+    services,
+  );
+}
+
+function createStateAndConnect(
+  snapshot: CommandSnapshot,
+  command: Extract<EditorCommand, { kind: "state.createAndConnect" }>,
+  services: CommandExecutorServices,
+): CommandPreparationResult {
+  const resolved = resolveNode(snapshot.document, command.pageId, command.nodeId);
+  if (isPreparationResult(resolved)) return resolved;
+  if (resolved.node.meta.locked) {
+    return lockedError(
+      resolved.page.id,
+      resolved.node.id,
+      "A locked node cannot create a state connection",
+    );
+  }
+  if (resolved.node.type === "boolean-state") {
+    return rejected({
+      code: "invalid-input",
+      pageId: resolved.page.id,
+      nodeId: resolved.node.id,
+      reason: "A Boolean State cannot control its own visibility",
+    });
+  }
+
+  const name = command.name.trim();
+  if (name === "") {
+    return rejected({
+      code: "invalid-input",
+      pageId: resolved.page.id,
+      nodeId: resolved.node.id,
+      reason: "Boolean State name must not be empty",
+    });
+  }
+
+  const stateNodeId = reserveUniqueNodeId(
+    collectProjectNodeIds(snapshot.document),
+    services.idGenerator,
+  );
+  if (!stateNodeId) {
+    return rejected({
+      code: "id-collision",
+      pageId: resolved.page.id,
+      nodeId: resolved.node.id,
+      reason: "Could not generate a unique Boolean State ID",
+    });
+  }
+
+  const definition = componentRegistry["boolean-state"];
+  const candidate = cloneProjectDocument(snapshot.document);
+  const candidatePage = candidate.pages[resolved.page.id];
+  candidatePage.nodes[stateNodeId] = {
+    id: stateNodeId,
+    type: "boolean-state",
+    componentVersion: definition.version,
+    childIds: [],
+    props: { defaultValue: command.defaultValue },
+    styles: structuredClone(definition.defaults.styles),
+    meta: { name, locked: false },
+  };
+  candidatePage.rootIds.push(stateNodeId);
+  candidatePage.nodes[resolved.node.id].stateBinding = {
+    stateNodeId,
+    on: command.on,
+    off: command.off,
+  };
+
+  return finalizeCandidate(
+    { ...snapshot, document: candidate },
+    { nodeId: resolved.node.id, stateNodeId },
+    "tree",
     services,
   );
 }
@@ -1769,6 +1953,10 @@ function executeEditorCommandInternal(
       return updateProps(snapshot, validatedCommand, services);
     case "node.updateStyles":
       return updateStyles(snapshot, validatedCommand, services);
+    case "node.updateStateBinding":
+      return updateStateBinding(snapshot, validatedCommand, services);
+    case "state.createAndConnect":
+      return createStateAndConnect(snapshot, validatedCommand, services);
     case "block.insert":
       return insertBlock(snapshot, validatedCommand, services, mode);
   }

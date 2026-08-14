@@ -96,7 +96,7 @@ The following rules are authoritative:
 5. `parentId` is not persisted on each component. The loading service derives one project-wide runtime `parentById` reverse index before atomic hydration, and command commits maintain it afterward.
 6. Width and height are independent style values. There is no component-level auto/custom sizing flag.
 7. Position and z-index are ordinary style values. There is no automatic/custom stacking flag or parent-based z-index calculation.
-8. Only styles are responsive in V1; props remain shared across all viewports. Resolved `display` is the only component-visibility authority.
+8. Only styles are responsive in V1; props remain shared across all viewports. Resolved `display` remains the authored responsive visibility style, while an optional Boolean State binding may additionally gate a node's runtime presence without rewriting that style.
 9. V1 uses the fixed desktop-first `base -> tablet -> mobile` cascade with property-specific merge rules.
 10. All persisted document mutations go through the canonical editor-command dispatcher. Session actions, persistence lifecycle actions, and hydration lifecycle actions cannot mutate document content independently.
 11. React components, DOM elements, functions, events, and Zustand actions are never stored in page JSON.
@@ -133,6 +133,7 @@ type StyleInspectorCapability =
   | "sizing"
   | "spacing"
   | "background"
+  | "backgroundImage"
   | "border"
   | "typography"
   | "layout"
@@ -145,12 +146,27 @@ type ComponentPropInspectorControl =
   | "boolean"
   | "number"
   | "select"
+  | "node-reference"
   | "string-list"
   | "string-multi-select";
+
+type ComponentNodeReference<
+  Props extends JsonObject,
+  Type extends string = string
+> = {
+  path: Extract<keyof Props, string>;
+  targetType: Type;
+  scope: "page";
+  onDuplicate: "remap-if-target-cloned";
+};
 
 type ComponentInspectorConfig<Props extends JsonObject> = {
   props: ComponentPropsInspectorConfig<Props>;
   styles: readonly StyleInspectorCapability[];
+};
+
+type ComponentEditorMetadata = {
+  directInteraction?: boolean;
 };
 
 type ComponentMigrationValue = {
@@ -212,6 +228,8 @@ type ComponentDefinitionBase<
 
   propsSchema: RuntimeSchema<Props>;
   inspector: ComponentInspectorConfig<Props>;
+  editor?: ComponentEditorMetadata<Type>;
+  references?: readonly ComponentNodeReference<Props, Type>[];
 
   migrations?: readonly ComponentMigration[];
 };
@@ -232,7 +250,7 @@ type ComponentDefinition<
   );
 ```
 
-All top-level fields are required except `allowedParents` and `migrations`. `library.searchTerms` is optional discovery metadata: the Component Library includes it in normalized search matching without changing the visible label, canonical component type, or persisted node data. `accepts` is required when `children.allowed` is `true` and forbidden when it is `false`. Inspector props may be empty, and the style-capability list may be empty, but both fields remain present so every definition has the same predictable shape.
+All top-level fields are required except `allowedParents`, `editor`, `references`, and `migrations`. `library.searchTerms` is optional discovery metadata: the Component Library includes it in normalized search matching without changing the visible label, canonical component type, or persisted node data. `accepts` is required when `children.allowed` is `true` and forbidden when it is `false`. Inspector props may be empty, and the style-capability list may be empty, but both fields remain present so every definition has the same predictable shape. A `node-reference` Inspector field requires matching typed reference metadata; V1 references are page-scoped and target string-valued node-ID props. Registry startup validates the declared scope and duplication policy, while the shared reference service uses that metadata for candidate discovery, resolution, and clone remapping. Editor metadata is application code rather than persisted node data: `directInteraction` may be a static Boolean or a validated-props predicate so a renderer receives Canvas activation only when its current configuration requires it, without a component-name check.
 
 The definition union connects placement and rendering at compile time: leaf components cannot accept rendered children, while container components receive a child slot. Both renderer variants accept only validated props and compiled presentation inputs.
 
@@ -244,6 +262,7 @@ The static registry is defined explicitly:
 export const componentRegistry = defineComponentRegistry({
   section: sectionDefinition,
   container: containerDefinition,
+  "boolean-state": booleanStateDefinition,
   heading: headingDefinition,
   text: textDefinition,
   label: labelDefinition,
@@ -263,7 +282,7 @@ export const componentRegistry = defineComponentRegistry({
 export type ComponentType = keyof typeof componentRegistry;
 ```
 
-`defineComponentRegistry` binds placement references to the registry-key union and validates the complete catalog at application startup. It rejects unknown child or parent types, empty placement lists, invalid or duplicate style capabilities, invalid defaults, non-positive versions, and broken or overlapping migration steps.
+`defineComponentRegistry` binds placement and node-reference targets to the registry-key union and validates the complete catalog at application startup. It rejects unknown child, parent, or reference types; invalid direct-interaction metadata; reference paths with missing or non-string defaults; duplicate reference paths; empty placement lists; invalid or duplicate style capabilities; invalid defaults; non-positive versions; and broken or overlapping migration steps.
 
 ### Props Schemas and Defaults
 
@@ -283,7 +302,7 @@ Image is a leaf primitive for meaningful image content, including logos. It stor
 
 Button content icons follow the same serializable contract. A Button stores a curated application-owned icon ID or `null`, plus a `start` or `end` position; it never stores JSX, a React component, or raw SVG markup. The renderer resolves the ID through the static icon catalog, treats the icon as decorative while visible text supplies the accessible name, and keeps Button as a leaf component. An icon-only presentation requires a separate visible-label setting that preserves a non-empty accessible label rather than an empty `text` value.
 
-Button also stores an explicit `button` or `submit` behavior. Existing Button versions migrate to `button`, so introducing Form cannot make an existing project submit unexpectedly. A Button with a non-empty link destination remains an anchor and cannot use submit behavior.
+Button also stores an explicit `button` or `submit` behavior. Existing Button versions migrate to `button`, so introducing Form cannot make an existing project submit unexpectedly. A regular, unlinked, non-submit Button may additionally target one page-local Boolean State and run Turn On, Turn Off, or Toggle on activation. Its State tab presents this action first. Only a Button with a configured state action opts into direct Canvas activation; a Button with no state action retains its drag, resize, and spacing editing affordances. Button visibility is a separate optional disclosure: a new Button has no `stateBinding`, remains always visible, and exposes Show/Hide mapping only after the author deliberately opens and connects that disclosure. Linked and submit Buttons cannot run state actions. An unresolved target is reported without mutating runtime or document state.
 
 Label stores non-empty visible text and a valid authored control ID target. It renders one native `<label>` root whose `for` attribute points to the authored target, remains a leaf component, and supports the same Inspector and Canvas inline-text editing path as other text-bearing primitives. Label may be placed at the page root, in general-purpose containers, or directly inside Form. V1 does not validate the cross-node reference or document-wide ID uniqueness; authors keep the Label target and control ID synchronized until a shared Form Field wrapper can own that relationship.
 
@@ -298,6 +317,14 @@ Radio Group stores one visible group label, a required non-empty field name, non
 Checkbox stores one visible label, an optional field name, a non-empty submitted value, an authored default checked state, and required/disabled state. It renders one native checkbox wrapped by its `<label>`, so the component owns its accessible association without requiring a separate Label primitive. The renderer preserves the visitor's live checked state across unrelated updates and adopts a changed authored default. A checked, named, enabled Checkbox contributes its configured value to native `FormData`; unchecked, unnamed, and disabled Checkboxes are omitted by browser successful-control semantics.
 
 Checkbox Group stores one visible group label, a required non-empty field name, non-empty unique string options, unique authored default selections that must reference those options, vertical or horizontal orientation, and required/disabled state. It renders one native `<fieldset>` root with a `<legend>` and labeled native checkbox inputs. The renderer preserves the visitor's live multi-selection across unrelated updates and adopts changed authored defaults or options. Required means at least one selection: the group exposes `aria-required`, and while empty the first native checkbox carries `required`; selecting any option removes that native constraint, and removing the final selection restores it. Option labels are also submitted values in V1, matching Dropdown and Radio Group.
+
+Boolean State is a nonvisual, page-scoped interaction primitive. Its node ID is the stable reference target, its editable node name is the readable authoring label, and `defaultValue` is its only persisted state prop. A runtime provider initializes current values from authored defaults for each page render session; Turn On, Turn Off, and Toggle update only provider memory and never create a document command, revision, undo entry, autosave change, or persisted visitor value.
+
+Every ordinary visual node may store one optional `stateBinding` in its shared node envelope. The binding references a page-local Boolean State and independently declares `show` or `hide` for the On and Off values. This lets one state control any number of existing components without dedicated Conditional Content or Drawer component types. In Preview, an inactive or unresolved binding is absent and its descendants are not mounted. In Editor, the node remains rendered with a muted authoring treatment and stays selectable through Layers. An unbound visual component's State tab shows a collapsed optional visibility disclosure marked **Always visible**; an existing binding opens its controls automatically. Expanding the disclosure can atomically create and connect a Boolean State, connect an existing state, invert the On/Off mapping, or disconnect the node. A newly created Boolean State starts Off, so **Start visible** is unchecked. New bindings default to On → Show and Off → Show, keeping the component visible until the author deliberately changes either mapping to Hide.
+
+Project schema version 3 owns the shared `stateBinding` envelope. Loading follows the complete deterministic version 1 → 2 → 3 chain. The version 2 → 3 migration preserves ordinary version-2 documents, converts former State Action and Drawer controls into ordinary Buttons, and converts an authored disabled legacy control into an inert Button with no state action so loading cannot activate previously disabled behavior.
+
+The shared binding is intentionally limited to presence in the current version. Conditional style patches, variants, and enter/exit animations can consume the same Boolean State later, but require their own explicit contracts and lifecycle rules rather than overloading visibility or the Boolean runtime.
 
 The Inspector's `string-multi-select` control references another string-array prop through validated `optionsPath` metadata. Checkbox Group uses it to present current options as default-selection checkboxes. When the authored option list changes, the Inspector prunes default selections that no longer reference an option before validating and committing the complete props object.
 
@@ -437,6 +464,8 @@ The editor must not automatically insert Heading, Text, Button, or other content
 
 The component library distinguishes primitives from ready-made blocks:
 
+Nonvisual Boolean State nodes are deliberately excluded from the Component Library. Authors create and connect them from an ordinary component's State Inspector tab, then manage the resulting state through Layers and the Inspector.
+
 | Library item | Created result |
 | --- | --- |
 | Container | One empty structural container |
@@ -537,6 +566,11 @@ type BuilderNode = {
   childIds: string[];
   props: Record<string, JsonValue>;
   styles: ResponsiveStyles;
+  stateBinding?: {
+    stateNodeId: string;
+    on: "show" | "hide";
+    off: "show" | "hide";
+  };
   meta: {
     name: string;
     locked: boolean;
@@ -1384,13 +1418,13 @@ The Node Rendering Controller:
 
 #### Pure Component Renderer
 
-Every component renderer must produce exactly one semantic DOM root element. The renderer:
+Every visual component renderer must produce exactly one semantic DOM root element. Boolean State is the deliberate nonvisual exception and returns no DOM. A visual renderer:
 
 - Maps validated component props to semantic HTML and accessibility attributes.
 - Applies the controlled `className` and compiled `style` to its semantic root.
 - Attaches the optional `rootRef` to that same root element.
 - Renders the supplied child slot only when its definition is a container.
-- Produces the same authored semantic root in editor and preview; a Form may add runtime-only availability guidance in Preview.
+- Produces the same authored semantic root in editor and preview unless its shared Boolean State binding controls presence; Form may add runtime-only availability guidance in Preview, and inactive bound nodes receive an Editor-only authoring treatment.
 - Does not access Zustand, parent or sibling information, registry state, editor commands, responsive resolution, drag-and-drop state, undo history, or autosave.
 
 Leaf renderers use `LeafRendererProps<Props>` and cannot accept children. Container renderers use `ContainerRendererProps<Props>` and receive `children`, which may be `null` for an empty container.
@@ -1405,7 +1439,7 @@ The Editor Interaction Layer:
 - Registers and measures renderer root elements without passing node IDs into renderers.
 - Maintains an external element-to-node mapping for hit testing and selection.
 - Renders selection outlines, labels, drag handles, resize handles, drop zones, and empty-container prompts in a layout-neutral overlay layer.
-- Uses capture-phase interaction guards to prevent navigation, button activation, or form submission while editing.
+- Uses capture-phase interaction guards to prevent navigation or form submission while editing, while allowing a Button whose validated props configure a Boolean State action to opt into direct Canvas activation. Ordinary Buttons keep the external drag, resize, and spacing affordances.
 - Supplies editor runtime mode so keyboard-triggered form submission is also prevented without relying only on pointer capture.
 - Keeps editor state and overlays out of component props, saved JSON, preview markup, and published markup.
 
@@ -1417,7 +1451,9 @@ Tailwind CSS styles the editor shell and known presets. Arbitrary user values ar
 
 The editor toolbar links to the dedicated `/preview` route with `target="_blank"` and `rel="noopener noreferrer"`, leaving the editor open in its original browser tab. Immediately before the browser opens Preview, the editor places a tokenized, one-use snapshot containing the current validated document and active page ID in same-origin browser storage. The preview tab consumes and removes that snapshot, then hydrates it into an isolated vanilla Zustand store through the normal project validation boundary.
 
-Preview maps the active page's ordered roots through the page and node rendering controllers. It does not render the editor toolbar, sidebars, Inspector, breadcrumbs, canvas stage, selection layer, drag-and-drop targets, resize controls, or editor-only empty prompts. The route derives its active `Viewport` from the real browser width using the shared V1 breakpoint constants, then uses the existing responsive resolver and style compiler.
+Preview maps the active page's ordered roots through the page and node rendering controllers inside a page-scoped Boolean runtime provider. The Editor Canvas owns an equivalent provider around its roots, so ordinary Button actions and shared node visibility bindings work on both surfaces without placing runtime values in Zustand or the document. Preview does not render the editor toolbar, sidebars, Inspector, breadcrumbs, canvas stage, selection layer, drag-and-drop targets, resize controls, or editor-only empty prompts. The route derives its active `Viewport` from the real browser width using the shared V1 breakpoint constants, then uses the existing responsive resolver and style compiler.
+
+Boolean runtime state starts from each Boolean State node's authored `defaultValue`, is shared by every consumer on that page surface, and is destroyed with the render session. Missing, wrong-type, deleted, or cross-page references never mutate state. The State Inspector tab shows readable page-local targets and preserves unresolved IDs with diagnostics. Shared reference handling covers both registry-declared prop references and node-envelope state bindings. Subtree duplication remaps an internal reference only when its target is cloned in the same transaction; duplicating only a consumer preserves its external target.
 
 Committed position offsets therefore have one semantic rendering contract across Canvas and Preview. Transient gesture preview is editor-only session state, but it uses the same style-change compiler behavior and cannot become a second persisted positioning path. Published output is not implemented; when added, it must use the same resolver, compiler, and renderer and pass an explicit parity gate.
 
@@ -1591,7 +1627,7 @@ Home Page
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "projectId": "project-acme-site",
   "name": "Acme Marketing Site",
   "pageOrder": [
@@ -1897,6 +1933,8 @@ const runtimeTreeIndex = {
 };
 ```
 
+Each rendered page surface also owns a transient Boolean-value map keyed by Boolean State node ID. That map is initialized from authored defaults and exists only inside the React runtime provider; it is not part of project hydration, the Zustand editor store, undo history, preview snapshots, or autosave.
+
 The Layers tree, breadcrumbs, selected node, selected parent, and resolved responsive styles are derived through selectors. They must not be stored as duplicate project structures:
 
 ```ts
@@ -2038,6 +2076,7 @@ The first proof of concept must demonstrate that the architecture can:
 37. Insert and configure a Checkbox Group, confirm its fieldset legend names the group, its option list and default selections remain synchronized, pointer and Space-key interaction toggle independent options, required means at least one selected option, disabled state reaches every option, and native `FormData` preserves selected values in authored option order.
 38. Insert a Label and one Input, Textarea, or Dropdown, assign the same valid target and control ID, confirm the visible Label supplies the control's accessible name, clicking the Label focuses the control in Preview, inline editing preserves the target, and legacy labelable controls migrate with their existing accessible-label behavior unchanged.
 39. Move an eligible non-container leaf with responsive positive, negative, inherited, explicit-zero, and off-canvas offsets; confirm structural order is unchanged, one gesture creates one Undo entry, Canvas and Preview geometry match, Inspector reset recovers the leaf without Canvas hit-testing, and root/container/absolute/fixed/sticky positioning remains centrally denied.
+40. Select an existing component and confirm its optional visibility is collapsed as **Always visible**; expand it, create and connect a Boolean State with unchecked **Start visible**, and confirm the new binding defaults to On → Show and Off → Show. Connect multiple ordinary components with independent On/Off visibility mappings and configure a regular Button to turn the same state On, Off, and Toggle. Confirm Editor authoring remains available, Preview presence follows the state, unresolved references fail safely, internal references remap on subtree and page duplication, a Button without a state action retains Canvas drag/resize/spacing controls, schema-version-2 documents migrate deterministically to version 3, disabled legacy controls remain inert, and runtime actions create no document revision or history entry.
 
 ## Editor Workspace Layout
   
@@ -2059,7 +2098,7 @@ The left panel contains all components that users can drag and drop onto the can
 - Navigation bars
 - Cards, lists, and other reusable blocks
 
-Components should be grouped into categories and include search so users can find them quickly. The Forms family groups Input, its presets, and Textarea under **Inputs**, Dropdown, Radio Group, Checkbox, and Checkbox Group under **Choices**, and Label with the Form container under **Forms**. Search matches visible library metadata and optional component-specific `searchTerms`, allowing aliases such as `multiline` to find Textarea, `select` to find Dropdown and Checkbox Group, `choice` to find grouped choice controls, `consent` to find Checkbox, and `caption` to find Label without renaming those components. The panel should be collapsible to provide more canvas space when needed.
+Components should be grouped into categories and include search so users can find them quickly. The Forms family groups Input, its presets, and Textarea under **Inputs**, Dropdown, Radio Group, Checkbox, and Checkbox Group under **Choices**, and Label with the Form container under **Forms**. Search matches visible library metadata and optional component-specific `searchTerms`, allowing aliases such as `multiline` to find Textarea, `select` to find Dropdown and Checkbox Group, `choice` to find grouped choice controls, `consent` to find Checkbox, and `caption` to find Label without renaming those components. Nonvisual Boolean State is not searchable or insertable here; its creation workflow belongs to the State tab. The panel should be collapsible to provide more canvas space when needed.
 
 The library should clearly distinguish **Components** from **Blocks**. Components are primitives such as an empty Card, Container, Heading, or Button. Blocks are ready-made editable subtrees such as Content Card, Image Card, and Pricing Card.
 

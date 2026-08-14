@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/react";
 
+import { BooleanStateRuntimeProvider } from "@/builder/interaction/boolean-state-runtime";
 import type { EditorDragSource } from "@/builder/interaction/types";
 import type { NodeId } from "@/builder/model/ids";
 import type {
@@ -21,7 +22,10 @@ import type {
 } from "@/builder/model/project-document";
 import { evaluatePositioningEligibility } from "@/builder/positioning/eligibility";
 import type { ParentById } from "@/builder/project/tree";
-import { componentRegistry } from "@/builder/registry/component-registry";
+import {
+  componentRegistry,
+  componentUsesDirectInteraction,
+} from "@/builder/registry/component-registry";
 import type { RendererBaseProps } from "@/builder/registry/define-component-registry";
 import { NodeRenderingController } from "@/builder/rendering/node-rendering-controller";
 import { VIEWPORT_MIN_HEIGHT } from "@/builder/styles/compile";
@@ -1095,6 +1099,9 @@ function CanvasInteractionOverlay({
   const selectedDefinition = selectedNode
     ? componentRegistry[selectedNode.type]
     : null;
+  const selectedNodeUsesDirectInteraction = selectedNode
+    ? componentUsesDirectInteraction(selectedNode)
+    : false;
   const selectedStyles = selectedNode
     ? resolveResponsiveStyles(selectedNode.styles, viewport)
     : null;
@@ -1155,7 +1162,8 @@ function CanvasInteractionOverlay({
               {textEditingNodeId === selectedNodeId ? " · Editing" : ""}
             </span>
           </div>
-          {textEditingNodeId !== selectedNodeId ? (
+          {textEditingNodeId !== selectedNodeId &&
+          !selectedNodeUsesDirectInteraction ? (
             <CanvasNodeDragHandle
               nodeId={selectedNodeId}
               page={page}
@@ -1182,9 +1190,12 @@ function CanvasInteractionOverlay({
           {!dragSource &&
           textEditingNodeId === null &&
           selectedNode &&
+          !selectedNodeUsesDirectInteraction &&
           resizeContext &&
           !selectedNode.meta.locked &&
-          selectedDefinition?.inspector.styles.includes("sizing") ? (
+          (selectedDefinition?.inspector.styles as readonly string[] | undefined)?.includes(
+            "sizing",
+          ) ? (
             <CanvasResizeHandles
               nodeId={selectedNode.id}
               nodeName={selectedNode.meta.name}
@@ -1198,6 +1209,7 @@ function CanvasInteractionOverlay({
           {!dragSource &&
           textEditingNodeId === null &&
           selectedNode &&
+          !selectedNodeUsesDirectInteraction &&
           !selectedNode.meta.locked &&
           (visualMode === "padding" || visualMode === "margin") &&
           boxModels[selectedNode.id] ? (
@@ -1332,7 +1344,6 @@ export function EditorCanvas({
       viewportWidth: null,
       viewportHeight: null,
     });
-
   const editableText = useCallback(
     (nodeId: NodeId): string | null => {
       const node = page.nodes[nodeId];
@@ -1645,6 +1656,19 @@ export function EditorCanvas({
       const activatesDisclosure =
         event.target instanceof HTMLElement &&
         event.target.closest("summary.builder-disclosure-summary") !== null;
+      const activatesDirectInteraction =
+        event.target instanceof HTMLElement &&
+        event.target.closest('[data-editor-direct-interaction="true"]') !== null;
+      const isInsideInactiveConditional =
+        event.target instanceof HTMLElement &&
+        event.target.closest(
+          '[data-state-visibility="inactive"]',
+        ) !== null;
+
+      if (activatesDirectInteraction && !isInsideInactiveConditional) {
+        queueMicrotask(() => onSelectNode(nodeId));
+        return;
+      }
 
       if (!activatesDisclosure) event.preventDefault();
       event.stopPropagation();
@@ -1699,46 +1723,48 @@ export function EditorCanvas({
           data-viewport={viewport}
           ref={artboardRef}
         >
-          {page.rootIds.length === 0 ? (
-            <div className="empty-page-placeholder">
-              <span aria-hidden="true">+</span>
-              <strong>Your page is empty</strong>
-              <p>Choose or drag a component from the library to begin.</p>
-            </div>
-          ) : (
-            page.rootIds.map((nodeId) => (
-              <CanvasNode
-                getRootAttributes={rootAttributesFor}
-                key={nodeId}
-                nodeId={nodeId}
-                page={page}
-                previewStyles={previewStyles}
-                registerRoot={registerRoot}
-                viewport={viewport}
-              />
-            ))
-          )}
+          <BooleanStateRuntimeProvider page={page}>
+            {page.rootIds.length === 0 ? (
+              <div className="empty-page-placeholder">
+                <span aria-hidden="true">+</span>
+                <strong>Your page is empty</strong>
+                <p>Choose or drag a component from the library to begin.</p>
+              </div>
+            ) : (
+              page.rootIds.map((nodeId) => (
+                <CanvasNode
+                  getRootAttributes={rootAttributesFor}
+                  key={nodeId}
+                  nodeId={nodeId}
+                  page={page}
+                  previewStyles={previewStyles}
+                  registerRoot={registerRoot}
+                  viewport={viewport}
+                />
+              ))
+            )}
 
-          <CanvasInteractionOverlay
-            artboardContentSize={artboardContentSize}
-            artboardWidth={artboardWidth}
-            boxModels={boxModels}
-            document={projectDocument}
-            dragSource={dragSource}
-            page={page}
-            parentById={parentById}
-            onCancelVisualEdit={onCancelVisualEdit}
-            onCommitVisualEdit={onCommitVisualEdit}
-            onExitPositionMode={onExitPositionMode}
-            onPreviewVisualEdit={onPreviewVisualEdit}
-            rects={rects}
-            resizeUnitMetrics={resizeUnitMetrics}
-            selectedNodeId={selectedNodeId}
-            spacingModes={spacingModes}
-            textEditingNodeId={textEditSession?.nodeId ?? null}
-            viewport={viewport}
-            visualMode={visualMode}
-          />
+            <CanvasInteractionOverlay
+              artboardContentSize={artboardContentSize}
+              artboardWidth={artboardWidth}
+              boxModels={boxModels}
+              document={projectDocument}
+              dragSource={dragSource}
+              page={page}
+              parentById={parentById}
+              onCancelVisualEdit={onCancelVisualEdit}
+              onCommitVisualEdit={onCommitVisualEdit}
+              onExitPositionMode={onExitPositionMode}
+              onPreviewVisualEdit={onPreviewVisualEdit}
+              rects={rects}
+              resizeUnitMetrics={resizeUnitMetrics}
+              selectedNodeId={selectedNodeId}
+              spacingModes={spacingModes}
+              textEditingNodeId={textEditSession?.nodeId ?? null}
+              viewport={viewport}
+              visualMode={visualMode}
+            />
+          </BooleanStateRuntimeProvider>
         </div>
       </section>
     </main>

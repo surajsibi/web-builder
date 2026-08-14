@@ -1,5 +1,12 @@
-import { defineComponentRegistry } from "./define-component-registry";
+import type { JsonObject } from "@/builder/model/json";
+
 import {
+  defineComponentRegistry,
+  type ComponentEditorMetadata,
+  type ComponentNodeReferenceMetadata,
+} from "./define-component-registry";
+import {
+  booleanStateDefinition,
   buttonDefinition,
   cardDefinition,
   checkboxGroupDefinition,
@@ -21,6 +28,7 @@ import {
 export const componentRegistry = defineComponentRegistry({
   section: sectionDefinition,
   container: containerDefinition,
+  "boolean-state": booleanStateDefinition,
   heading: headingDefinition,
   text: textDefinition,
   label: labelDefinition,
@@ -38,6 +46,33 @@ export const componentRegistry = defineComponentRegistry({
 });
 
 export type ComponentType = keyof typeof componentRegistry;
+
+export function componentUsesDirectInteraction(node: {
+  type: ComponentType;
+  props: JsonObject;
+}): boolean {
+  const definition = componentRegistry[node.type] as {
+    editor?: ComponentEditorMetadata;
+  };
+  const directInteraction = definition.editor?.directInteraction;
+
+  return typeof directInteraction === "function"
+    ? directInteraction(node.props)
+    : directInteraction === true;
+}
+
+export function referencesForComponentType(
+  type: ComponentType,
+): readonly ComponentNodeReferenceMetadata<string, ComponentType>[] {
+  const definition = componentRegistry[type] as {
+    references?: readonly ComponentNodeReferenceMetadata<
+      string,
+      ComponentType
+    >[];
+  };
+
+  return definition.references ?? [];
+}
 
 type PlacementDefinition = {
   allowedParents?: readonly ComponentType[];

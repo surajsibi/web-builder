@@ -38,8 +38,33 @@ export type ComponentPropInspectorControl =
   | "boolean"
   | "number"
   | "select"
+  | "node-reference"
   | "string-list"
   | "string-multi-select";
+
+export type ComponentNodeReferenceMetadata<
+  Path extends string = string,
+  Type extends string = string,
+> = {
+  path: Path;
+  targetType: Type;
+  scope: "page";
+  onDuplicate: "remap-if-target-cloned";
+};
+
+export type ComponentNodeReference<
+  Props extends JsonObject,
+  Type extends string = string,
+> = {
+  [Key in Extract<keyof Props, string>]: ComponentNodeReferenceMetadata<
+    Key,
+    Type
+  > extends infer Reference
+    ? Props[Key] extends string
+      ? Reference
+      : never
+    : never;
+}[Extract<keyof Props, string>];
 
 export type ComponentPropInspectorField<Props extends JsonObject> = {
   [Key in Extract<keyof Props, string>]: {
@@ -60,6 +85,12 @@ export type ComponentPropsInspectorConfig<Props extends JsonObject> =
 export type ComponentInspectorConfig<Props extends JsonObject> = {
   props: ComponentPropsInspectorConfig<Props>;
   styles: readonly StyleInspectorCapability[];
+};
+
+export type ComponentEditorMetadata = {
+  directInteraction?:
+    | boolean
+    | ((props: Readonly<JsonObject>) => boolean);
 };
 
 export type ComponentMigrationValue = {
@@ -121,6 +152,8 @@ type ComponentDefinitionBase<
   allowedParents?: NonEmptyReadonlyArray<Type>;
   propsSchema: RuntimeSchema<Props>;
   inspector: ComponentInspectorConfig<Props>;
+  editor?: ComponentEditorMetadata;
+  references?: readonly ComponentNodeReference<Props, Type>[];
   migrations?: readonly ComponentMigration[];
 };
 
@@ -169,6 +202,8 @@ type RegistryEntry = {
     }[];
     styles: readonly StyleInspectorCapability[];
   };
+  editor?: ComponentEditorMetadata;
+  references?: readonly ComponentNodeReferenceMetadata[];
   migrations?: readonly ComponentMigration[];
   render: unknown;
 };
@@ -181,6 +216,11 @@ type ReferencedType<Definition> =
         children: { allowed: true; accepts: readonly (infer Child)[] };
       }
       ? Child
+      : never)
+  | (Definition extends {
+      references: readonly { targetType: infer Target }[];
+    }
+      ? Target
       : never);
 
 type InvalidRegistryReference<Registry> = Exclude<
@@ -214,6 +254,7 @@ const PROP_CONTROLS = new Set<ComponentPropInspectorControl>([
   "boolean",
   "number",
   "select",
+  "node-reference",
   "string-list",
   "string-multi-select",
 ]);
@@ -291,6 +332,16 @@ function assertInspector(type: string, definition: RegistryEntry): void {
         `${type}.inspector.props contains invalid control: ${field.control}`,
       );
     }
+    if (
+      field.control === "node-reference" &&
+      !definition.references?.some(
+        (reference) => reference.path === field.path,
+      )
+    ) {
+      throw new Error(
+        `${type}.inspector.props node-reference requires reference metadata: ${field.path}`,
+      );
+    }
     if (field.control === "string-multi-select") {
       if (
         field.optionsPath === undefined ||
@@ -310,6 +361,48 @@ function assertInspector(type: string, definition: RegistryEntry): void {
       }
     }
     propPaths.add(field.path);
+  }
+}
+
+function assertReferences(
+  type: string,
+  definition: RegistryEntry,
+  componentTypes: ReadonlySet<string>,
+): void {
+  const paths = new Set<string>();
+
+  for (const reference of definition.references ?? []) {
+    if (!Object.hasOwn(definition.defaults.props, reference.path)) {
+      throw new Error(
+        `${type}.references references unknown prop path: ${reference.path}`,
+      );
+    }
+    if (paths.has(reference.path)) {
+      throw new Error(
+        `${type}.references contains duplicate prop path: ${reference.path}`,
+      );
+    }
+    if (typeof definition.defaults.props[reference.path] !== "string") {
+      throw new Error(
+        `${type}.references path must have a string default: ${reference.path}`,
+      );
+    }
+    if (!componentTypes.has(reference.targetType)) {
+      throw new Error(
+        `${type}.references references unknown target type: ${reference.targetType}`,
+      );
+    }
+    if (reference.scope !== "page") {
+      throw new Error(
+        `${type}.references contains unsupported scope: ${reference.scope}`,
+      );
+    }
+    if (reference.onDuplicate !== "remap-if-target-cloned") {
+      throw new Error(
+        `${type}.references contains unsupported duplication policy: ${reference.onDuplicate}`,
+      );
+    }
+    paths.add(reference.path);
   }
 }
 
@@ -361,6 +454,15 @@ export function validateComponentRegistry(
       throw new Error(`${type}.defaults.props must be a JSON object`);
     }
 
+    if (
+      definition.editor?.directInteraction !== undefined &&
+      typeof definition.editor.directInteraction !== "boolean" &&
+      typeof definition.editor.directInteraction !== "function"
+    ) {
+      throw new Error(
+        `${type}.editor.directInteraction must be boolean or a props predicate`,
+      );
+    }
     try {
       definition.propsSchema.parse(definition.defaults.props);
     } catch (error) {
@@ -376,6 +478,7 @@ export function validateComponentRegistry(
     }
 
     assertPlacementReferences(type, definition, componentTypes);
+    assertReferences(type, definition, componentTypes);
     assertInspector(type, definition);
     assertMigrations(type, definition);
   }

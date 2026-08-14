@@ -1,14 +1,26 @@
 import { useState, type ReactNode } from "react";
 
 import type { StyleChange } from "@/builder/commands/types";
-import type { NodeId } from "@/builder/model/ids";
+import { asNodeId, type NodeId } from "@/builder/model/ids";
 import type { JsonObject, JsonValue } from "@/builder/model/json";
-import type { BuilderNode } from "@/builder/model/project-document";
+import type {
+  BuilderNode,
+  PageDocument,
+  ProjectDocument,
+} from "@/builder/model/project-document";
+import type { BooleanStateBinding } from "@/builder/model/state-binding";
+import {
+  listNodeReferenceCandidates,
+  resolveNodeReference,
+} from "@/builder/project/node-references";
 import {
   evaluatePositioningEligibility,
   type PositioningEligibilityReason,
 } from "@/builder/positioning/eligibility";
-import { componentRegistry } from "@/builder/registry/component-registry";
+import {
+  componentRegistry,
+  referencesForComponentType,
+} from "@/builder/registry/component-registry";
 import { resolveResponsiveStyles } from "@/builder/styles/resolve";
 import { isSafeBackgroundImageSource } from "@/builder/styles/schema";
 import type {
@@ -45,6 +57,8 @@ import {
 
 type InspectorPanelProps = {
   collapsed: boolean;
+  document: Readonly<ProjectDocument>;
+  page: Readonly<PageDocument>;
   node: Readonly<BuilderNode> | null;
   parentId: NodeId | null;
   isRoot: boolean;
@@ -56,6 +70,8 @@ type InspectorPanelProps = {
   onDelete: () => void;
   onRename: (name: string) => void;
   onUpdateProps: (nextProps: JsonObject) => void;
+  onUpdateStateBinding: (binding: BooleanStateBinding | null) => void;
+  onCreateStateAndConnect: (name: string, defaultValue: boolean) => void;
   onUpdateStyles: (changes: readonly [StyleChange, ...StyleChange[]]) => void;
   onCollapsedChange: (collapsed: boolean) => void;
 };
@@ -147,10 +163,17 @@ type PropField = {
     | "boolean"
     | "number"
     | "select"
+    | "node-reference"
     | "string-list"
     | "string-multi-select";
   optionsPath?: string;
   options?: readonly { label: string; value: JsonValue }[];
+};
+
+type NodeReferenceControlData = {
+  invalid: boolean;
+  message?: string;
+  options: readonly { label: string; value: string }[];
 };
 
 function titleCase(value: string): string {
@@ -502,16 +525,61 @@ function StringMultiSelectControl({
   );
 }
 
+function NodeReferenceControl({
+  data,
+  disabled,
+  label,
+  onCommit,
+  value,
+}: {
+  data: NodeReferenceControlData;
+  disabled: boolean;
+  label: string;
+  onCommit: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="inspector-field">
+      <span>{label}</span>
+      <select
+        aria-invalid={data.invalid || undefined}
+        aria-label={label}
+        disabled={disabled}
+        onChange={(event) => onCommit(event.currentTarget.value)}
+        value={value}
+      >
+        {data.options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {data.message ? (
+        <span
+          className={
+            data.invalid ? "inspector-field-error" : "inspector-help"
+          }
+          role={data.invalid ? "alert" : undefined}
+        >
+          {data.message}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
 function PropDraftControl({
   field,
   value,
   dependentOptions,
+  nodeReference,
   disabled,
   onCommit,
 }: {
   field: PropField;
   value: JsonValue;
   dependentOptions?: readonly string[];
+  nodeReference?: NodeReferenceControlData;
   disabled: boolean;
   onCommit: (value: JsonValue) => void;
 }) {
@@ -558,6 +626,24 @@ function PropDraftControl({
           ))}
         </select>
       </label>
+    );
+  }
+
+  if (field.control === "node-reference") {
+    return (
+      <NodeReferenceControl
+        data={
+          nodeReference ?? {
+            invalid: true,
+            message: "Reference metadata is unavailable.",
+            options: [{ label: "Unavailable", value: String(value) }],
+          }
+        }
+        disabled={disabled}
+        label={visibleLabel}
+        onCommit={onCommit}
+        value={typeof value === "string" ? value : ""}
+      />
     );
   }
 
@@ -1668,8 +1754,339 @@ function EffectsControl({
   );
 }
 
+type StateControlsProps = {
+  node: Readonly<BuilderNode>;
+  page: Readonly<PageDocument>;
+  disabled: boolean;
+  onCreateStateAndConnect: (name: string, defaultValue: boolean) => void;
+  onUpdateProps: (nextProps: JsonObject) => void;
+  onUpdateStateBinding: (binding: BooleanStateBinding | null) => void;
+};
+
+function booleanStateOptions(page: Readonly<PageDocument>) {
+  const candidates = Object.values(page.nodes).filter(
+    (candidate) => candidate.type === "boolean-state",
+  );
+  const nameCounts = new Map<string, number>();
+  for (const candidate of candidates) {
+    nameCounts.set(
+      candidate.meta.name,
+      (nameCounts.get(candidate.meta.name) ?? 0) + 1,
+    );
+  }
+
+  return candidates.map((candidate) => ({
+    label:
+      (nameCounts.get(candidate.meta.name) ?? 0) > 1
+        ? `${candidate.meta.name} (${candidate.id})`
+        : candidate.meta.name,
+    value: candidate.id,
+  }));
+}
+
+function StateControls({
+  node,
+  page,
+  disabled,
+  onCreateStateAndConnect,
+  onUpdateProps,
+  onUpdateStateBinding,
+}: StateControlsProps) {
+  const [newStateName, setNewStateName] = useState(`${node.meta.name} visible`);
+  const [newStateDefault, setNewStateDefault] = useState(false);
+  const [visibilityDisclosure, setVisibilityDisclosure] = useState<{
+    nodeId: string;
+    expanded: boolean;
+  } | null>(null);
+  const options = booleanStateOptions(page);
+  const binding = node.stateBinding;
+  const connectedStateCandidate = binding
+    ? page.nodes[binding.stateNodeId]
+    : undefined;
+  const connectedState =
+    connectedStateCandidate?.type === "boolean-state"
+      ? connectedStateCandidate
+      : null;
+  const visibilityOptions = [
+    { label: "Show", value: "show" },
+    { label: "Hide", value: "hide" },
+  ];
+  const action =
+    node.type === "button" &&
+    (node.props.stateAction === "turn-on" ||
+      node.props.stateAction === "turn-off" ||
+      node.props.stateAction === "toggle")
+      ? node.props.stateAction
+      : "none";
+  const actionTarget =
+    node.type === "button" && typeof node.props.targetStateNodeId === "string"
+      ? node.props.targetStateNodeId
+      : "";
+  const actionTargetNode = actionTarget
+    ? page.nodes[asNodeId(actionTarget)]
+    : undefined;
+  const actionTargetAvailable = actionTargetNode?.type === "boolean-state";
+  const actionTargetUnavailable =
+    actionTarget !== "" && !actionTargetAvailable;
+  const buttonCanRunStateAction =
+    node.type === "button" &&
+    node.props.href === "" &&
+    node.props.behavior === "button";
+  const visibilityExpanded =
+    visibilityDisclosure?.nodeId === node.id
+      ? visibilityDisclosure.expanded
+      : binding !== undefined;
+
+  if (node.type === "boolean-state") {
+    return (
+      <section className="inspector-section inspector-state-panel">
+        <h3>Boolean State</h3>
+        <p className="inspector-help">
+          This component stores an On or Off value. Connect ordinary components
+          and Buttons to it from their State tab.
+        </p>
+      </section>
+    );
+  }
+
+  const visibilityFields = (
+    <>
+      <SelectField
+        disabled={disabled || (options.length === 0 && !binding)}
+        label="Boolean State"
+        onChange={(stateNodeId) => {
+          if (stateNodeId === "") {
+            onUpdateStateBinding(null);
+            return;
+          }
+          onUpdateStateBinding({
+            stateNodeId: asNodeId(stateNodeId),
+            on: binding?.on ?? "show",
+            off: binding?.off ?? "show",
+          });
+        }}
+        options={[
+          {
+            label:
+              options.length === 0
+                ? "No Boolean States on this page"
+                : "Not connected",
+            value: "",
+          },
+          ...options,
+          ...(binding && !connectedState
+            ? [
+                {
+                  label: `Unavailable (${binding.stateNodeId})`,
+                  value: binding.stateNodeId,
+                },
+              ]
+            : []),
+        ]}
+        value={binding?.stateNodeId ?? ""}
+      />
+
+      {binding ? (
+        <>
+          {!connectedState ? (
+            <p className="inspector-field-error" role="alert">
+              {connectedStateCandidate
+                ? "The connected node is not a Boolean State. Choose another state or disconnect this component."
+                : "The connected Boolean State no longer exists. Choose another state or disconnect this component."}
+            </p>
+          ) : null}
+          <div className="inspector-two-column">
+            <SelectField
+              disabled={disabled}
+              label="When On"
+              onChange={(value) =>
+                onUpdateStateBinding({
+                  ...binding,
+                  on: value as BooleanStateBinding["on"],
+                })
+              }
+              options={visibilityOptions}
+              value={binding.on}
+            />
+            <SelectField
+              disabled={disabled}
+              label="When Off"
+              onChange={(value) =>
+                onUpdateStateBinding({
+                  ...binding,
+                  off: value as BooleanStateBinding["off"],
+                })
+              }
+              options={visibilityOptions}
+              value={binding.off}
+            />
+          </div>
+        </>
+      ) : null}
+
+      {!binding || !connectedState ? (
+        <div className="state-create-card">
+          <strong>Create a new Boolean State</strong>
+          <label className="inspector-field">
+            <span>Name</span>
+            <input
+              disabled={disabled}
+              onChange={(event) => setNewStateName(event.target.value)}
+              value={newStateName}
+            />
+          </label>
+          <label className="inspector-toggle-row">
+            <input
+              checked={newStateDefault}
+              disabled={disabled}
+              onChange={(event) => setNewStateDefault(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Start visible</span>
+          </label>
+          <button
+            className="state-primary-button"
+            disabled={disabled || newStateName.trim() === ""}
+            onClick={() => onCreateStateAndConnect(newStateName, newStateDefault)}
+            type="button"
+          >
+            Create state &amp; connect
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+
+  return (
+    <>
+      {node.type === "button" ? (
+        <section className="inspector-section inspector-state-panel">
+          <h3>Button action</h3>
+          <p className="inspector-help">
+            Choose what this Button does to a Boolean State when clicked.
+          </p>
+          {!buttonCanRunStateAction ? (
+            <p className="inspector-field-error" role="alert">
+              State actions require a regular Button without a link.
+            </p>
+          ) : null}
+          <SelectField
+            disabled={disabled || !buttonCanRunStateAction}
+            label="On click"
+            onChange={(value) =>
+              onUpdateProps({
+                ...node.props,
+                stateAction: value,
+                targetStateNodeId: value === "none" ? "" : actionTarget,
+              })
+            }
+            options={[
+              { label: "No state action", value: "none" },
+              { label: "Turn On", value: "turn-on" },
+              { label: "Turn Off", value: "turn-off" },
+              { label: "Toggle", value: "toggle" },
+            ]}
+            value={action}
+          />
+          <SelectField
+            disabled={
+              disabled ||
+              !buttonCanRunStateAction ||
+              action === "none" ||
+              (options.length === 0 && !actionTargetUnavailable)
+            }
+            label="Action Boolean State"
+            onChange={(targetStateNodeId) =>
+              onUpdateProps({ ...node.props, targetStateNodeId })
+            }
+            options={[
+              {
+                label:
+                  options.length === 0
+                    ? "No Boolean States on this page"
+                    : "Select Boolean State",
+                value: "",
+              },
+              ...options,
+              ...(actionTargetUnavailable
+                ? [
+                    {
+                      label: `Unavailable (${actionTarget})`,
+                      value: actionTarget,
+                    },
+                  ]
+                : []),
+            ]}
+            value={actionTarget}
+          />
+          {action !== "none" && actionTargetUnavailable ? (
+            <p className="inspector-field-error" role="alert">
+              {actionTargetNode
+                ? "The selected action target is not a Boolean State. Choose another state or clear the selection."
+                : "The selected action Boolean State no longer exists. Choose another state or clear the selection."}
+            </p>
+          ) : null}
+          {options.length === 0 ? (
+            <p className="inspector-help">
+              First create a state from the component this Button should control.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="inspector-section inspector-state-panel">
+        <button
+          aria-expanded={visibilityExpanded}
+          aria-label={`${node.type === "button" ? "Button" : "Component"} visibility settings`}
+          className="state-disclosure-button"
+          onClick={() =>
+            setVisibilityDisclosure({
+              nodeId: node.id,
+              expanded: !visibilityExpanded,
+            })
+          }
+          type="button"
+        >
+          <span className="state-disclosure-copy">
+            <strong>
+              {node.type === "button" ? "Button visibility" : "Component visibility"}
+            </strong>
+            <small>Optional</small>
+          </span>
+          <span className="state-disclosure-status">
+            {binding
+              ? connectedState
+                ? "Connected"
+                : "Unavailable"
+              : "Always visible"}
+            <span aria-hidden="true">{visibilityExpanded ? "−" : "+"}</span>
+          </span>
+        </button>
+        {visibilityExpanded ? (
+          <>
+            <p className="inspector-help">
+              {node.type === "button"
+                ? "Connect only when this Button itself should show or hide. Leave it disconnected to keep the Button visible in both states."
+                : "Connect only when this component should show or hide. Leave it disconnected to keep the component visible in both states."}
+            </p>
+            {visibilityFields}
+            {binding ? (
+              <p className="inspector-help">
+                Keep any Button that controls this state outside components the state
+                can hide, so the control stays available.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+      </section>
+    </>
+  );
+}
+
 export function InspectorPanel({
   collapsed,
+  document,
+  page,
   node,
   parentId,
   isRoot,
@@ -1680,10 +2097,13 @@ export function InspectorPanel({
   onVisualModeChange,
   onDelete,
   onRename,
+  onCreateStateAndConnect,
   onUpdateProps,
+  onUpdateStateBinding,
   onUpdateStyles,
   onCollapsedChange,
 }: InspectorPanelProps) {
+  const [activeTab, setActiveTab] = useState<"design" | "state">("design");
   const panelRail = collapsed ? (
     <button
       aria-controls="inspector-panel-content"
@@ -1740,6 +2160,7 @@ export function InspectorPanel({
   const capabilities = new Set(definition.inspector.styles);
   const disabled = node.meta.locked;
   const propFields = definition.inspector.props as readonly PropField[];
+  const references = referencesForComponentType(node.type);
   const hasTextContent = propFields.some((field) => field.path === "text");
   const fontFamily =
     resolved.fontFamily ?? resolvedDefaults.fontFamily ?? DEFAULT_FONT_FAMILY;
@@ -1793,6 +2214,83 @@ export function InspectorPanel({
           disabled={disabled}
           field={field}
           key={`${node.id}:${field.path}:${JSON.stringify(node.props[field.path])}`}
+          nodeReference={(() => {
+            if (field.control !== "node-reference") return undefined;
+            const reference = references.find(
+              (candidate) => candidate.path === field.path,
+            );
+            if (!reference) return undefined;
+
+            const rawValue = node.props[field.path];
+            const value = typeof rawValue === "string" ? rawValue : "";
+            const targetLabel =
+              componentRegistry[reference.targetType].library.label;
+            const candidates = listNodeReferenceCandidates(
+              document,
+              page.id,
+              reference,
+            );
+            const nameCounts = new Map<string, number>();
+            for (const candidate of candidates) {
+              nameCounts.set(
+                candidate.meta.name,
+                (nameCounts.get(candidate.meta.name) ?? 0) + 1,
+              );
+            }
+            const options = [
+              { label: `Select ${targetLabel}`, value: "" },
+              ...candidates.map((candidate) => ({
+                label:
+                  (nameCounts.get(candidate.meta.name) ?? 0) > 1
+                    ? `${candidate.meta.name} (${candidate.id})`
+                    : candidate.meta.name,
+                value: candidate.id,
+              })),
+            ];
+            const resolution = resolveNodeReference(
+              document,
+              page.id,
+              value,
+              reference,
+            );
+
+            if (
+              value !== "" &&
+              !options.some((option) => option.value === value)
+            ) {
+              options.push({ label: `Unavailable (${value})`, value });
+            }
+
+            if (resolution.status === "empty") {
+              return {
+                invalid: false,
+                message: `Choose a ${targetLabel} on this page.`,
+                options,
+              };
+            }
+            if (resolution.status === "valid") {
+              return { invalid: false, options };
+            }
+            if (resolution.status === "cross-page") {
+              return {
+                invalid: true,
+                message: `The selected ${targetLabel} belongs to another page.`,
+                options,
+              };
+            }
+            if (resolution.status === "wrong-type") {
+              return {
+                invalid: true,
+                message: `The selected node is not a ${targetLabel}.`,
+                options,
+              };
+            }
+            return {
+              invalid: true,
+              message: `The selected ${targetLabel} no longer exists.`,
+              options,
+            };
+          })()}
           onCommit={(value) => {
             const nextProps = { ...node.props, [field.path]: value };
             const defaultValue = nextProps.defaultValue;
@@ -1835,6 +2333,27 @@ export function InspectorPanel({
         </div>
       </div>
 
+      <div aria-label="Inspector tabs" className="inspector-tabs" role="tablist">
+        <button
+          aria-selected={activeTab === "design"}
+          className={activeTab === "design" ? "active" : undefined}
+          onClick={() => setActiveTab("design")}
+          role="tab"
+          type="button"
+        >
+          Design
+        </button>
+        <button
+          aria-selected={activeTab === "state"}
+          className={activeTab === "state" ? "active" : undefined}
+          onClick={() => setActiveTab("state")}
+          role="tab"
+          type="button"
+        >
+          State
+        </button>
+      </div>
+
       <section className="inspector-section inspector-selection">
         <div className="inspector-section-heading"><h3>Selection</h3><span>{viewport} values</span></div>
         <dl className="node-metadata">
@@ -1867,6 +2386,8 @@ export function InspectorPanel({
         </button>
       </section>
 
+      {activeTab === "design" ? (
+        <>
       {propFields.length > 0 ? (
         hasTextContent ? (
           <section className="inspector-section inspector-content">
@@ -2082,6 +2603,18 @@ export function InspectorPanel({
           </div>
         </InspectorGroup>
       ) : null}
+        </>
+      ) : (
+        <StateControls
+          disabled={disabled}
+          key={node.id}
+          node={node}
+          onCreateStateAndConnect={onCreateStateAndConnect}
+          onUpdateProps={onUpdateProps}
+          onUpdateStateBinding={onUpdateStateBinding}
+          page={page}
+        />
+      )}
 
       {disabled ? <p className="inspector-lock-note">Unlock this component before changing its name, content, or styles.</p> : null}
       </div>

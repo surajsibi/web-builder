@@ -58,6 +58,22 @@ describe("defineComponentRegistry", () => {
 });
 
 describe("validateComponentRegistry", () => {
+  it("should reject direct-interaction metadata that is not boolean or a props predicate", () => {
+    const definition = createDefinition();
+    const invalidDefinition = {
+      ...definition,
+      editor: { directInteraction: "yes" },
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow(
+      "test.editor.directInteraction must be boolean or a props predicate",
+    );
+  });
+
   it("should reject defaults that do not pass the component props schema", () => {
     const definition = createDefinition();
     const invalidDefinition = {
@@ -131,6 +147,163 @@ describe("validateComponentRegistry", () => {
       } as unknown as RegistryInput),
     ).toThrow(
       "test.inspector.props requires a valid optionsPath for string-multi-select: label",
+    );
+  });
+
+  it("should reject node-reference controls without matching reference metadata", () => {
+    const definition = createDefinition();
+    const invalidDefinition = {
+      ...definition,
+      inspector: {
+        ...definition.inspector,
+        props: [
+          {
+            path: "label",
+            label: "Target",
+            control: "node-reference",
+          },
+        ],
+      },
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow(
+      "test.inspector.props node-reference requires reference metadata: label",
+    );
+  });
+
+  it("should reject references to component types outside the registry", () => {
+    const definition = createDefinition();
+    const invalidDefinition = {
+      ...definition,
+      references: [
+        {
+          path: "label",
+          targetType: "missing",
+          scope: "page",
+          onDuplicate: "remap-if-target-cloned",
+        },
+      ],
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow("test.references references unknown target type: missing");
+  });
+
+  it("should reject node references to unknown prop paths", () => {
+    const definition = createDefinition();
+    const invalidDefinition = {
+      ...definition,
+      references: [
+        {
+          path: "missing",
+          targetType: "test",
+          scope: "page",
+          onDuplicate: "remap-if-target-cloned",
+        },
+      ],
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow("test.references references unknown prop path: missing");
+  });
+
+  it("should reject node references stored in non-string props", () => {
+    const definition = createDefinition();
+    const invalidDefinition = {
+      ...definition,
+      defaults: {
+        ...definition.defaults,
+        props: { label: 42 },
+      },
+      propsSchema: z.object({ label: z.number() }).strict(),
+      references: [
+        {
+          path: "label",
+          targetType: "test",
+          scope: "page",
+          onDuplicate: "remap-if-target-cloned",
+        },
+      ],
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow("test.references path must have a string default: label");
+  });
+
+  it("should reject duplicate node-reference prop paths", () => {
+    const definition = createDefinition();
+    const reference = {
+      path: "label",
+      targetType: "test",
+      scope: "page",
+      onDuplicate: "remap-if-target-cloned",
+    };
+    const invalidDefinition = {
+      ...definition,
+      references: [reference, reference],
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow("test.references contains duplicate prop path: label");
+  });
+
+  it("should reject unsupported node-reference scopes", () => {
+    const definition = createDefinition();
+    const invalidDefinition = {
+      ...definition,
+      references: [
+        {
+          path: "label",
+          targetType: "test",
+          scope: "project",
+          onDuplicate: "remap-if-target-cloned",
+        },
+      ],
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow("test.references contains unsupported scope: project");
+  });
+
+  it("should reject unsupported node-reference duplication policies", () => {
+    const definition = createDefinition();
+    const invalidDefinition = {
+      ...definition,
+      references: [
+        {
+          path: "label",
+          targetType: "test",
+          scope: "page",
+          onDuplicate: "preserve",
+        },
+      ],
+    };
+
+    expect(() =>
+      validateComponentRegistry({
+        test: invalidDefinition,
+      } as unknown as RegistryInput),
+    ).toThrow(
+      "test.references contains unsupported duplication policy: preserve",
     );
   });
 

@@ -59,7 +59,14 @@ type BlockLibraryEntry = LibraryEntryBase & {
 
 type LibraryEntry = ComponentLibraryEntry | BlockLibraryEntry;
 
-const COMPONENT_TYPES = Object.keys(componentRegistry) as ComponentType[];
+type InsertableComponentType = Exclude<ComponentType, "boolean-state">;
+
+const COMPONENT_TYPES = (
+  Object.keys(componentRegistry) as ComponentType[]
+).filter(
+  (componentType): componentType is InsertableComponentType =>
+    componentType !== "boolean-state",
+);
 const BUTTON_PRESET_TYPES = new Set<BlockType>(
   BUTTON_PRESET_CATALOG.map((preset) => preset.blockType as BlockType),
 );
@@ -68,7 +75,7 @@ const INPUT_PRESET_TYPES = new Set<BlockType>(
 );
 
 const COMPONENT_FAMILY: Record<
-  ComponentType,
+  InsertableComponentType,
   Exclude<LibraryFamily, "all" | "favorites" | "blocks">
 > = {
   section: "layout",

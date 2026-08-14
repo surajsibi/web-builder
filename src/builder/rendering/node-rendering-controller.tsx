@@ -5,13 +5,17 @@ import type {
   RefCallback,
 } from "react";
 
+import { useBooleanStateRuntime } from "@/builder/interaction/boolean-state-runtime";
 import type { JsonObject } from "@/builder/model/json";
 import type { NodeId } from "@/builder/model/ids";
 import type {
   BuilderNode,
   PageDocument,
 } from "@/builder/model/project-document";
-import { componentRegistry } from "@/builder/registry/component-registry";
+import {
+  componentRegistry,
+  componentUsesDirectInteraction,
+} from "@/builder/registry/component-registry";
 import type {
   ComponentRendererRuntime,
   RendererBaseProps,
@@ -57,18 +61,49 @@ export function NodeRenderingController({
   renderEmptyContainer,
   renderChild,
 }: NodeRenderingControllerProps) {
+  const stateRuntime = useBooleanStateRuntime();
   const node = page.nodes[nodeId];
   const definition = componentRegistry[node.type];
+  const stateBinding = node.stateBinding;
+  const stateAvailable =
+    stateBinding === undefined || stateRuntime?.has(stateBinding.stateNodeId) === true;
+  const stateValue =
+    stateBinding && stateAvailable
+      ? stateRuntime?.read(stateBinding.stateNodeId) ?? false
+      : false;
+  const stateVisibility = stateBinding
+    ? stateValue
+      ? stateBinding.on
+      : stateBinding.off
+    : "show";
+  const stateVisible = stateAvailable && stateVisibility === "show";
+
+  if (runtime?.mode !== "editor" && !stateVisible) return null;
+
   const Renderer = definition.render as ReactComponentType<RuntimeRendererProps>;
   const style = {
     ...compileStyleValues(resolveResponsiveStyles(node.styles, viewport)),
     ...getPreviewStyle?.(node),
   };
+  const rootAttributes = {
+    ...getRootAttributes?.(node),
+    ...(runtime?.mode === "editor" && stateBinding
+      ? {
+          "data-state-visibility": stateVisible ? "visible" : "inactive",
+          "data-state-connection-status": stateAvailable
+            ? "resolved"
+            : "unresolved",
+        }
+      : {}),
+    ...(runtime?.mode === "editor" && componentUsesDirectInteraction(node)
+      ? { "data-editor-direct-interaction": "true" as const }
+      : {}),
+  };
   const rendererProps = {
     props: node.props,
     style,
     className: getClassName?.(node),
-    rootAttributes: getRootAttributes?.(node),
+    rootAttributes,
     rootRef: registerRoot
       ? (element: HTMLElement | null) => registerRoot(node.id, element)
       : undefined,

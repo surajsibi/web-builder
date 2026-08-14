@@ -35,6 +35,16 @@ export function ContainerIcon() {
   );
 }
 
+export function BooleanStateIcon() {
+  return (
+    <ComponentIcon>
+      <circle cx="6" cy="10" fill="none" r="3" stroke="currentColor" />
+      <circle cx="14" cy="10" fill="none" r="3" stroke="currentColor" />
+      <path d="M9 10h2" stroke="currentColor" strokeLinecap="round" />
+    </ComponentIcon>
+  );
+}
+
 export function HeadingIcon() {
   return (
     <ComponentIcon>
