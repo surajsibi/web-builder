@@ -38,7 +38,6 @@ import {
   type HistoryActionResult,
   type SessionActionResult,
 } from "@/builder/store/builder-store";
-import { editorStore } from "@/builder/store/editor-store";
 import {
   createPreviewHref,
   createPreviewSnapshotId,
@@ -69,7 +68,9 @@ import {
 
 type EditorShellProps = {
   previewStorage?: PreviewSnapshotWriter;
-  store?: StoreApi<BuilderStoreState>;
+  store: StoreApi<BuilderStoreState>;
+  onDashboard?: () => void;
+  onSaveNow?: () => void;
 };
 
 const EDITOR_PANEL_PREFERENCES_STORAGE_KEY =
@@ -245,7 +246,9 @@ function usesHeadingLevelPreset(
 
 export function EditorShell({
   previewStorage,
-  store = editorStore,
+  store,
+  onDashboard,
+  onSaveNow,
 }: EditorShellProps) {
   const state = useStore(
     store,
@@ -260,6 +263,8 @@ export function EditorShell({
       dragSession: current.dragSession,
       history: current.history,
       parentById: current.parentById,
+      persistenceMessage: current.persistenceMessage,
+      persistenceStatus: current.persistenceStatus,
       redo: current.redo,
       selectedNodeId: current.selectedNodeId,
       selectNode: current.selectNode,
@@ -781,6 +786,7 @@ export function EditorShell({
         canRedo={state.history.future.length > 0}
         canUndo={state.history.past.length > 0}
         dirty={state.dirty}
+        onDashboard={onDashboard}
         onPreviewOpen={(event) => {
           try {
             storePreviewSnapshot(
@@ -807,6 +813,7 @@ export function EditorShell({
           resetVisualEditing();
           setAnnouncement(actionMessage(state.undo(), "Undid the last change."));
         }}
+        onSaveNow={onSaveNow}
         onViewportChange={(viewport) => {
           resetVisualEditing();
           setAnnouncement(
@@ -818,6 +825,8 @@ export function EditorShell({
         }}
         pages={document.pageOrder.map((pageId) => document.pages[pageId])}
         previewHref={createPreviewHref(previewSnapshotId)}
+        persistenceMessage={state.persistenceMessage}
+        persistenceStatus={state.persistenceStatus}
         projectName={document.name}
       />
 

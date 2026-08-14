@@ -546,4 +546,92 @@ describe("createBuilderStore", () => {
     expect(store.getState().commitId).toBe(0);
     expect(store.getState().dirty).toBe(false);
   });
+
+  it("should mark a captured commit saved without entering document history", () => {
+    const store = createStore();
+    store.getState().dispatchEditorCommand({
+      kind: "page.rename",
+      pageId: asPageId("page-home"),
+      name: "Landing",
+    });
+    const beforeHistory = store.getState().history;
+    const projectId = store.getState().document?.projectId;
+    if (!projectId) throw new Error("Expected hydrated project ID");
+
+    store.getState().markSaveStarted();
+    store.getState().markSaveSucceeded({
+      capturedCommitId: 1,
+      receipt: {
+        projectId,
+        revision: 1,
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      },
+    });
+
+    expect(store.getState()).toMatchObject({
+      dirty: false,
+      persistenceStatus: "saved",
+      persistenceMessage: null,
+      commitId: 1,
+      document: {
+        revision: 1,
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      },
+    });
+    expect(store.getState().history).toBe(beforeHistory);
+  });
+
+  it("should keep newer edits dirty when an earlier save completes", () => {
+    const store = createStore();
+    store.getState().dispatchEditorCommand({
+      kind: "page.rename",
+      pageId: asPageId("page-home"),
+      name: "First edit",
+    });
+    store.getState().markSaveStarted();
+    store.getState().dispatchEditorCommand({
+      kind: "page.rename",
+      pageId: asPageId("page-home"),
+      name: "Newer edit",
+    });
+    const projectId = store.getState().document?.projectId;
+    if (!projectId) throw new Error("Expected hydrated project ID");
+
+    store.getState().markSaveSucceeded({
+      capturedCommitId: 1,
+      receipt: {
+        projectId,
+        revision: 1,
+        updatedAt: "2026-08-14T12:00:00.000Z",
+      },
+    });
+
+    expect(store.getState()).toMatchObject({
+      dirty: true,
+      persistenceStatus: "dirty",
+      commitId: 2,
+      document: { revision: 1 },
+    });
+  });
+
+  it("should keep revision conflicts blocked after later editor commands", () => {
+    const store = createStore();
+    store.getState().markSaveFailed({
+      status: "conflict",
+      message: "Project changed elsewhere",
+    });
+
+    store.getState().dispatchEditorCommand({
+      kind: "page.rename",
+      pageId: asPageId("page-home"),
+      name: "Local edit",
+    });
+
+    expect(store.getState()).toMatchObject({
+      dirty: true,
+      persistenceStatus: "conflict",
+      persistenceMessage: "Project changed elsewhere",
+      commitId: 1,
+    });
+  });
 });

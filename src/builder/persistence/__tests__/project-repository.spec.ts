@@ -1,0 +1,174 @@
+import { describe, expect, it } from "vitest";
+
+import { projectContent } from "@/builder/persistence/project-repository";
+import { MemoryProjectRepository } from "@/builder/testing/memory-project-repository";
+
+function createRepository() {
+  let id = 0;
+  let time = 0;
+  return new MemoryProjectRepository({
+    idGenerator: (prefix) => `${prefix}-${++id}`,
+    now: () => `2026-08-14T10:${String(time++).padStart(2, "0")}:00.000Z`,
+  });
+}
+
+describe("MemoryProjectRepository", () => {
+  it("should create, list, and load a project", async () => {
+    const repository = createRepository();
+
+    const created = await repository.create({ name: "  Commerce Site  " });
+    const listed = await repository.list();
+    const loaded = await repository.load(created.projectId);
+
+    expect(created.name).toBe("Commerce Site");
+    expect(listed).toEqual({
+      items: [
+        {
+          availability: "ready",
+          summary: expect.objectContaining({
+            projectId: created.projectId,
+            name: "Commerce Site",
+            revision: 0,
+            pageCount: 1,
+          }),
+        },
+      ],
+      nextCursor: null,
+    });
+    expect(loaded).toEqual(created);
+    expect(loaded).not.toBe(created);
+  });
+
+  it("should increment revisions and reject a stale save", async () => {
+    const repository = createRepository();
+    const project = await repository.create({ name: "Commerce Site" });
+
+    const receipt = await repository.save(project.projectId, {
+      expectedRevision: 0,
+      content: { ...projectContent(project), name: "Published Store" },
+    });
+
+    expect(receipt).toMatchObject({ revision: 1 });
+    await expect(
+      repository.save(project.projectId, {
+        expectedRevision: 0,
+        content: projectContent(project),
+      }),
+    ).rejects.toMatchObject({ code: "revision-conflict", currentRevision: 1 });
+    await expect(repository.load(project.projectId)).resolves.toMatchObject({
+      name: "Published Store",
+      revision: 1,
+    });
+  });
+
+  it("should rename and duplicate without sharing project identity", async () => {
+    const repository = createRepository();
+    const project = await repository.create({ name: "Commerce Site" });
+
+    await repository.rename(project.projectId, {
+      name: "Storefront",
+      expectedRevision: project.revision,
+    });
+    const duplicate = await repository.duplicate(project.projectId);
+
+    expect(await repository.load(project.projectId)).toMatchObject({
+      name: "Storefront",
+      revision: 1,
+    });
+    expect(duplicate).toMatchObject({ name: "Storefront Copy", revision: 0 });
+    expect(duplicate.projectId).not.toBe(project.projectId);
+  });
+
+  it("should keep generated duplicate names within the dashboard name limit", async () => {
+    const repository = createRepository();
+    const project = await repository.create({ name: "x".repeat(120) });
+
+    const duplicate = await repository.duplicate(project.projectId);
+
+    expect(duplicate.name).toHaveLength(120);
+    expect(duplicate.name).toMatch(/ Copy$/);
+  });
+
+  it("should isolate a corrupt record while keeping valid projects available", async () => {
+    const repository = createRepository();
+    const valid = await repository.create({ name: "Healthy Store" });
+    repository.putRaw("damaged-record", {
+      storageKey: "damaged-record",
+      document: {
+        name: "Damaged Store",
+        updatedAt: "2026-08-13T09:00:00.000Z",
+        schemaVersion: 2,
+      },
+      lastOpenedAt: null,
+    });
+
+    const result = await repository.list();
+
+    expect(result.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          availability: "ready",
+          summary: expect.objectContaining({ projectId: valid.projectId }),
+        }),
+        {
+          availability: "unavailable",
+          summary: {
+            recoveryId: "damaged-record",
+            displayName: "Damaged Store",
+            lastKnownUpdatedAt: "2026-08-13T09:00:00.000Z",
+            reason: "invalid-project",
+          },
+        },
+      ]),
+    );
+    await expect(repository.load("damaged-record")).rejects.toMatchObject({
+      code: "invalid-project",
+    });
+  });
+
+  it("should classify a future document version separately from corruption", async () => {
+    const repository = createRepository();
+    repository.putRaw("future-record", {
+      name: "Future Store",
+      schemaVersion: 999,
+      updatedAt: "2026-08-14T09:00:00.000Z",
+    });
+
+    const result = await repository.list();
+
+    expect(result.items).toEqual([
+      {
+        availability: "unavailable",
+        summary: {
+          recoveryId: "future-record",
+          displayName: "Future Store",
+          lastKnownUpdatedAt: "2026-08-14T09:00:00.000Z",
+          reason: "unsupported-version",
+        },
+      },
+    ]);
+  });
+
+  it("should hide unsafe recovery metadata behind bounded fallbacks", async () => {
+    const repository = createRepository();
+    repository.putRaw("unsafe-record", {
+      name: `Unsafe\u0000${"x".repeat(150)}`,
+      updatedAt: "not-a-date",
+      schemaVersion: 2,
+    });
+
+    const result = await repository.list();
+
+    expect(result.items).toEqual([
+      {
+        availability: "unavailable",
+        summary: {
+          recoveryId: "unsafe-record",
+          displayName: "Unavailable local project",
+          lastKnownUpdatedAt: null,
+          reason: "invalid-project",
+        },
+      },
+    ]);
+  });
+});

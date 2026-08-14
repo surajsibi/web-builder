@@ -14,7 +14,6 @@ import { asNodeId, asPageId } from "@/builder/model/ids";
 import type { ProjectDocument } from "@/builder/model/project-document";
 import { createNewProject } from "@/builder/project/factory";
 import { createBuilderStore } from "@/builder/store/builder-store";
-import { editorStore } from "@/builder/store/editor-store";
 import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
 import { createTestNode } from "@/builder/testing/project-fixtures";
 import { takePreviewSnapshot } from "@/builder/preview/preview-snapshot";
@@ -86,9 +85,9 @@ describe("EditorShell", () => {
   });
 
   it("should render the intended default project name in the toolbar", () => {
-    render(<EditorShell store={editorStore} />);
+    render(<EditorShell store={createEditorTestStore()} />);
 
-    expect(screen.getByText("Make It Yours")).toBeInTheDocument();
+    expect(screen.getByText("Editor Test Project")).toBeInTheDocument();
   });
 
   it("should render the toolbar, component library, empty canvas, and empty Inspector", () => {
