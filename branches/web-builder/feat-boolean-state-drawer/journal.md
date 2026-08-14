@@ -5,7 +5,7 @@ scope: Execution state for web-builder feat/boolean-state-drawer
 authority: Selected repository execution-state record for this branch and feature
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after generic Boolean State connection implementation and verification on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after draft PR #8 opened for the verified generic Boolean State connection implementation on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / feat/boolean-state-drawer
@@ -14,7 +14,7 @@ freshness: Updated after generic Boolean State connection implementation and ver
 `workspaces/navbar/`
 
 **Current step:**
-Finalize the verified Boolean State library-removal, simplified Button State tab, and opt-in visibility follow-ups through the user-authorized commit and push on `feat/boolean-state-drawer`. No pull request was requested.
+Review and merge [draft PR #8](https://github.com/surajsibi/web-builder/pull/8), which targets `main` from `feat/boolean-state-drawer`.
 
 **Approach:**
 Replace special-purpose interaction components with one nonvisual Boolean State, a shared node-level visibility connection, and state actions on the ordinary Button. Preserve compatible saved work through a bounded schema migration and remove Drawer-only runtime and authoring infrastructure.
@@ -37,6 +37,7 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 - Kept new action Buttons unbound and visible by default; Show/Hide fields appear only after a deliberate visibility connection.
 - Applied the same optional collapsed Always visible disclosure to every unbound visual component while automatically opening existing bindings.
 - Corrected inline state creation so **Start visible** is unchecked, the Boolean State begins Off, and both newly created and newly selected state bindings default to On → Show and Off → Show.
+- Opened [draft PR #8](https://github.com/surajsibi/web-builder/pull/8) from `feat/boolean-state-drawer` into `main`.
 
 **Verification:**
 
@@ -52,7 +53,8 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 
 **Remaining:**
 
+- Review and merge draft PR #8.
 - Design conditional styling, variants, and authored enter/exit animations as separate follow-up consumers of the same Boolean State.
 
 **Last left off:**
-2026-08-14 — the Component Library, Button State-tab, and generic opt-in visibility follow-ups are implemented and browser-verified after commit `59f0c08`; the user authorized the complete follow-up for immediate commit and push without opening a pull request.
+2026-08-14 — draft PR #8 is open from `feat/boolean-state-drawer` into `main`; the branch implementation and verification are complete, and PR review is the next action.

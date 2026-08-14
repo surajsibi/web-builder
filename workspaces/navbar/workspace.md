@@ -5,7 +5,7 @@ scope: Web builder generic Boolean State connections, reusable block infrastruct
 authority: Selected execution-state authority for the navbar feature; code and tests remain authoritative for implemented behavior
 owner: Unassigned; accountable project owner required before promotion from draft
 lifecycle: draft
-freshness: Updated after the generic Boolean State connection implementation, migration, automated verification, and real-browser authoring QA completed on 2026-08-14; invalidated by a related component, interaction, template, layout, verification, or review-status change
+freshness: Updated after draft PR #8 opened for the verified generic Boolean State connection implementation on 2026-08-14; invalidated by a related component, interaction, template, layout, verification, or review-status change
 ---
 
 # Navbar block workspace
@@ -20,7 +20,7 @@ freshness: Updated after the generic Boolean State connection implementation, mi
 
 **Active branches:** `web-builder`: `feat/boolean-state-drawer`
 
-**Current milestone:** The library-removal, simplified Button State tab, and opt-in visibility follow-ups are implemented and verified after local commit `59f0c08`. The user authorized the complete follow-up for an immediate commit and push on `feat/boolean-state-drawer`; no pull request was requested.
+**Current milestone:** The library-removal, simplified Button State tab, and opt-in visibility follow-ups are implemented, verified, committed, and pushed on `feat/boolean-state-drawer`. [Draft PR #8](https://github.com/surajsibi/web-builder/pull/8) targets `main` for review.
 
 **Feature summary:** Extend the Component Library with reusable Blocks that materialize validated component subtrees as one undoable document transaction and a reusable Image primitive in the Media family. Image accepts safe root-relative or HTTPS sources, including SVG files, explicit alternative text, an optional safe destination, protected new-tab behavior, and authored fit. The original Navbar's Saturn Home mark is now a linked Image node, while the Commerce Navbar's bag mark is an editable decorative Image beside the existing Brandname link; search, menu, chevron, and action icons remain decorative surfaces. Both Navbar templates retain their 1232px rails, full-width commerce row surfaces, template-backed thumbnails, and responsive All category mega menu. File uploads, an asset library, real commerce/search wiring, location selection, the More dropdown, persistence, publishing, and additional blocks remain outside scope.
 
