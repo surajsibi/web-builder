@@ -37,20 +37,24 @@ The component does not need a special-purpose interaction type.
 
 ### 2. Create and connect the Boolean State
 
-In **State > Visibility connection**:
+In the **State** tab:
 
-1. Enter a clear name such as **Menu open**.
-2. Leave **Start On** unchecked when the component should begin hidden.
-3. Select **Create state & connect**.
+1. Expand **Component visibility**, which starts collapsed as **Always visible**.
+2. Enter a clear name such as **Menu open**.
+3. Leave **Start visible** unchecked so the Boolean State begins Off.
+4. Select **Create state & connect**.
+5. For this menu example, change **When Off** from **Show** to **Hide**.
 
 This is one undoable operation: Canvas Studio creates the nonvisual Boolean State and connects the selected component together.
 
-The default visibility mapping is:
+Every new connection initially keeps the component visible while the author chooses its behavior:
 
 | State value | Component behavior |
 | --- | --- |
 | **On** | **Show** |
-| **Off** | **Hide** |
+| **Off** | **Show** |
+
+The menu example changes **When Off** to **Hide**, producing the On → Show and Off → Hide behavior in the diagram above.
 
 The state is nonvisual, so it appears in **Layers** but does not add a box to the Canvas or Preview.
 
@@ -59,10 +63,10 @@ The state is nonvisual, so it appears in **Layers** but does not add a box to th
 1. Click empty Canvas space so the controlled component is no longer the insertion parent.
 2. Add an ordinary **Button** outside the component that can become hidden.
 3. Select the Button and open its **State** tab.
-4. Under **Button state action**, set **On click** to **Toggle**.
+4. Under **Button action**, set **On click** to **Toggle**.
 5. Set **Action Boolean State** to **Menu open**.
 
-Keeping the trigger outside the hidden component ensures the Button remains available when the state is Off.
+The separate **Button visibility** section remains collapsed as **Always visible**. Do not connect it for a normal Toggle button. Expand it only when the Button itself should show or hide based on state. Keeping the trigger outside the hidden component ensures the Button remains available when the state is Off.
 
 ### 4. Test the result
 
@@ -90,8 +94,9 @@ For every additional component:
 
 1. Select it.
 2. Open **State**.
-3. Choose **Menu open** from **Visibility connection > Boolean State**.
-4. Choose its **When On** and **When Off** behavior.
+3. Expand **Component visibility**.
+4. Choose **Menu open** from **Boolean State**.
+5. Choose its **When On** and **When Off** behavior.
 
 Examples include showing a menu and backdrop together, hiding page content while a notice is active, or switching between two authored components.
 
@@ -104,8 +109,8 @@ To switch between two components, use opposite mappings:
 
 ## Disconnect or repair a connection
 
-- To disconnect a component, choose **Not connected** under **Visibility connection**.
-- To stop a Button action, choose **No state action** under **Button state action**.
+- To disconnect a component, expand **Component visibility** and choose **Not connected**.
+- To stop a Button action, choose **No state action** under **Button action**.
 - If a referenced state was deleted, the State tab reports it as unavailable. Choose another state or disconnect the component.
 - Connections are page-scoped; a component cannot target a state on another page.
 
@@ -125,6 +130,7 @@ Those behaviors are intentionally not hidden inside the current visibility setti
 ## Final checklist
 
 - [ ] The controlled component uses a clearly named Boolean State.
+- [ ] **Start visible** is unchecked unless the Boolean State itself should begin On.
 - [ ] **When On** and **When Off** match the intended visibility.
 - [ ] The trigger is an ordinary Button with Turn On, Turn Off, or Toggle.
 - [ ] A trigger needed while content is hidden sits outside that hidden content.

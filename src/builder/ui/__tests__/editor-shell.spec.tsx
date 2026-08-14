@@ -325,6 +325,9 @@ describe("EditorShell", () => {
     fireEvent.click(screen.getByRole("button", { name: /Layout/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add Container" }));
     fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Component visibility settings" }),
+    );
 
     const historyBeforeConnection = store.getState().history.past.length;
     const stateName = screen.getByRole("textbox", { name: "Name" });
@@ -346,7 +349,7 @@ describe("EditorShell", () => {
     expect(connectedContainer.stateBinding).toEqual({
       stateNodeId: state.id,
       on: "show",
-      off: "hide",
+      off: "show",
     });
     expect(store.getState().history.past).toHaveLength(
       historyBeforeConnection + 1,
@@ -367,12 +370,25 @@ describe("EditorShell", () => {
 
     act(() => {
       store.getState().redo();
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "When Off" }), {
+      target: { value: "hide" },
+    });
+    act(() => {
       store.getState().clearSelection();
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Components" }));
     fireEvent.click(screen.getByRole("button", { name: /Buttons/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add Button" }));
+
+    expect(
+      screen.getByRole("button", { name: "Button visibility settings" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Always visible")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Boolean State" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByRole("combobox", { name: "On click" }), {
       target: { value: "toggle" },
@@ -386,14 +402,14 @@ describe("EditorShell", () => {
       ".canvas-node[data-state-visibility]",
     );
     expect(connectedElement).toHaveAttribute("data-state-visibility", "inactive");
-    expect(
-      Object.values(
-        store.getState().document!.pages[asPageId("page-editor-test")].nodes,
-      ).find((node) => node.type === "button")?.props,
-    ).toMatchObject({
+    const actionButton = Object.values(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes,
+    ).find((node) => node.type === "button")!;
+    expect(actionButton.props).toMatchObject({
       targetStateNodeId: state.id,
       stateAction: "toggle",
     });
+    expect(actionButton.stateBinding).toBeUndefined();
 
     const historyBeforeRuntimeAction = store.getState().history.past.length;
     const revisionBeforeRuntimeAction = store.getState().document?.revision;
@@ -411,6 +427,131 @@ describe("EditorShell", () => {
     expect(store.getState().document?.revision).toBe(revisionBeforeRuntimeAction);
   });
 
+  it("should keep a new visual component always visible until optional visibility is expanded", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Layout/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+
+    const visibilitySettings = screen.getByRole("button", {
+      name: "Component visibility settings",
+    });
+    expect(visibilitySettings).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Always visible")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Boolean State" }),
+    ).not.toBeInTheDocument();
+    expect(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-editor-1")
+      ].stateBinding,
+    ).toBeUndefined();
+  });
+
+  it("should create an Off visibility state that shows the component by default", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Layout/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    const visibilitySettings = screen.getByRole("button", {
+      name: "Component visibility settings",
+    });
+    fireEvent.click(visibilitySettings);
+
+    expect(visibilitySettings).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("checkbox", { name: "Start visible" }),
+    ).not.toBeChecked();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create state & connect" }),
+    );
+
+    const page = store.getState().document!.pages[asPageId("page-editor-test")];
+    const state = Object.values(page.nodes).find(
+      (node) => node.type === "boolean-state",
+    )!;
+    expect(state.props.defaultValue).toBe(false);
+    expect(page.nodes[asNodeId("node-editor-1")].stateBinding).toEqual({
+      stateNodeId: state.id,
+      on: "show",
+      off: "show",
+    });
+    expect(
+      document.querySelector(".canvas-node[data-state-visibility]"),
+    ).toHaveAttribute("data-state-visibility", "visible");
+  });
+
+  it("should connect an existing Boolean State with visible mappings by default", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Layout/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Section" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Component visibility settings" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create state & connect" }),
+    );
+    const state = Object.values(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes,
+    ).find((node) => node.type === "boolean-state")!;
+
+    fireEvent.click(screen.getByRole("button", { name: /Typography/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Text" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Component visibility settings" }),
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Boolean State" }), {
+      target: { value: state.id },
+    });
+
+    const textNode = Object.values(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes,
+    ).find((node) => node.type === "text")!;
+    expect(textNode.stateBinding).toEqual({
+      stateNodeId: state.id,
+      on: "show",
+      off: "show",
+    });
+  });
+
+  it("should reveal Button visibility controls only when the optional section is expanded", () => {
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Buttons/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Button" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+
+    const visibilitySettings = screen.getByRole("button", {
+      name: "Button visibility settings",
+    });
+    expect(screen.getByRole("heading", { name: "Button action" })).toBeInTheDocument();
+    expect(visibilitySettings).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("combobox", { name: "Boolean State" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(visibilitySettings);
+
+    expect(visibilitySettings).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("combobox", { name: "Boolean State" }),
+    ).toBeDisabled();
+    expect(
+      Object.values(
+        store.getState().document!.pages[asPageId("page-editor-test")].nodes,
+      ).find((node) => node.type === "button")?.stateBinding,
+    ).toBeUndefined();
+  });
+
   it("should explain and repair a connection after its Boolean State is deleted", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);
@@ -418,6 +559,9 @@ describe("EditorShell", () => {
     fireEvent.click(screen.getByRole("button", { name: /Layout/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add Container" }));
     fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Component visibility settings" }),
+    );
     fireEvent.change(screen.getByRole("textbox", { name: "Name" }), {
       target: { value: "Original state" },
     });
@@ -440,27 +584,16 @@ describe("EditorShell", () => {
       "The connected Boolean State no longer exists.",
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "Components" }));
-    fireEvent.click(screen.getByRole("button", { name: /Interactions/ }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Add Boolean State" }),
+    fireEvent.change(
+      screen.getByRole("textbox", { name: /^Name$/ }),
+      { target: { value: "Replacement state" } },
     );
-    const replacementName = screen.getByRole("textbox", {
-      name: "Component name",
-    });
-    fireEvent.change(replacementName, { target: { value: "Replacement state" } });
-    fireEvent.blur(replacementName);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create state & connect" }),
+    );
     const replacementState = Object.values(
       store.getState().document!.pages[asPageId("page-editor-test")].nodes,
     ).find((node) => node.type === "boolean-state")!;
-
-    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "Select Container 1" }),
-    );
-    fireEvent.change(screen.getByRole("combobox", { name: "Boolean State" }), {
-      target: { value: replacementState.id },
-    });
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(

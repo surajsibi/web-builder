@@ -12,10 +12,13 @@ freshness: Updated after generic Boolean State connection implementation and ver
 
 ## Verified repository differences
 
-- The Component Library contains 27 entries and exposes Boolean State as the only Interactions component.
+- The Component Library contains 26 entries. Boolean State and the now-empty Interactions family are omitted because state creation belongs to the State Inspector tab.
 - Any ordinary visual node may store a shared page-scoped visibility binding with independent On and Off Show/Hide behavior.
 - The Inspector has Design and State tabs. State can atomically create and connect a Boolean State, connect an existing state, invert behavior, disconnect, and diagnose an unavailable target.
+- Every unbound visual component presents optional visibility as a collapsed Always visible disclosure. Existing bindings open automatically. A newly created Boolean State starts Off with unchecked **Start visible**, and a new binding defaults to On → Show and Off → Show.
+- If a connected state is deleted, the same State tab can create and connect a replacement without a Component Library fallback.
 - Ordinary unlinked, non-submit Buttons can Turn On, Turn Off, or Toggle a page-local Boolean State. The Button renderer uses native pointer and keyboard activation in Editor and Preview.
+- The Button State tab presents Button action first. Optional Button visibility defaults to a collapsed Always visible disclosure and exposes Show/Hide mapping only after deliberate connection.
 - One Boolean State may control multiple components. Runtime values remain in the page rendering provider and never enter the document, history, revision, autosave, or Preview snapshot.
 - Duplication remaps a state binding or Button action when its target is cloned in the same transaction and preserves a valid external target otherwise.
 - Project schema version 2 migrates the former State Action, Conditional Content, Drawer Trigger, Drawer Panel, and Drawer Close nodes into normal Buttons and Containers with shared bindings and actions.
@@ -27,6 +30,8 @@ freshness: Updated after generic Boolean State connection implementation and ver
 - `pnpm typecheck`, `pnpm lint`, and `pnpm build` pass.
 - Real-browser Editor QA verifies create-and-connect, readable targets, inactive authoring, a root-level ordinary Button Toggle action, pointer activation, and keyboard activation.
 - Browser console review found only the development hydration warning caused by Chrome's external `cz-shortcut-listen` body attribute.
+- The complete working tree passes all 32 test files and 443 tests. The focused Editor suite passes 52 tests, and TypeScript and full ESLint pass.
+- Real-browser Section QA verifies collapsed Always visible status, unchecked **Start visible**, and a connected On → Show / Off → Show Section that remains visible while its state is Off.
 
 ## Constraints
 

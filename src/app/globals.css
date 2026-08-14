@@ -2075,6 +2075,46 @@ textarea:focus-visible {
   margin: 0;
 }
 
+.state-disclosure-button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  display: flex;
+  font: inherit;
+  justify-content: space-between;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+}
+
+.state-disclosure-copy {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.state-disclosure-copy strong {
+  font-size: 0.72rem;
+}
+
+.state-disclosure-copy small,
+.state-disclosure-status {
+  color: var(--muted);
+  font-size: 0.62rem;
+}
+
+.state-disclosure-status {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.state-disclosure-status > span {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
 .state-create-card {
   background: #f8f7ff;
   border: 1px solid #dcd7ff;

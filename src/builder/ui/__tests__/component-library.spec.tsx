@@ -217,22 +217,33 @@ describe("ComponentLibrary", () => {
     expect(screen.getByRole("button", { name: "Add Label" })).toBeInTheDocument();
   });
 
-  it("should keep only Boolean State in the Interactions family", () => {
+  it("should keep nonvisual Boolean State out of the Component Library", () => {
     renderComponentLibrary();
     const familyNavigation = screen.getByRole("navigation", {
       name: "Component families",
     });
 
-    fireEvent.click(
-      within(familyNavigation).getByRole("button", {
-        name: "Interactions (1)",
+    expect(
+      within(familyNavigation).queryByRole("button", {
+        name: /Interactions/,
       }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add Boolean State" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Search components" }),
+      { target: { value: "boolean" } },
     );
 
     expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
     expect(
-      screen.getByRole("button", { name: "Add Boolean State" }),
+      screen.getByRole("button", { name: "Add Checkbox" }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add Boolean State" }),
+    ).not.toBeInTheDocument();
   });
 
   it("should collect every prebuilt Navbar block in a dedicated Navbar section", () => {
@@ -391,14 +402,7 @@ describe("ComponentLibrary", () => {
         expect(
           screen.getByRole("button", { name: "Add Checkbox" }),
         ).toBeInTheDocument();
-        expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(
-          query === "boolean" ? 2 : 1,
-        );
-        if (query === "boolean") {
-          expect(
-            screen.getByRole("button", { name: "Add Boolean State" }),
-          ).toBeInTheDocument();
-        }
+        expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
       },
     );
 

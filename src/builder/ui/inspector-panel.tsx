@@ -1751,6 +1751,10 @@ function StateControls({
 }: StateControlsProps) {
   const [newStateName, setNewStateName] = useState(`${node.meta.name} visible`);
   const [newStateDefault, setNewStateDefault] = useState(false);
+  const [visibilityDisclosure, setVisibilityDisclosure] = useState<{
+    nodeId: string;
+    expanded: boolean;
+  } | null>(null);
   const options = booleanStateOptions(page);
   const binding = node.stateBinding;
   const connectedState = binding
@@ -1775,6 +1779,10 @@ function StateControls({
     node.type === "button" &&
     node.props.href === "" &&
     node.props.behavior === "button";
+  const visibilityExpanded =
+    visibilityDisclosure?.nodeId === node.id
+      ? visibilityDisclosure.expanded
+      : binding !== undefined;
 
   if (node.type === "boolean-state") {
     return (
@@ -1788,130 +1796,120 @@ function StateControls({
     );
   }
 
+  const visibilityFields = (
+    <>
+      <SelectField
+        disabled={disabled || (options.length === 0 && !binding)}
+        label="Boolean State"
+        onChange={(stateNodeId) => {
+          if (stateNodeId === "") {
+            onUpdateStateBinding(null);
+            return;
+          }
+          onUpdateStateBinding({
+            stateNodeId: asNodeId(stateNodeId),
+            on: binding?.on ?? "show",
+            off: binding?.off ?? "show",
+          });
+        }}
+        options={[
+          {
+            label:
+              options.length === 0
+                ? "No Boolean States on this page"
+                : "Not connected",
+            value: "",
+          },
+          ...options,
+          ...(binding && !page.nodes[binding.stateNodeId]
+            ? [
+                {
+                  label: `Unavailable (${binding.stateNodeId})`,
+                  value: binding.stateNodeId,
+                },
+              ]
+            : []),
+        ]}
+        value={binding?.stateNodeId ?? ""}
+      />
+
+      {binding ? (
+        <>
+          {!connectedState ? (
+            <p className="inspector-field-error" role="alert">
+              The connected Boolean State no longer exists. Choose another state
+              or disconnect this component.
+            </p>
+          ) : null}
+          <div className="inspector-two-column">
+            <SelectField
+              disabled={disabled}
+              label="When On"
+              onChange={(value) =>
+                onUpdateStateBinding({
+                  ...binding,
+                  on: value as BooleanStateBinding["on"],
+                })
+              }
+              options={visibilityOptions}
+              value={binding.on}
+            />
+            <SelectField
+              disabled={disabled}
+              label="When Off"
+              onChange={(value) =>
+                onUpdateStateBinding({
+                  ...binding,
+                  off: value as BooleanStateBinding["off"],
+                })
+              }
+              options={visibilityOptions}
+              value={binding.off}
+            />
+          </div>
+        </>
+      ) : null}
+
+      {!binding || !connectedState ? (
+        <div className="state-create-card">
+          <strong>Create a new Boolean State</strong>
+          <label className="inspector-field">
+            <span>Name</span>
+            <input
+              disabled={disabled}
+              onChange={(event) => setNewStateName(event.target.value)}
+              value={newStateName}
+            />
+          </label>
+          <label className="inspector-toggle-row">
+            <input
+              checked={newStateDefault}
+              disabled={disabled}
+              onChange={(event) => setNewStateDefault(event.target.checked)}
+              type="checkbox"
+            />
+            <span>Start visible</span>
+          </label>
+          <button
+            className="state-primary-button"
+            disabled={disabled || newStateName.trim() === ""}
+            onClick={() => onCreateStateAndConnect(newStateName, newStateDefault)}
+            type="button"
+          >
+            Create state &amp; connect
+          </button>
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
     <>
-      <section className="inspector-section inspector-state-panel">
-        <div className="inspector-section-heading">
-          <h3>Visibility connection</h3>
-          <span>{binding ? "Connected" : "Not connected"}</span>
-        </div>
-        <p className="inspector-help">
-          Use one Boolean State to decide whether this component is shown or hidden.
-        </p>
-
-        <SelectField
-          disabled={disabled || options.length === 0}
-          label="Boolean State"
-          onChange={(stateNodeId) => {
-            if (stateNodeId === "") {
-              onUpdateStateBinding(null);
-              return;
-            }
-            onUpdateStateBinding({
-              stateNodeId: asNodeId(stateNodeId),
-              on: binding?.on ?? "show",
-              off: binding?.off ?? "hide",
-            });
-          }}
-          options={[
-            {
-              label:
-                options.length === 0
-                  ? "No Boolean States on this page"
-                  : "Not connected",
-              value: "",
-            },
-            ...options,
-            ...(binding && !page.nodes[binding.stateNodeId]
-              ? [
-                  {
-                    label: `Unavailable (${binding.stateNodeId})`,
-                    value: binding.stateNodeId,
-                  },
-                ]
-              : []),
-          ]}
-          value={binding?.stateNodeId ?? ""}
-        />
-
-        {binding ? (
-          <>
-            {!connectedState ? (
-              <p className="inspector-field-error" role="alert">
-                The connected Boolean State no longer exists. Choose another state
-                or disconnect this component.
-              </p>
-            ) : null}
-            <div className="inspector-two-column">
-              <SelectField
-                disabled={disabled}
-                label="When On"
-                onChange={(value) =>
-                  onUpdateStateBinding({
-                    ...binding,
-                    on: value as BooleanStateBinding["on"],
-                  })
-                }
-                options={visibilityOptions}
-                value={binding.on}
-              />
-              <SelectField
-                disabled={disabled}
-                label="When Off"
-                onChange={(value) =>
-                  onUpdateStateBinding({
-                    ...binding,
-                    off: value as BooleanStateBinding["off"],
-                  })
-                }
-                options={visibilityOptions}
-                value={binding.off}
-              />
-            </div>
-            <p className="inspector-help">
-              Keep any Button that controls this state outside components the
-              state can hide, so the control stays available.
-            </p>
-          </>
-        ) : (
-          <div className="state-create-card">
-            <strong>Create a new Boolean State</strong>
-            <label className="inspector-field">
-              <span>Name</span>
-              <input
-                disabled={disabled}
-                onChange={(event) => setNewStateName(event.target.value)}
-                value={newStateName}
-              />
-            </label>
-            <label className="inspector-toggle-row">
-              <input
-                checked={newStateDefault}
-                disabled={disabled}
-                onChange={(event) => setNewStateDefault(event.target.checked)}
-                type="checkbox"
-              />
-              <span>Start On</span>
-            </label>
-            <button
-              className="state-primary-button"
-              disabled={disabled || newStateName.trim() === ""}
-              onClick={() =>
-                onCreateStateAndConnect(newStateName, newStateDefault)
-              }
-              type="button"
-            >
-              Create state &amp; connect
-            </button>
-          </div>
-        )}
-      </section>
-
       {node.type === "button" ? (
         <section className="inspector-section inspector-state-panel">
-          <h3>Button state action</h3>
+          <h3>Button action</h3>
           <p className="inspector-help">
-            This ordinary Button can turn a Boolean State On, Off, or toggle it.
+            Choose what this Button does to a Boolean State when clicked.
           </p>
           {!buttonCanRunStateAction ? (
             <p className="inspector-field-error" role="alert">
@@ -1967,8 +1965,55 @@ function StateControls({
             ]}
             value={actionTarget}
           />
+          {options.length === 0 ? (
+            <p className="inspector-help">
+              First create a state from the component this Button should control.
+            </p>
+          ) : null}
         </section>
       ) : null}
+
+      <section className="inspector-section inspector-state-panel">
+        <button
+          aria-expanded={visibilityExpanded}
+          aria-label={`${node.type === "button" ? "Button" : "Component"} visibility settings`}
+          className="state-disclosure-button"
+          onClick={() =>
+            setVisibilityDisclosure({
+              nodeId: node.id,
+              expanded: !visibilityExpanded,
+            })
+          }
+          type="button"
+        >
+          <span className="state-disclosure-copy">
+            <strong>
+              {node.type === "button" ? "Button visibility" : "Component visibility"}
+            </strong>
+            <small>Optional</small>
+          </span>
+          <span className="state-disclosure-status">
+            {binding ? "Connected" : "Always visible"}
+            <span aria-hidden="true">{visibilityExpanded ? "−" : "+"}</span>
+          </span>
+        </button>
+        {visibilityExpanded ? (
+          <>
+            <p className="inspector-help">
+              {node.type === "button"
+                ? "Connect only when this Button itself should show or hide. Leave it disconnected to keep the Button visible in both states."
+                : "Connect only when this component should show or hide. Leave it disconnected to keep the component visible in both states."}
+            </p>
+            {visibilityFields}
+            {binding ? (
+              <p className="inspector-help">
+                Keep any Button that controls this state outside components the state
+                can hide, so the control stays available.
+              </p>
+            ) : null}
+          </>
+        ) : null}
+      </section>
     </>
   );
 }

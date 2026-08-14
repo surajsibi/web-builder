@@ -536,7 +536,7 @@ export function EditorShell({
         name,
         defaultValue,
         on: "show",
-        off: "hide",
+        off: "show",
       },
       `Created ${name.trim()} and connected ${selectedNode.meta.name}.`,
     );
