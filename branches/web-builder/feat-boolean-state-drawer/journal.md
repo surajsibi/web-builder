@@ -5,7 +5,7 @@ scope: Execution state for web-builder feat/boolean-state-drawer
 authority: Selected repository execution-state record for this branch and feature
 owner: Unassigned project owner
 lifecycle: draft
-freshness: Updated after revalidating the maintained backend persistence documents for schema version 3 on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
+freshness: Updated after pushing the schema-version-3 backend documentation remediation to PR #8 on 2026-08-14; invalidated by implementation progress, verification changes, blockers, or a resume-point change
 ---
 
 # Progress journal — web-builder / feat/boolean-state-drawer
@@ -14,7 +14,7 @@ freshness: Updated after revalidating the maintained backend persistence documen
 `workspaces/navbar/`
 
 **Current step:**
-Push the committed schema-version-3 backend documentation remediation to `feat/boolean-state-drawer`, then continue review of [draft PR #8](https://github.com/surajsibi/web-builder/pull/8).
+Continue review of [draft PR #8](https://github.com/surajsibi/web-builder/pull/8), which now includes the verified implementation fixes and schema-version-3 backend documentation remediation.
 
 **Approach:**
 Replace special-purpose interaction components with one nonvisual Boolean State, a shared node-level visibility connection, and state actions on the ordinary Button. Preserve compatible saved work through a bounded schema migration and remove Drawer-only runtime and authoring infrastructure.
@@ -47,6 +47,7 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 - Made Button direct Canvas interaction depend on a configured state action so ordinary Buttons retain drag, resize, and spacing affordances.
 - Added behavior-first migration, hydration, registry, and Canvas regressions for the three follow-up review findings.
 - Revalidated the maintained backend persistence specification and workspace against project schema version 3, including their scope, freshness evidence, field contract, and JSON examples.
+- Pushed the implementation remediation in commit `d12b4c5` and the backend documentation remediation in commit `0cb848f` to `feat/boolean-state-drawer`.
 
 **Verification:**
 
@@ -64,8 +65,8 @@ Replace special-purpose interaction components with one nonvisual Boolean State,
 
 **Remaining:**
 
-- Push the committed backend documentation remediation and continue review of draft PR #8.
+- Continue review of draft PR #8.
 - Design conditional styling, variants, and authored enter/exit animations as separate follow-up consumers of the same Boolean State.
 
 **Last left off:**
-2026-08-14 — the maintained backend persistence specification and workspace now use schema version 3 consistently, cite commit `d12b4c5` as verification evidence, and are committed locally; pushing this documentation-only remediation is the next action.
+2026-08-14 — commits `d12b4c5` and `0cb848f` are pushed to `feat/boolean-state-drawer`, local and remote heads match, and continuing PR #8 review is the next action.
