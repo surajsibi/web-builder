@@ -1,0 +1,52 @@
+---
+doc_id: WEB-BUILDER-MULTI-PAGE-MANAGEMENT-WORKSPACE
+type: D4
+scope: Execution state for multi-page management in the web-builder editor
+authority: Selected feature execution-state authority; code, tests, and verified runtime behavior remain authoritative for implementation
+owner: Project owner
+lifecycle: draft
+freshness: Verified after pushing the page-action toggle dismissal fix as b7d7222 on 2026-08-14; invalidated by a branch, PR, scope, implementation, or verification change
+---
+
+# Multi-page management workspace
+
+**Feature name:** Multi-page management
+
+**Feature directory identifier:** `multi-page-management`
+
+**Overall status:** Draft PR #7 open; the latest page-action toggle review fix is committed and pushed, with re-review and merge pending
+
+**Participating repositories:** `web-builder`
+
+**Active branches:** `web-builder`: `feature/multi-page-management`, created from `main` at `8799e1cc5cf750029a481c1fb01568aa21c21fb3`
+
+**Current milestone:** Add production page creation, switching, renaming, duplication, home-page selection, and guarded deletion to the editor's existing left panel.
+
+**Feature summary:** Extend the current Components and Layers navigation with a Pages panel that matches Canvas Studio, uses canonical page commands, participates in Undo and Redo, preserves Preview behavior, and prepares the editor for later project persistence and dashboard work.
+
+## Selected documents
+
+- [Current-state research](research/multi-page-current-state.md)
+- [Execution plan](plan/multi-page-management-plan.md)
+
+## Scope
+
+- Add Pages as the third left-panel tab while retaining the toolbar page selector.
+- Add accessible create, rename, duplicate, set-as-home, and delete interactions.
+- Add canonical `page.duplicate` and `page.setHome` commands.
+- Preserve project hydration invariants, global node-ID uniqueness, history, selection reconciliation, Preview, and panel collapse behavior.
+- Add behavior-first command, component, store, and editor integration coverage.
+
+## Out of scope
+
+- Saving projects across browser reloads.
+- The project dashboard or editor project routes.
+- Page reordering, manual slug editing, redirects, or full multi-page Preview navigation.
+
+## Execution state
+
+- **Current step:** Request re-review of [draft PR #7](https://github.com/surajsibi/web-builder/pull/7), then merge after approval.
+- **Done:** Implemented canonical duplication and home-promotion commands, the accessible Pages panel, sidebar and shell integration, Canvas Studio styling, history and Preview synchronization, collision and node-limit defenses, and behavior-first coverage. Final review added complete menu and tab keyboard behavior, dialog and action focus restoration, visible protected-action explanations, reduced-motion handling, and contextual collapse announcements. Requested-change remediation isolates global canvas shortcuts from interactive and dialog targets, preserves native Tab and Shift+Tab focus when action menus close, exposes the left tab rail with vertical semantics and Up/Down navigation, and now lets an expanded page-action toggle dismiss its own menu without regressing keyboard focus movement. The latest toggle fix was committed as `b7d7222` and pushed to `origin/feature/multi-page-management`.
+- **Verification:** After the latest local fix, TypeScript, ESLint for the two affected files, all 488 tests in 33 files, the focused PagesPanel suite at 14/14, and `git diff --check` pass. The earlier branch-wide ESLint and Next.js 16.3.0 production-build results were not rerun for this local change. The reliable full suite was run serially because the local Node 22 environment intermittently stalls Vitest workers; the project declares Node 24.19.x.
+- **Remaining:** Request re-review and merge draft PR #7 after approval. Handle later persistence/project-dashboard milestones separately.
+- **Last left off:** 2026-08-14 - The page-action toggle fix was committed as `b7d7222` and pushed to `origin/feature/multi-page-management`; its double-click `userEvent` regression and the complete serial suite pass. The exact next action is to request re-review.

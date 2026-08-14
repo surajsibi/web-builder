@@ -128,6 +128,12 @@ const editorCommandEnvelopeSchema = z.discriminatedUnion("kind", [
     })
     .strict(),
   z
+    .object({ kind: z.literal("page.duplicate"), pageId: commandIdSchema })
+    .strict(),
+  z
+    .object({ kind: z.literal("page.setHome"), pageId: commandIdSchema })
+    .strict(),
+  z
     .object({ kind: z.literal("page.delete"), pageId: commandIdSchema })
     .strict(),
   z
@@ -408,6 +414,23 @@ function uniquePageId(
   return null;
 }
 
+function uniquePageCopyName(
+  document: Readonly<ProjectDocument>,
+  sourceName: string,
+): string {
+  const names = new Set(Object.values(document.pages).map((page) => page.name));
+  const base = `${sourceName} Copy`;
+  if (!names.has(base)) return base;
+
+  let suffix = 2;
+  let candidate = `${base} ${suffix}`;
+  while (names.has(candidate)) {
+    suffix += 1;
+    candidate = `${base} ${suffix}`;
+  }
+  return candidate;
+}
+
 function collectProjectNodeIds(
   document: Readonly<ProjectDocument>,
 ): Set<NodeId> {
@@ -666,6 +689,141 @@ function renamePage(
   return finalizeCandidate(
     { ...snapshot, document: candidate },
     { pageId: command.pageId },
+    "local",
+    services,
+  );
+}
+
+function duplicatePage(
+  snapshot: CommandSnapshot,
+  command: Extract<EditorCommand, { kind: "page.duplicate" }>,
+  services: CommandExecutorServices,
+): CommandPreparationResult {
+  const page = getPage(snapshot.document, command.pageId);
+  if (!page) {
+    return rejected({
+      code: "page-not-found",
+      pageId: command.pageId,
+      reason: `Page does not exist: ${command.pageId}`,
+    });
+  }
+
+  const pageId = uniquePageId(snapshot.document, services.idGenerator);
+  if (!pageId) {
+    return rejected({
+      code: "id-collision",
+      pageId: command.pageId,
+      reason: "Could not generate a unique page ID",
+    });
+  }
+
+  const sourceNodeIds = Object.keys(page.nodes) as NodeId[];
+  const reservedNodeIds = collectProjectNodeIds(snapshot.document);
+  const idMap = Object.create(null) as Record<NodeId, NodeId>;
+
+  for (const sourceNodeId of sourceNodeIds) {
+    const duplicateNodeId = reserveUniqueNodeId(
+      reservedNodeIds,
+      services.idGenerator,
+    );
+    if (!duplicateNodeId) {
+      return rejected({
+        code: "id-collision",
+        pageId: command.pageId,
+        nodeId: sourceNodeId,
+        reason: "Could not generate unique node IDs for the duplicated page",
+      });
+    }
+    idMap[sourceNodeId] = duplicateNodeId;
+  }
+
+  const name = uniquePageCopyName(snapshot.document, page.name);
+  const existingSlugs = new Set(
+    Object.values(snapshot.document.pages).map((candidatePage) => candidatePage.slug),
+  );
+  const slug = createGeneratedPageSlug(name, existingSlugs);
+  const duplicateNodes = Object.create(null) as Record<NodeId, BuilderNode>;
+
+  for (const sourceNodeId of sourceNodeIds) {
+    const sourceNode = page.nodes[sourceNodeId];
+    const duplicateNodeId = idMap[sourceNodeId];
+    duplicateNodes[duplicateNodeId] = {
+      ...structuredClone(sourceNode),
+      id: duplicateNodeId,
+      childIds: sourceNode.childIds.map((childId) => idMap[childId]),
+    };
+  }
+
+  const candidate = cloneProjectDocument(snapshot.document);
+  candidate.pages[pageId] = {
+    id: pageId,
+    name,
+    slug,
+    rootIds: page.rootIds.map((rootId) => idMap[rootId]),
+    nodes: duplicateNodes,
+  };
+  const sourceIndex = candidate.pageOrder.indexOf(page.id);
+  const duplicateIndex = sourceIndex + 1;
+  candidate.pageOrder.splice(duplicateIndex, 0, pageId);
+
+  return finalizeCandidate(
+    {
+      document: candidate,
+      parentById: snapshot.parentById,
+      activePageId: pageId,
+      selectedNodeId: null,
+    },
+    {
+      sourcePageId: page.id,
+      pageId,
+      index: duplicateIndex,
+      idMap,
+    },
+    "tree",
+    services,
+  );
+}
+
+function setHomePage(
+  snapshot: CommandSnapshot,
+  command: Extract<EditorCommand, { kind: "page.setHome" }>,
+  services: CommandExecutorServices,
+): CommandPreparationResult {
+  const page = getPage(snapshot.document, command.pageId);
+  if (!page) {
+    return rejected({
+      code: "page-not-found",
+      pageId: command.pageId,
+      reason: `Page does not exist: ${command.pageId}`,
+    });
+  }
+  if (page.id === snapshot.document.homePageId) {
+    return noop("value-unchanged");
+  }
+
+  const previousHomePageId = snapshot.document.homePageId;
+  const previousHomePage = snapshot.document.pages[previousHomePageId];
+  const reservedSlugs = new Set(
+    Object.values(snapshot.document.pages)
+      .filter(
+        (candidatePage) =>
+          candidatePage.id !== page.id && candidatePage.id !== previousHomePageId,
+      )
+      .map((candidatePage) => candidatePage.slug),
+  );
+  const previousHomeSlug = createGeneratedPageSlug(
+    previousHomePage.name,
+    reservedSlugs,
+  );
+
+  const candidate = cloneProjectDocument(snapshot.document);
+  candidate.homePageId = page.id;
+  candidate.pages[page.id].slug = "/";
+  candidate.pages[previousHomePageId].slug = previousHomeSlug;
+
+  return finalizeCandidate(
+    { ...snapshot, document: candidate },
+    { pageId: page.id, previousHomePageId },
     "local",
     services,
   );
@@ -1587,6 +1745,10 @@ function executeEditorCommandInternal(
       return createPage(snapshot, validatedCommand, services);
     case "page.rename":
       return renamePage(snapshot, validatedCommand, services);
+    case "page.duplicate":
+      return duplicatePage(snapshot, validatedCommand, services);
+    case "page.setHome":
+      return setHomePage(snapshot, validatedCommand, services);
     case "page.delete":
       return deletePage(snapshot, validatedCommand, services);
     case "node.insert":
