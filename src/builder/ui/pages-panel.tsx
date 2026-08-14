@@ -39,6 +39,7 @@ export function PagesPanel({
   const deleteReturnFocusRef = useRef<PageId | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuReturnFocusRef = useRef<PageId | null>(null);
+  const menuTabNavigationRef = useRef(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const renameReturnFocusRef = useRef<PageId | null>(null);
   const wasCreatingRef = useRef(false);
@@ -115,6 +116,11 @@ export function PagesPanel({
     event: React.KeyboardEvent<HTMLDivElement>,
     pageId: PageId,
   ) => {
+    if (event.key === "Tab") {
+      menuTabNavigationRef.current = true;
+      return;
+    }
+
     const items = Array.from(
       event.currentTarget.querySelectorAll<HTMLButtonElement>(
         '[role="menuitem"]:not(:disabled)',
@@ -325,6 +331,11 @@ export function PagesPanel({
                           current === page.id ? null : page.id,
                         );
                       }}
+                      onPointerDown={() => {
+                        if (menuPageId === page.id) {
+                          menuTabNavigationRef.current = false;
+                        }
+                      }}
                       ref={(button) => {
                         if (button) actionButtonRefs.current.set(page.id, button);
                         else actionButtonRefs.current.delete(page.id);
@@ -340,9 +351,14 @@ export function PagesPanel({
                         id={`page-actions-${page.id}`}
                         onBlur={(event) => {
                           const nextTarget = event.relatedTarget;
+                          const movedToOwnToggle =
+                            nextTarget === actionButtonRefs.current.get(page.id);
+                          const movedWithTab = menuTabNavigationRef.current;
+                          menuTabNavigationRef.current = false;
                           if (
-                            !(nextTarget instanceof Node) ||
-                            !event.currentTarget.contains(nextTarget)
+                            (!(nextTarget instanceof Node) ||
+                              !event.currentTarget.contains(nextTarget)) &&
+                            (!movedToOwnToggle || movedWithTab)
                           ) {
                             setMenuPageId(null);
                           }

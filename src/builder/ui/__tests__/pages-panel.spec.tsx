@@ -138,6 +138,24 @@ describe("PagesPanel", () => {
     expect(actionsButton).toHaveFocus();
   });
 
+  it("should close an expanded action menu when its toggle is clicked again", async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    const actionsButton = screen.getByRole("button", {
+      name: "Actions for About",
+    });
+
+    await user.click(actionsButton);
+    expect(actionsButton).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(actionsButton);
+
+    expect(actionsButton).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("menu", { name: "About page actions" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("should close the action menu and move focus forward when Tab is pressed", async () => {
     const user = userEvent.setup();
     renderPanel();
