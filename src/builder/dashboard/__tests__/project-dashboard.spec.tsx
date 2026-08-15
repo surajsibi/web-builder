@@ -72,6 +72,48 @@ describe("ProjectDashboard", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
+  it("should restore focus after a successful keyboard rename", async () => {
+    const user = userEvent.setup();
+    const repository = createRepository();
+    await repository.create({ name: "Commerce Site" });
+    render(<ProjectDashboard repository={repository} />);
+    const trigger = await screen.findByRole("button", { name: "Rename" });
+
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Rename project" });
+    const input = within(dialog).getByLabelText("Project name");
+    await user.clear(input);
+    await user.type(input, "Renamed Store");
+    await user.click(within(dialog).getByRole("button", { name: "Save name" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(await screen.findByRole("heading", { name: "Renamed Store" })).toBeVisible();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("should make every project reachable and searchable beyond one repository page", async () => {
+    const user = userEvent.setup();
+    let id = 0;
+    let second = 0;
+    const repository = new MemoryProjectRepository({
+      idGenerator: (prefix) => `${prefix}-${++id}`,
+      now: () => new Date(Date.UTC(2026, 7, 14, 10, 0, second++)).toISOString(),
+    });
+    await repository.create({ name: "Buried Project" });
+    for (let index = 1; index <= 100; index += 1) {
+      await repository.create({ name: `Project ${String(index).padStart(3, "0")}` });
+    }
+    render(<ProjectDashboard repository={repository} />);
+
+    expect(await screen.findByText("101 local projects")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Open Buried Project" })).toBeVisible();
+
+    await user.type(screen.getByRole("searchbox", { name: "Search projects" }), "Buried");
+
+    expect(screen.getByRole("button", { name: "Open Buried Project" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Open Project 100" })).not.toBeInTheDocument();
+  });
+
   it("should show safe recovery details without ordinary project actions", async () => {
     const user = userEvent.setup();
     const repository = createRepository();

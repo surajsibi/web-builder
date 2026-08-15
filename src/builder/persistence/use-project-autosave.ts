@@ -95,6 +95,15 @@ export function useProjectAutosave(
   }, [commitId, persistenceStatus, saveNow]);
 
   useEffect(() => {
+    return () => {
+      const state = store.getState();
+      if (state.dirty && state.persistenceStatus !== "conflict") {
+        void saveNow();
+      }
+    };
+  }, [saveNow, store]);
+
+  useEffect(() => {
     if (persistenceStatus === "saved") return;
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();

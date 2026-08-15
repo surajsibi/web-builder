@@ -228,6 +228,23 @@ export function prepareStoredProject(
 ): PreparedStoredProject {
   const result = prepareProjectHydration(rawDocument);
   if (result.success) {
+    if (result.value.document.projectId !== storageKey) {
+      const error: HydrationError = {
+        stage: "document-schema",
+        path: "projectId",
+        reason: "Stored project identity does not match its storage key",
+      };
+      return {
+        availability: "unavailable",
+        summary: {
+          recoveryId: storageKey,
+          displayName: readSafeDisplayName(rawDocument),
+          lastKnownUpdatedAt: readSafeUpdatedAt(rawDocument),
+          reason: unavailableReason(error),
+        },
+        error,
+      };
+    }
     return {
       availability: "ready",
       document: result.value.document,

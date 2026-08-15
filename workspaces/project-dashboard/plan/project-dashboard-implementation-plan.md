@@ -5,7 +5,7 @@ scope: Local-first project dashboard, project-specific editor routing, IndexedDB
 authority: Execution plan for the local-first delivery slice; project-persistence-and-backend-spec.md owns proposed product intent, while verified code and tests own implemented behavior
 owner: Project owner
 lifecycle: active
-freshness: Updated on 2026-08-14 after rebasing the implemented PD-00 through PD-08 slice onto origin/main at 4835734ba7a371281b9d3d5c9d8bb520c5e9676e and aligning whole-project duplication with schema-version-3 node references; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, or scope change
+freshness: Updated on 2026-08-16 after completing PD-09 remediation and its controlled Chrome Back-navigation and rename-focus follow-up; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, review, or scope change
 ---
 
 # Plan: Local project dashboard and persistent editor
@@ -25,7 +25,7 @@ Open Canvas Studio
 
 The [project persistence and backend specification](project-persistence-and-backend-spec.md) owns the proposed product and storage contract. This plan orders the first browser-local implementation slice. The canonical `ProjectDocument`, migration code, hydration validator, commands, tests, and verified runtime behavior remain authoritative for current behavior.
 
-**Implementation outcome:** PD-00 through PD-08 are complete in the current working tree. The local-first product slice is production-build verified; future backend migration remains outside this implementation.
+**Implementation outcome:** PD-00 through PD-09 are complete in the local feature-branch checkpoint. The local-first product slice and its four approved code-review remediations are production-build verified; future backend migration remains outside this implementation.
 
 ### Included in the first release
 
@@ -128,6 +128,7 @@ Text equivalent: the dashboard and project editor use the same repository contra
 | PD-06 | Add revision-safe autosave, manual save, navigation protection, and truthful status UI. | PD-05 | Store/controller tests cover newer edits, failures, retries, conflicts, and unload state | Project owner | Complete |
 | PD-07 | Run end-to-end behavior checks across multiple projects and Preview. | PD-04, PD-06 | Acceptance scenarios and verification matrix | Project owner | Complete |
 | PD-08 | Update maintained execution context with verified as-built behavior. | PD-07 | Documentation, links, diff, and whitespace checks | Project owner | Complete |
+| PD-09 | Remediate the four approved project-dashboard code-review findings. | PD-08 | Focused tests cover unmount save, key/ID containment, 101-project reachability/search, and successful-rename focus restoration; full verification remains green | Project owner | Complete |
 
 ## Implementation detail by slice
 
@@ -234,6 +235,17 @@ Verify these scenarios:
 12. Preview still opens the active unsaved snapshot without becoming durable storage.
 13. Dashboard dialogs, project actions, error messages, recovery status, and save status work by keyboard and are announced to assistive technology.
 
+### PD-09 - Code-review remediation
+
+Close the approved findings without expanding the product scope:
+
+1. Start the existing revision-checked save when a dirty, non-conflicted editor unmounts before the 750 ms debounce expires.
+2. Classify a hydrated record as unavailable when its embedded `projectId` differs from its physical storage key, and reject load, save, rename, and duplicate through the existing recovery boundary.
+3. Follow every repository `nextCursor` so all local projects are reachable and searchable, while rejecting repeated cursors defensively.
+4. Keep the renamed project card mounted during refresh and close through the shared focus-restoring dialog path.
+
+The focused remediation matrix failed before implementation and passes after it. Repository-wide lint, typecheck, complete tests, and production build remain green. Controlled Chrome verification on 2026-08-16 confirmed that an edit survives immediate Browser Back and that Enter-submitted rename restores focus to its initiating control.
+
 ## Quality and approval gates
 
 Before implementation approval:
@@ -273,6 +285,6 @@ Before branch completion:
 
 ## Completion
 
-This plan is ready for implementation only after PD-00 is approved. The feature is complete when PD-01 through PD-08 are implemented, every quality gate passes, the dashboard-to-editor-to-reload journey is verified in a real browser, failure states remain honest and recoverable, and durable as-built knowledge is promoted to its canonical maintained documentation.
+This plan is ready for implementation only after PD-00 is approved. The feature is complete when PD-01 through PD-09 are implemented, every quality gate passes, the dashboard-to-editor-to-reload journey is verified in a real browser, failure states remain honest and recoverable, and durable as-built knowledge is promoted to its canonical maintained documentation.
 
 The branch must not be presented as providing accounts, cloud backup, publishing, deletion, starter templates, or multi-device synchronization.

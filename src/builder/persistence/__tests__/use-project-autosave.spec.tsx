@@ -1,4 +1,11 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { StoreApi } from "zustand/vanilla";
 
@@ -74,6 +81,35 @@ describe("useProjectAutosave", () => {
 
     expect(screen.getByText("saved")).toBeVisible();
     expect(store.getState()).toMatchObject({ dirty: false });
+    await expect(repository.load(project.projectId)).resolves.toMatchObject({
+      document: {
+        pages: {
+          [project.homePageId]: expect.objectContaining({ name: "Storefront" }),
+        },
+        revision: 1,
+      },
+    });
+  });
+
+  it("should preserve a pending edit when the editor unmounts before the debounce", async () => {
+    const repository = createRepository();
+    const project = await repository.create({ name: "Commerce Site" });
+    const store = createBuilderStore({ initialDocument: project });
+    const save = vi.spyOn(repository, "save");
+    const { unmount } = render(
+      <AutosaveHarness repository={repository} store={store} />,
+    );
+
+    act(() => {
+      store.getState().dispatchEditorCommand({
+        kind: "page.rename",
+        pageId: project.homePageId,
+        name: "Storefront",
+      });
+    });
+    unmount();
+
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
     await expect(repository.load(project.projectId)).resolves.toMatchObject({
       document: {
         pages: {

@@ -153,6 +153,50 @@ describe("MemoryProjectRepository", () => {
     });
   });
 
+  it("should reject every operation when the storage key and project identity differ", async () => {
+    const repository = createRepository();
+    const project = await repository.create({ name: "Identity B" });
+    const storageKey = "project-A";
+    repository.putRaw(storageKey, {
+      storageKey,
+      document: project,
+      lastOpenedAt: null,
+    });
+
+    await expect(repository.list()).resolves.toMatchObject({
+      items: expect.arrayContaining([
+        {
+          availability: "unavailable",
+          summary: {
+            recoveryId: storageKey,
+            displayName: "Identity B",
+            lastKnownUpdatedAt: project.updatedAt,
+            reason: "invalid-project",
+          },
+        },
+      ]),
+    });
+    await expect(repository.load(storageKey)).rejects.toMatchObject({
+      code: "invalid-project",
+      unavailableProject: { recoveryId: storageKey },
+    });
+    await expect(
+      repository.save(storageKey, {
+        expectedRevision: project.revision,
+        content: projectContent(project),
+      }),
+    ).rejects.toMatchObject({ code: "invalid-project" });
+    await expect(
+      repository.rename(storageKey, {
+        name: "Wrong target",
+        expectedRevision: project.revision,
+      }),
+    ).rejects.toMatchObject({ code: "invalid-project" });
+    await expect(repository.duplicate(storageKey)).rejects.toMatchObject({
+      code: "invalid-project",
+    });
+  });
+
   it("should classify a future document version separately from corruption", async () => {
     const repository = createRepository();
     repository.putRaw("future-record", {

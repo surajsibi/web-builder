@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { getBrowserProjectRepository } from "@/builder/persistence/browser-project-repository";
 import {
+  MAX_PROJECT_LIST_LIMIT,
   MAX_PROJECT_NAME_LENGTH,
   ProjectRepositoryError,
   type ProjectListItem,
@@ -21,6 +22,31 @@ type ProjectDashboardProps = {
 type NameDialogState =
   | { mode: "create" }
   | { mode: "rename"; project: ProjectSummary };
+
+async function listAllProjects(
+  repository: ProjectRepository,
+): Promise<ProjectListItem[]> {
+  const items: ProjectListItem[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+
+  while (true) {
+    const result = await repository.list({
+      cursor,
+      limit: MAX_PROJECT_LIST_LIMIT,
+    });
+    items.push(...result.items);
+    if (result.nextCursor === null) return items;
+    if (seenCursors.has(result.nextCursor)) {
+      throw new ProjectRepositoryError(
+        "unexpected-storage-error",
+        "Project storage returned a repeated pagination cursor",
+      );
+    }
+    seenCursors.add(result.nextCursor);
+    cursor = result.nextCursor;
+  }
+}
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
   return `${count} ${count === 1 ? singular : pluralForm}`;
@@ -236,25 +262,23 @@ export function ProjectDashboard({
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const dialogTrigger = useRef<HTMLElement | null>(null);
 
-  const loadProjects = async () => {
-    setLoading(true);
+  const loadProjects = async ({ showLoading = true } = {}) => {
+    if (showLoading) setLoading(true);
     setLoadError(null);
     try {
-      const result = await repository.list({ limit: 100 });
-      setItems(result.items);
+      setItems(await listAllProjects(repository));
     } catch (error) {
       setLoadError(errorMessage(error));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
   useEffect(() => {
     let active = true;
-    repository
-      .list({ limit: 100 })
-      .then((result) => {
-        if (active) setItems(result.items);
+    listAllProjects(repository)
+      .then((nextItems) => {
+        if (active) setItems(nextItems);
       })
       .catch((error: unknown) => {
         if (active) setLoadError(errorMessage(error));
@@ -311,9 +335,9 @@ export function ProjectDashboard({
         name,
         expectedRevision: nameDialog.project.revision,
       });
-      setNameDialog(null);
       setAnnouncement(`Renamed project to ${name.trim()}.`);
-      await loadProjects();
+      await loadProjects({ showLoading: false });
+      closeDialog();
     } catch (error) {
       setDialogError(errorMessage(error));
     } finally {
@@ -417,7 +441,11 @@ export function ProjectDashboard({
               <span className="dashboard-state-icon" aria-hidden="true">!</span>
               <h3>Storage unavailable</h3>
               <p>{loadError}</p>
-              <button className="dashboard-button secondary" onClick={loadProjects} type="button">
+              <button
+                className="dashboard-button secondary"
+                onClick={() => void loadProjects()}
+                type="button"
+              >
                 Try again
               </button>
             </div>
