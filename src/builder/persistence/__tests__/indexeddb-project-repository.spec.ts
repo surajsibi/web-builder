@@ -7,6 +7,7 @@ import {
   PROJECT_STORE_NAME,
 } from "@/builder/persistence/indexeddb-project-repository";
 import { projectContent } from "@/builder/persistence/project-repository";
+import { createNewProject } from "@/builder/project/factory";
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -22,7 +23,7 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 async function replaceStoredRecord(
   indexedDB: IDBFactory,
   databaseName: string,
-  storageKey: string,
+  storageKey: IDBValidKey,
   document: unknown,
 ): Promise<void> {
   const database = await requestResult(
@@ -45,6 +46,16 @@ async function replaceStoredRecord(
   });
   await completed;
   database.close();
+}
+
+function createProjectDocument(projectId: string, name: string) {
+  let id = 0;
+  return createNewProject({
+    name,
+    now: "2026-08-14T10:00:00.000Z",
+    idGenerator: (prefix) =>
+      prefix === "project" ? projectId : `${prefix}-${++id}`,
+  });
 }
 
 describe("IndexedDbProjectRepository", () => {
@@ -158,6 +169,90 @@ describe("IndexedDbProjectRepository", () => {
     ).rejects.toMatchObject({ code: "invalid-project" });
     await expect(repository.duplicate(project.projectId)).rejects.toMatchObject({
       code: "invalid-project",
+    });
+    repository.close();
+  });
+
+  it("should classify a numeric physical key as unavailable instead of coercing it", async () => {
+    const indexedDB = new IDBFactory();
+    const databaseName = "project-repository-numeric-key-test";
+    const repository = new IndexedDbProjectRepository({ indexedDB, databaseName });
+    const numericProject = createProjectDocument("1", "Numeric Project");
+    await repository.list();
+    await replaceStoredRecord(indexedDB, databaseName, 1, numericProject);
+
+    const listed = await repository.list();
+
+    expect(listed.items).toEqual([
+      {
+        availability: "unavailable",
+        summary: expect.objectContaining({
+          displayName: "Numeric Project",
+          reason: "invalid-project",
+        }),
+      },
+    ]);
+    expect(listed.items[0]?.summary).toMatchObject({
+      recoveryId: expect.not.stringMatching(/^1$/),
+    });
+    await expect(repository.load("1")).rejects.toMatchObject({ code: "not-found" });
+    repository.close();
+  });
+
+  it("should keep colliding numeric and string keys distinct and mutate only the string project", async () => {
+    const indexedDB = new IDBFactory();
+    const databaseName = "project-repository-colliding-key-test";
+    let id = 0;
+    const repository = new IndexedDbProjectRepository({
+      indexedDB,
+      databaseName,
+      idGenerator: (prefix) =>
+        prefix === "project" ? "1" : `${prefix}-${++id}`,
+      now: () => "2026-08-14T10:00:00.000Z",
+    });
+    const stringProject = await repository.create({ name: "String Project" });
+    const numericProject = createProjectDocument("1", "Numeric Project");
+    await replaceStoredRecord(indexedDB, databaseName, 1, numericProject);
+
+    const listed = await repository.list();
+    const ready = listed.items.find((item) => item.availability === "ready");
+    const unavailable = listed.items.find(
+      (item) => item.availability === "unavailable",
+    );
+
+    expect(listed.items).toHaveLength(2);
+    expect(ready).toMatchObject({
+      availability: "ready",
+      summary: { projectId: "1", name: "String Project" },
+    });
+    expect(unavailable).toMatchObject({
+      availability: "unavailable",
+      summary: {
+        displayName: "Numeric Project",
+        reason: "invalid-project",
+      },
+    });
+    expect(unavailable?.summary.recoveryId).not.toBe(stringProject.projectId);
+    await expect(repository.load("1")).resolves.toMatchObject({
+      document: { name: "String Project" },
+    });
+
+    await repository.rename("1", {
+      name: "Renamed String Project",
+      expectedRevision: stringProject.revision,
+    });
+
+    await expect(repository.list()).resolves.toMatchObject({
+      items: expect.arrayContaining([
+        {
+          availability: "ready",
+          summary: expect.objectContaining({ name: "Renamed String Project" }),
+        },
+        {
+          availability: "unavailable",
+          summary: expect.objectContaining({ displayName: "Numeric Project" }),
+        },
+      ]),
     });
     repository.close();
   });

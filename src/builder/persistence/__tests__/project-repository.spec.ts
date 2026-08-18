@@ -95,6 +95,29 @@ describe("MemoryProjectRepository", () => {
     expect(duplicate.name).toMatch(/ Copy$/);
   });
 
+  it("should invalidate an offset cursor when a save changes inventory ordering", async () => {
+    let id = 0;
+    let second = 0;
+    const repository = new MemoryProjectRepository({
+      idGenerator: (prefix) => `${prefix}-${++id}`,
+      now: () => new Date(Date.UTC(2026, 7, 14, 10, 0, second++)).toISOString(),
+    });
+    const buried = await repository.create({ name: "Buried Project" });
+    for (let index = 1; index <= 100; index += 1) {
+      await repository.create({ name: `Project ${index}` });
+    }
+    const firstPage = await repository.list({ limit: 100 });
+    expect(firstPage.nextCursor).not.toBeNull();
+    await repository.rename(buried.projectId, {
+      name: "Updated Buried Project",
+      expectedRevision: buried.revision,
+    });
+
+    await expect(
+      repository.list({ cursor: firstPage.nextCursor ?? undefined, limit: 100 }),
+    ).rejects.toMatchObject({ code: "inventory-changed" });
+  });
+
   it("should report supported stored-document migration without rewriting the source", async () => {
     const repository = createRepository();
     const project = await repository.create({ name: "Legacy Store" });

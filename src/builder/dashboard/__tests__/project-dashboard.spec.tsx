@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,7 @@ import { ProjectDashboard } from "@/builder/dashboard/project-dashboard";
 import {
   ProjectRepositoryError,
   type ProjectListResult,
+  type ProjectRepository,
 } from "@/builder/persistence/project-repository";
 import { MemoryProjectRepository } from "@/builder/testing/memory-project-repository";
 
@@ -23,6 +24,16 @@ function createRepository() {
     idGenerator: (prefix) => `${prefix}-${++id}`,
     now: () => "2026-08-14T10:00:00.000Z",
   });
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
 }
 
 describe("ProjectDashboard", () => {
@@ -91,6 +102,72 @@ describe("ProjectDashboard", () => {
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
+  it("should keep a pending create dialog open on Escape until creation succeeds", async () => {
+    const user = userEvent.setup();
+    const repository = createRepository();
+    const createProject = repository.create.bind(repository);
+    const pendingCreate = deferred<
+      Awaited<ReturnType<ProjectRepository["create"]>>
+    >();
+    vi.spyOn(repository, "create").mockReturnValue(pendingCreate.promise);
+    const onOpenProject = vi.fn();
+    render(
+      <ProjectDashboard
+        onOpenProject={onOpenProject}
+        repository={repository}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "New project" }));
+    const dialog = screen.getByRole("dialog", { name: "Create a new project" });
+    await user.type(within(dialog).getByLabelText("Project name"), "Online Store");
+    await user.click(within(dialog).getByRole("button", { name: "Create project" }));
+    expect(within(dialog).getByRole("button", { name: "Creating…" })).toBeDisabled();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByRole("dialog", { name: "Create a new project" })).toBeVisible();
+    const project = await createProject({ name: "Online Store" });
+    await act(async () => pendingCreate.resolve(project));
+    await waitFor(() => expect(onOpenProject).toHaveBeenCalledWith(project.projectId));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("should keep a pending rename failure visible after Escape", async () => {
+    const user = userEvent.setup();
+    const repository = createRepository();
+    await repository.create({ name: "Commerce Site" });
+    const pendingRename = deferred<
+      Awaited<ReturnType<ProjectRepository["rename"]>>
+    >();
+    vi.spyOn(repository, "rename").mockReturnValue(pendingRename.promise);
+    render(<ProjectDashboard repository={repository} />);
+    await user.click(await screen.findByRole("button", { name: "Rename" }));
+    const dialog = screen.getByRole("dialog", { name: "Rename project" });
+    const input = within(dialog).getByLabelText("Project name");
+    await user.clear(input);
+    await user.type(input, "Renamed Store");
+    await user.click(within(dialog).getByRole("button", { name: "Save name" }));
+    expect(within(dialog).getByRole("button", { name: "Saving…" })).toBeDisabled();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByRole("dialog", { name: "Rename project" })).toBeVisible();
+    await act(async () => {
+      pendingRename.reject(
+        new ProjectRepositoryError(
+          "storage-unavailable",
+          "Synthetic rename failure",
+        ),
+      );
+    });
+    expect(
+      await within(dialog).findByRole("alert"),
+    ).toHaveTextContent(
+      "Local project storage is unavailable. Check this browser's storage permissions and try again.",
+    );
+    expect(screen.getByRole("dialog", { name: "Rename project" })).toBeVisible();
+  });
+
   it("should make every project reachable and searchable beyond one repository page", async () => {
     const user = userEvent.setup();
     let id = 0;
@@ -112,6 +189,43 @@ describe("ProjectDashboard", () => {
 
     expect(screen.getByRole("button", { name: "Open Buried Project" })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Open Project 100" })).not.toBeInTheDocument();
+  });
+
+  it("should restart enumeration when a project moves ahead of the next page offset", async () => {
+    let id = 0;
+    let second = 0;
+    const repository = new MemoryProjectRepository({
+      idGenerator: (prefix) => `${prefix}-${++id}`,
+      now: () => new Date(Date.UTC(2026, 7, 14, 10, 0, second++)).toISOString(),
+    });
+    const buried = await repository.create({ name: "Buried Project" });
+    for (let index = 1; index <= 100; index += 1) {
+      await repository.create({ name: `Project ${String(index).padStart(3, "0")}` });
+    }
+    const list = repository.list.bind(repository);
+    let mutateAfterFirstPage = true;
+    vi.spyOn(repository, "list").mockImplementation(async (input) => {
+      const result = await list(input);
+      if (mutateAfterFirstPage && result.nextCursor !== null) {
+        mutateAfterFirstPage = false;
+        await repository.rename(buried.projectId, {
+          name: "Updated Buried Project",
+          expectedRevision: buried.revision,
+        });
+      }
+      return result;
+    });
+
+    render(<ProjectDashboard repository={repository} />);
+
+    expect(await screen.findByText("101 local projects")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Open Updated Buried Project" }),
+    ).toBeVisible();
+    const openLabels = screen
+      .getAllByRole("button", { name: /^Open / })
+      .map((button) => button.getAttribute("aria-label"));
+    expect(new Set(openLabels).size).toBe(101);
   });
 
   it("should show safe recovery details without ordinary project actions", async () => {

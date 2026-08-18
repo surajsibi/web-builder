@@ -2,10 +2,10 @@
 doc_id: WEB-BUILDER-PROJECT-DASHBOARD-CODE-REVIEW-2026-08-14
 type: Q2
 scope: Final pre-push code review and remediation verification of local project persistence, recovery UI, dashboard behavior, and save-state accessibility on web-builder feature/project-dashboard
-authority: Verified implementation owns current behavior; this review owns the six scoped findings, their remediation evidence, and their final pre-push disposition
+authority: Verified implementation owns current behavior; this review owns the nine scoped findings, their remediation evidence, and their pull-request disposition
 owner: Project owner
 lifecycle: in_review
-freshness: Re-reviewed and remediated on 2026-08-18 at commit 6c48a41fcdb65a34ac305419f2555dddde88966d through pre-fix rendered reproduction, three fail-before/pass-after production-component cases, all 69 affected tests, the complete 559-test run, ESLint, normal typechecking, diff checks, live port-3000 compilation checks, and a successful optimized production build; all six scoped findings are closed and published in draft pull request 9; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, runtime, or review disposition
+freshness: Re-reviewed and locally remediated on 2026-08-18 at published head a6a7b78c514068f01b085f8e78f6748acab95ff6 plus the current working-tree changes through six new fail-before/pass-after cases, all 25 focused tests, the complete 565-test run, repository-wide ESLint, normal typechecking, diff checks, and a successful optimized production build; all nine scoped findings are closed locally, while publication and a fresh required-runtime run remain; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, runtime, branch publication, or review disposition
 ---
 
 # Code review: project dashboard persistence, recovery, and accessibility
@@ -20,8 +20,13 @@ medium-severity UI and accessibility defects. The direct-route storage retry
 action lost its intended foreground and background styling outside the
 dashboard CSS-variable scope, and the real editor toolbar did not render
 save-failure or conflict guidance as visible content. Both findings are now
-remediated and verified in the local feature branch; all six scoped findings are
-closed.
+remediated and verified in the local feature branch.
+
+The pull-request review then identified three additional medium-severity
+correctness and interaction defects: non-string IndexedDB keys were coerced,
+offset pagination could mix changing inventories, and Escape dismissed pending
+create or rename dialogs. All three are now remediated and verified in the
+local working tree; all nine scoped findings are closed locally.
 
 ## Question, scope, and baseline
 
@@ -72,6 +77,9 @@ keyboard-focus loss is Low.
 | PD-R04 | Successful rename closed the dialog with `setNameDialog(null)` instead of the focus-restoring path. | Low | Keyboard and screen-reader users could lose their place after renaming. | Refresh without removing the initiating card, then close through the focus-restoring path. | Project owner | After a successful keyboard rename, focus returns to the initiating control. | Remediated and verified |
 | PD-R05 | The direct-route error boundary reused `.dashboard-button.primary`, but `--dashboard-ink` and `--dashboard-line` were declared only on `.project-dashboard`. | Medium | The **Try again** action on storage and unexpected load failures had white text without its intended dark background, making the primary recovery action visually unavailable on the white card. | Define the shared button variables on a common ancestor or give the editor boundary self-contained button styles. | Project owner | Render a storage-error route and verify visible, enabled, focus-ordered **Try again** and **Return to Projects** actions with the intended computed tokens. | Remediated and verified |
 | PD-R06 | The editor toolbar rendered only the generic save-state label; `persistenceMessage` existed only as `aria-label` and `title` on a non-focusable `div`. The autosave test harness rendered the message in a separate paragraph and therefore did not test the production presentation. | Medium | Sighted keyboard and touch users could not discover why saving failed or how to recover from a conflict; the conflict state also disabled **Save now** without exposing the reload/return guidance visibly. | Render actionable save-error and conflict guidance as visible status content or through a keyboard-operable disclosure, and exercise the production toolbar in the failure tests. | Project owner | Force storage-error and revision-conflict states in the production editor shell and verify visible full guidance, polite atomic announcement semantics, and usable recovery actions. | Remediated and verified |
+| PD-R07 | IndexedDB listing coerced every `IDBValidKey` with `String(cursor.primaryKey)`. | Medium | A numeric key `1` could be listed as ready for document ID `"1"` even though string-key operations target a different record or return not-found; numeric/string collisions also produced duplicate UI identities. | Require a string physical key before readiness and preserve every other key type as unavailable. | Project owner | Numeric-only and colliding numeric/string records remain distinct; only the string record loads or mutates. | Remediated and verified locally |
+| PD-R08 | Every page rebuilt and sorted the complete inventory, while the cursor contained only an offset. | Medium | A save or create between page requests could omit one project and duplicate another. | Bind cursors to an exact inventory snapshot and restart bounded dashboard enumeration when the snapshot changes. | Project owner | A 101-project scan mutated after page one returns all 101 unique IDs and includes the updated project. | Remediated and verified locally |
+| PD-R09 | Escape always closed the create or rename dialog even while its controls were disabled for a pending mutation. | Medium | Completion could navigate after an apparently dismissed create, while failure guidance could be written into a closed dialog. | Ignore Escape while pending and keep completion effects attached to the visible dialog. | Project owner | Deferred create success and rename failure both keep the dialog open after Escape until their visible completion state. | Remediated and verified locally |
 
 ### PD-R01 — Browser Back can discard recent edits
 
@@ -228,6 +236,42 @@ shows the full instruction and leaves **Save now** enabled, while a revision
 conflict shows the full reload-or-return instruction, keeps **Save now**
 disabled, and leaves **Return to Projects** operable.
 
+### PD-R07 - Non-string IndexedDB keys are coerced into project identities
+
+IndexedDB distinguishes numeric and string keys, but listing converted every
+physical key to a string before checking it against the embedded project ID.
+A valid document stored under numeric key `1` with project ID `"1"` therefore
+appeared ready even though `load("1")` queried the distinct string key.
+
+Remediation: listing now requires the physical key itself to be a string.
+Numbers, dates, binary keys, and arrays receive a stable type-tagged recovery
+identity and remain read-only **Needs recovery** records without changing the
+raw IndexedDB value. Ready and unavailable React keys are also namespace-tagged.
+
+### PD-R08 - Offset cursors mix inventories when ordering changes
+
+The repository rebuilt and sorted all summaries for every request but encoded
+only the numeric offset in `nextCursor`. If a later project was saved between
+pages and moved ahead of the offset, the next slice could repeat a previously
+returned project and omit the updated one.
+
+Remediation: each repository instance retains an exact canonical signature for
+at most 16 active pagination snapshots. A later page must match that signature;
+otherwise it returns the stable `inventory-changed` result. The dashboard
+discards partial results and restarts from page one, with duplicate-item
+detection and a three-attempt bound to prevent livelock.
+
+### PD-R09 - Escape dismisses pending create and rename mutations
+
+Dialog buttons and input were disabled while pending, but the document-level
+Escape listener still called the close path. The already-running promise then
+continued with navigation or an invisible error update.
+
+Remediation: the shared dialog hook now accepts whether dismissal is allowed.
+Name dialogs disable Escape dismissal while their mutation is pending; recovery
+dialogs and idle name dialogs retain normal Escape behavior. Deferred success
+and failure tests cover both create and rename.
+
 ### Rendered browser follow-up - 2026-08-18
 
 A controlled Chrome pass supplied rendered evidence without changing source
@@ -318,23 +362,26 @@ server compiles the changed CSS and routes.
 
 The project owner approved remediation of PD-R01 through PD-R04 on 2026-08-15,
 and those findings remain closed. The user approved proceeding with PD-R05 and
-PD-R06 remediation on 2026-08-18; both production-boundary closure suites now
-pass, so all six findings are closed and the finding-based publication hold is
-cleared. This review did not itself authorize a push, merge, deployment,
-backend expansion, or deletion capability. The user subsequently authorized
+PD-R06 remediation on 2026-08-18, then approved execution of PD-R07 through
+PD-R09 on the same date. All nine findings are closed in the local working tree.
+The latest three fixes are not yet published, so their publication and
+required-runtime verification remain. This review did not itself authorize a
+push, merge, deployment, backend expansion, or deletion capability. The user subsequently authorized
 the push and creation of [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9);
 that later direction does not authorize merge or deployment.
 
-Closure verification passes the 2 affected files and all 69 tests,
+Latest closure verification passes 3 focused files and all 25 tests,
 repository-wide ESLint, normal `pnpm typecheck`, `git diff --check`, the
-complete 41-file, 559-test suite with the temporary 15-second ceiling, and the
-optimized production build. The earlier port-3000 server also compiled and
-served the changed routes and shared CSS. All current verification ran on Node
-22.21.1, and the repository-required Node 24.19.x matrix remains outstanding.
+complete 41-file, 565-test suite with the temporary 15-second ceiling, and the
+optimized production build under Node 22.21.1. The published head `a6a7b78`
+passed the Node 24.19 `CI / Validate` job in
+[run 32109626246, job 95626050223](https://github.com/surajsibi/web-builder/actions/runs/32109626246/job/95626050223).
+That job predates PD-R07 through PD-R09, so the required-runtime matrix must run
+again after these changes are published.
 
 The owner should review draft pull request 9 before promoting it from draft.
-Run the complete verification matrix under Node 24.19.x when available, and
-repeat the two remediated states visually when the Browser plugin runtime is
+Publish the latest remediation, rerun the complete Node 24.19.x matrix, and
+repeat the remediated states visually when the Browser plugin runtime is
 repaired.
 
 ## Residual risk and follow-up
@@ -350,6 +397,7 @@ items. The retained QA project remains local to that Chrome profile.
 An unmount-triggered save continues asynchronously after the editor leaves the
 screen; if browser storage then fails, the departed editor cannot present that
 failure. Hard unloads still receive the existing unsaved-change warning, and
-revision conflicts still refuse the write. Complete the Node 24 verification
-matrix and post-remediation browser smoke before publication, and re-review the
-six findings if the cited implementation or regression tests change.
+revision conflicts still refuse the write. Complete the post-publication Node
+24 verification matrix and browser smoke before ready-for-review promotion, and
+re-review the nine findings if the cited implementation or regression tests
+change.

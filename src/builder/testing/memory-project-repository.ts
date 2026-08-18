@@ -5,6 +5,7 @@ import {
   asStoredRecord,
   assertReadyStoredProject,
   buildSavedProject,
+  createProjectPaginationState,
   defaultDuplicateProjectName,
   documentFromStoredRecord,
   normalizeProjectName,
@@ -32,6 +33,7 @@ export class MemoryProjectRepository implements ProjectRepository {
   private readonly records = new Map<string, unknown>();
   private readonly now: () => string;
   private readonly idGenerator?: IdGenerator;
+  private readonly paginationState = createProjectPaginationState();
 
   constructor(options: MemoryProjectRepositoryOptions = {}) {
     this.now = options.now ?? (() => new Date().toISOString());
@@ -58,7 +60,7 @@ export class MemoryProjectRepository implements ProjectRepository {
           : { availability: "unavailable", summary: prepared.summary },
       );
     }
-    return paginateProjectItems(items, input);
+    return paginateProjectItems(items, input, this.paginationState);
   }
 
   async create(input: { name: string }): Promise<ProjectDocument> {

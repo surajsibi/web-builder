@@ -74,6 +74,7 @@ export type ProjectRepositoryErrorCode =
   | "not-found"
   | "invalid-project"
   | "unsupported-version"
+  | "inventory-changed"
   | "revision-conflict"
   | "storage-unavailable"
   | "unexpected-storage-error";
@@ -133,6 +134,11 @@ export type PreparedStoredProject =
       summary: UnavailableProjectSummary;
       error: HydrationError;
     };
+
+type UnavailablePreparedStoredProject = Extract<
+  PreparedStoredProject,
+  { availability: "unavailable" }
+>;
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
@@ -222,6 +228,23 @@ export function unavailableReason(
     : "invalid-project";
 }
 
+export function prepareUnavailableStoredProject(
+  recoveryId: string,
+  rawDocument: unknown,
+  error: HydrationError,
+): UnavailablePreparedStoredProject {
+  return {
+    availability: "unavailable",
+    summary: {
+      recoveryId,
+      displayName: readSafeDisplayName(rawDocument),
+      lastKnownUpdatedAt: readSafeUpdatedAt(rawDocument),
+      reason: unavailableReason(error),
+    },
+    error,
+  };
+}
+
 export function prepareStoredProject(
   storageKey: string,
   rawDocument: unknown,
@@ -234,16 +257,7 @@ export function prepareStoredProject(
         path: "projectId",
         reason: "Stored project identity does not match its storage key",
       };
-      return {
-        availability: "unavailable",
-        summary: {
-          recoveryId: storageKey,
-          displayName: readSafeDisplayName(rawDocument),
-          lastKnownUpdatedAt: readSafeUpdatedAt(rawDocument),
-          reason: unavailableReason(error),
-        },
-        error,
-      };
+      return prepareUnavailableStoredProject(storageKey, rawDocument, error);
     }
     return {
       availability: "ready",
@@ -253,16 +267,7 @@ export function prepareStoredProject(
     };
   }
 
-  return {
-    availability: "unavailable",
-    summary: {
-      recoveryId: storageKey,
-      displayName: readSafeDisplayName(rawDocument),
-      lastKnownUpdatedAt: readSafeUpdatedAt(rawDocument),
-      reason: unavailableReason(result.error),
-    },
-    error: result.error,
-  };
+  return prepareUnavailableStoredProject(storageKey, rawDocument, result.error);
 }
 
 export function documentFromStoredRecord(value: unknown): unknown {
@@ -349,9 +354,28 @@ function itemStableId(item: ProjectListItem): string {
     : item.summary.recoveryId;
 }
 
-function parseCursor(cursor: string | undefined): number {
-  if (cursor === undefined) return 0;
-  const match = /^project-list:([0-9a-z]+)$/.exec(cursor);
+type ParsedProjectCursor = {
+  offset: number;
+  snapshot: string | null;
+};
+
+export type ProjectPaginationState = {
+  nextSnapshotId: number;
+  snapshots: Map<string, string>;
+};
+
+const MAX_PROJECT_LIST_SNAPSHOTS = 16;
+
+export function createProjectPaginationState(): ProjectPaginationState {
+  return {
+    nextSnapshotId: 0,
+    snapshots: new Map(),
+  };
+}
+
+function parseCursor(cursor: string | undefined): ParsedProjectCursor {
+  if (cursor === undefined) return { offset: 0, snapshot: null };
+  const match = /^project-list:([0-9a-z]+):([0-9a-z]+)$/.exec(cursor);
   if (!match) {
     throw new ProjectRepositoryError("invalid-request", "Invalid project cursor");
   }
@@ -359,12 +383,52 @@ function parseCursor(cursor: string | undefined): number {
   if (!Number.isSafeInteger(offset) || offset < 0) {
     throw new ProjectRepositoryError("invalid-request", "Invalid project cursor");
   }
-  return offset;
+  return { offset, snapshot: match[2] };
+}
+
+function inventorySnapshot(items: readonly ProjectListItem[]): string {
+  return JSON.stringify(
+    items.map((item) =>
+      item.availability === "ready"
+        ? [
+            "ready",
+            item.summary.projectId,
+            item.summary.name,
+            item.summary.schemaVersion,
+            item.summary.revision,
+            item.summary.pageCount,
+            item.summary.createdAt,
+            item.summary.updatedAt,
+          ]
+        : [
+            "unavailable",
+            item.summary.recoveryId,
+            item.summary.displayName,
+            item.summary.lastKnownUpdatedAt,
+            item.summary.reason,
+          ],
+    ),
+  );
+}
+
+function rememberInventorySnapshot(
+  paginationState: ProjectPaginationState,
+  inventory: string,
+): string {
+  while (paginationState.snapshots.size >= MAX_PROJECT_LIST_SNAPSHOTS) {
+    const oldestSnapshot = paginationState.snapshots.keys().next().value;
+    if (oldestSnapshot === undefined) break;
+    paginationState.snapshots.delete(oldestSnapshot);
+  }
+  const snapshot = (paginationState.nextSnapshotId++).toString(36);
+  paginationState.snapshots.set(snapshot, inventory);
+  return snapshot;
 }
 
 export function paginateProjectItems(
   items: readonly ProjectListItem[],
   input: ProjectListInput = {},
+  paginationState: ProjectPaginationState,
 ): ProjectListResult {
   const query = input.query?.trim().toLocaleLowerCase() ?? "";
   const filtered = query
@@ -383,7 +447,7 @@ export function paginateProjectItems(
       : itemStableId(left).localeCompare(itemStableId(right));
   });
 
-  const offset = parseCursor(input.cursor);
+  const { offset, snapshot: cursorSnapshot } = parseCursor(input.cursor);
   const requestedLimit = input.limit ?? DEFAULT_PROJECT_LIST_LIMIT;
   if (!Number.isInteger(requestedLimit) || requestedLimit < 1) {
     throw new ProjectRepositoryError(
@@ -392,14 +456,34 @@ export function paginateProjectItems(
     );
   }
   const limit = Math.min(requestedLimit, MAX_PROJECT_LIST_LIMIT);
+  const inventory = inventorySnapshot(filtered);
+  if (
+    cursorSnapshot !== null &&
+    paginationState.snapshots.get(cursorSnapshot) !== inventory
+  ) {
+    paginationState.snapshots.delete(cursorSnapshot);
+    throw new ProjectRepositoryError(
+      "inventory-changed",
+      "Project inventory changed while pagination was in progress",
+    );
+  }
   const page = filtered.slice(offset, offset + limit);
   const nextOffset = offset + page.length;
+  const hasNextPage = nextOffset < filtered.length;
+  const snapshot = cursorSnapshot ?? (
+    hasNextPage
+      ? rememberInventorySnapshot(paginationState, inventory)
+      : null
+  );
+  if (!hasNextPage && snapshot !== null) {
+    paginationState.snapshots.delete(snapshot);
+  }
 
   return {
     items: page,
     nextCursor:
-      nextOffset < filtered.length
-        ? `project-list:${nextOffset.toString(36)}`
+      hasNextPage && snapshot !== null
+        ? `project-list:${nextOffset.toString(36)}:${snapshot}`
         : null,
   };
 }

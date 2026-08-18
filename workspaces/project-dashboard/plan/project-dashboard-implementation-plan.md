@@ -5,7 +5,7 @@ scope: Local-first project dashboard, project-specific editor routing, IndexedDB
 authority: Execution plan for the local-first delivery slice; project-persistence-and-backend-spec.md owns proposed product intent, while verified code and tests own implemented behavior
 owner: Project owner
 lifecycle: active
-freshness: Updated on 2026-08-16 after completing PD-09 remediation and its controlled Chrome Back-navigation and rename-focus follow-up; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, review, or scope change
+freshness: Updated on 2026-08-18 after completing the local PD-10 remediation for non-string IndexedDB keys, pagination inventory changes, and pending-dialog Escape; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, review, branch-publication, or scope change
 ---
 
 # Plan: Local project dashboard and persistent editor
@@ -25,7 +25,7 @@ Open Canvas Studio
 
 The [project persistence and backend specification](project-persistence-and-backend-spec.md) owns the proposed product and storage contract. This plan orders the first browser-local implementation slice. The canonical `ProjectDocument`, migration code, hydration validator, commands, tests, and verified runtime behavior remain authoritative for current behavior.
 
-**Implementation outcome:** PD-00 through PD-09 are complete in the local feature-branch checkpoint. The local-first product slice and its four approved code-review remediations are production-build verified; future backend migration remains outside this implementation.
+**Implementation outcome:** PD-00 through PD-10 are complete in the local working tree. The local-first product slice and all nine approved code-review remediations are production-build verified locally; publication and a fresh required-runtime run remain for PD-10, while future backend migration remains outside this implementation.
 
 ### Included in the first release
 
@@ -129,6 +129,7 @@ Text equivalent: the dashboard and project editor use the same repository contra
 | PD-07 | Run end-to-end behavior checks across multiple projects and Preview. | PD-04, PD-06 | Acceptance scenarios and verification matrix | Project owner | Complete |
 | PD-08 | Update maintained execution context with verified as-built behavior. | PD-07 | Documentation, links, diff, and whitespace checks | Project owner | Complete |
 | PD-09 | Remediate the four approved project-dashboard code-review findings. | PD-08 | Focused tests cover unmount save, key/ID containment, 101-project reachability/search, and successful-rename focus restoration; full verification remains green | Project owner | Complete |
+| PD-10 | Remediate the three approved pull-request findings for physical-key typing, inventory-stable enumeration, and pending-dialog dismissal. | PD-09 | Fail-before/pass-after numeric/string-key, changed-inventory, and deferred create/rename tests; focused and full verification remain green | Project owner | Complete locally; publication and required-runtime rerun remain |
 
 ## Implementation detail by slice
 
@@ -246,6 +247,16 @@ Close the approved findings without expanding the product scope:
 
 The focused remediation matrix failed before implementation and passes after it. Repository-wide lint, typecheck, complete tests, and production build remain green. Controlled Chrome verification on 2026-08-16 confirmed that an edit survives immediate Browser Back and that Enter-submitted rename restores focus to its initiating control.
 
+### PD-10 - Pull-request review remediation
+
+Close the three approved P2 findings without changing the local-only product scope:
+
+1. Reject every non-string IndexedDB physical key before normal hydration. Preserve the raw record as **Needs recovery**, give it a stable type-tagged recovery identity, and keep string-key operations exact.
+2. Bind offset cursors to an exact, bounded repository snapshot signature. Invalidate a cursor when the inventory changes, discard the partial dashboard scan, and retry from page one at most three times.
+3. Keep create and rename dialogs mounted when Escape is pressed during a pending mutation so success navigation and failure guidance remain attached to visible UI.
+
+The six new behavior cases failed against the published implementation and pass after remediation. The focused repository and dashboard matrix passes 25 tests, and the complete local Node 22 matrix passes 565 tests with the existing temporary 15-second ceiling. The previously published head `a6a7b78` passed the required Node 24.19 `CI / Validate` job in [run 32109626246, job 95626050223](https://github.com/surajsibi/web-builder/actions/runs/32109626246/job/95626050223); the uncommitted PD-10 changes require a fresh required-runtime run after publication.
+
 ## Quality and approval gates
 
 Before implementation approval:
@@ -285,6 +296,6 @@ Before branch completion:
 
 ## Completion
 
-This plan is ready for implementation only after PD-00 is approved. The feature is complete when PD-01 through PD-09 are implemented, every quality gate passes, the dashboard-to-editor-to-reload journey is verified in a real browser, failure states remain honest and recoverable, and durable as-built knowledge is promoted to its canonical maintained documentation.
+This plan is ready for implementation only after PD-00 is approved. The feature is complete when PD-01 through PD-10 are implemented, every quality gate passes, the dashboard-to-editor-to-reload journey is verified in a real browser, failure states remain honest and recoverable, and durable as-built knowledge is promoted to its canonical maintained documentation.
 
 The branch must not be presented as providing accounts, cloud backup, publishing, deletion, starter templates, or multi-device synchronization.

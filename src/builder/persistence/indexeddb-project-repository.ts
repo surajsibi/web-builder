@@ -7,11 +7,13 @@ import {
   asStoredRecord,
   assertReadyStoredProject,
   buildSavedProject,
+  createProjectPaginationState,
   defaultDuplicateProjectName,
   documentFromStoredRecord,
   normalizeProjectName,
   paginateProjectItems,
   prepareStoredProject,
+  prepareUnavailableStoredProject,
   projectContent,
   type ProjectListInput,
   type ProjectListItem,
@@ -68,12 +70,32 @@ function transactionResult(transaction: IDBTransaction): Promise<void> {
   });
 }
 
+function encodeIndexedDbKey(key: IDBValidKey): string {
+  if (typeof key === "string") return `string:${JSON.stringify(key)}`;
+  if (typeof key === "number") return `number:${String(key)}`;
+  if (key instanceof Date) return `date:${key.toISOString()}`;
+  if (Array.isArray(key)) {
+    return `array:[${key.map((part) => encodeIndexedDbKey(part)).join(",")}]`;
+  }
+  const bytes = key instanceof ArrayBuffer
+    ? new Uint8Array(key)
+    : new Uint8Array(key.buffer, key.byteOffset, key.byteLength);
+  return `binary:${Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("")}`;
+}
+
+function nonStringRecoveryId(key: IDBValidKey): string {
+  return `indexeddb-key:${encodeIndexedDbKey(key)}`;
+}
+
 export class IndexedDbProjectRepository implements ProjectRepository {
   private readonly factory: IDBFactory;
   private readonly databaseName: string;
   private readonly now: () => string;
   private readonly idGenerator?: IdGenerator;
   private databasePromise: Promise<IDBDatabase> | null = null;
+  private readonly paginationState = createProjectPaginationState();
 
   constructor(options: IndexedDbProjectRepositoryOptions = {}) {
     const factory = options.indexedDB ?? globalThis.indexedDB;
@@ -149,11 +171,19 @@ export class IndexedDbProjectRepository implements ProjectRepository {
           resolve(result);
           return;
         }
-        const storageKey = String(cursor.primaryKey);
-        const prepared = prepareStoredProject(
-          storageKey,
-          documentFromStoredRecord(cursor.value),
-        );
+        const storageKey = cursor.primaryKey;
+        const rawDocument = documentFromStoredRecord(cursor.value);
+        const prepared = typeof storageKey === "string"
+          ? prepareStoredProject(storageKey, rawDocument)
+          : prepareUnavailableStoredProject(
+              nonStringRecoveryId(storageKey),
+              rawDocument,
+              {
+                stage: "document-schema",
+                path: "storageKey",
+                reason: "Stored project key must be a string",
+              },
+            );
         result.push(
           prepared.availability === "ready"
             ? { availability: "ready", summary: prepared.summary }
@@ -167,7 +197,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
         { once: true },
       );
     });
-    return paginateProjectItems(items, input);
+    return paginateProjectItems(items, input, this.paginationState);
   }
 
   async create(input: { name: string }): Promise<ProjectDocument> {

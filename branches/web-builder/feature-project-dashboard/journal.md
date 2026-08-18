@@ -5,7 +5,7 @@ scope: Execution state for web-builder feature/project-dashboard
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-18 after the verified branch tip 6c48a41 was pushed and draft pull request 9 was opened; invalidated by progress, scope, branch, pull-request, workspace-mapping, blocker, approval, review, or verification changes
+freshness: Updated on 2026-08-18 after PD-R07 through PD-R09 were locally remediated and verified on top of published head a6a7b78; invalidated by progress, scope, branch, pull-request, workspace-mapping, blocker, approval, publication, review, or verification changes
 ---
 
 # Progress Journal - web-builder / feature/project-dashboard
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-18 after the verified branch tip 6c48a41 was pushe
 `workspaces/project-dashboard/`
 
 **Current step:**
-Review [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9), run the complete verification matrix under Node 24.19.x when that runtime is available, and repeat the final remediation-state browser replay before promoting the pull request from draft.
+Review and publish the locally verified PD-R07 through PD-R09 remediation to [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9), rerun its Node 24.19 matrix, and repeat the final remediation-state browser replay before promoting the pull request from draft.
 
 **Approach:**
 Preserve the canonical `ProjectDocument` and hydration boundary, introduce a storage-independent repository contract, implement browser-local persistence first, move the editor to a project-specific route, and add autosave only after repository behavior is verified.
@@ -57,6 +57,13 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - Confirmed the active port-3000 development server returns 200 for `/`, `/preview`, and `/projects/qa-missing-boundary`; its emitted CSS contains the shared editor-boundary tokens. A final post-remediation visual replay was not possible because the installed Browser plugin package is missing its required `scripts/browser-client.mjs` runtime file.
 - After the user stopped port 3000, ran `pnpm build` against the remediated working tree. Next.js 16.3.0 compiled successfully, completed TypeScript and static generation, and emitted `/` as static plus `/preview`, `/projects/[projectId]`, and `/api/form-submissions` as dynamic routes under Node 22.21.1.
 - Committed the final recovery remediation as `6c48a41`, pushed `feature/project-dashboard` to `origin`, and opened [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9) against `main` after confirming no existing pull request used the branch.
+- Verified published head `a6a7b78` through [Node 24.19 CI / Validate run 32109626246, job 95626050223](https://github.com/surajsibi/web-builder/actions/runs/32109626246/job/95626050223).
+- Corrected draft pull request 9's description so it records that successful Node 24.19 job while requiring the same matrix again for any later remediation commit.
+- Reproduced PD-R07 through PD-R09 with six fail-before cases: numeric IndexedDB key `1` appeared ready for project ID `"1"`; colliding numeric and string keys shared a project identity; a save between pages omitted the updated project and duplicated another React key; and Escape removed pending create and rename dialogs before success or failure completed.
+- Remediated PD-R07 by requiring string physical IndexedDB keys for readiness, preserving every other key type through a type-tagged recovery identity, and namespace-tagging ready and unavailable React keys.
+- Remediated PD-R08 with exact, bounded per-repository inventory signatures, the stable `inventory-changed` error, duplicate-item detection, and a three-attempt dashboard restart.
+- Remediated PD-R09 by disabling Escape dismissal for pending create and rename dialogs while preserving idle and recovery-dialog dismissal.
+- Completed local verification for the latest remediation: 3 focused files and 25 tests pass, the complete serial suite passes 41 files and 565 tests with the temporary 15-second ceiling, repository-wide lint, normal typechecking, and `git diff --check` pass, and the optimized Next.js build emits the expected routes.
 
 **Verification:**
 
@@ -88,13 +95,15 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - The PD-R05 and PD-R06 closure suites pass 2 files and 69 tests, including the three new production-boundary cases. The complete suite passes 41 files and 559 tests; `pnpm lint`, `pnpm typecheck`, and `git diff --check` pass under Node 22.21.1.
 - The clean port-3000 development server serves the dashboard, Preview, and a missing-project route with HTTP 200, and the emitted stylesheet includes `--dashboard-ink: #17201f` for `.project-editor-boundary`.
 - GitHub reports draft pull request 9 open and mergeable with base `main`, head `feature/project-dashboard`, and head commit `6c48a41fcdb65a34ac305419f2555dddde88966d` at creation.
+- The six PD-R07 through PD-R09 cases fail against the published implementation and pass after remediation. The focused matrix passes 25 of 25 tests; the complete Node 22 suite passes 565 of 565 with the temporary ceiling; repository-wide lint, normal typecheck, diff checks, and the optimized build pass.
+- Published head `a6a7b78` passed the required Node 24.19 `CI / Validate` job before PD-R07 through PD-R09; those local changes need a fresh required-runtime run after publication.
 
 **Remaining:**
 
-- Run lint, typecheck, the complete suite, and the production build under the required Node 24.19.x runtime when it is available; the same matrix and production build pass under Node 22.21.1, and the unchanged five-second editor timeout must not be weakened to hide machine load.
+- Commit and push PD-R07 through PD-R09, then rerun lint, typecheck, the complete suite, and the production build under the required Node 24.19.x runtime for the new published head; the local matrix and production build pass under Node 22.21.1, and the unchanged five-second timeout must not be weakened to hide machine load.
 - Repeat the PD-R05 and PD-R06 visual interaction pass in a supported browser when the Browser plugin runtime is repaired; the production-component closure tests already pass.
 - Review draft pull request 9 and decide when its remaining verification is sufficient to mark it ready for review.
 - Review and revise the migration guide's proposed identity, revision, timestamp, idempotency, retention, recovery, and endpoint decisions.
 
 **Last left off:**
-2026-08-18 - Commit `6c48a41` is pushed and draft pull request 9 is open against `main`. The affected 69-test suites, complete 559-test suite, lint/typecheck/diff checks, and optimized production build pass under Node 22.21.1. Next action: review the draft, run the full Node 24.19.x matrix, and repeat the final visual replay when the Browser plugin runtime is repaired before promoting the pull request from draft.
+2026-08-18 - PD-R07 through PD-R09 are implemented and locally verified on top of published head `a6a7b78`. The latest focused matrix passes 25 tests, the complete suite passes 565 tests with the temporary 15-second ceiling, and lint, typecheck, diff checks, and the optimized production build pass under Node 22.21.1. Published head `a6a7b78` passed Node 24.19 CI before these changes. Next action: commit and push the remediation, rerun required-runtime CI, and repeat the final visual replay before promoting the pull request from draft.

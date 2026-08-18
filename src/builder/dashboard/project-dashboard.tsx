@@ -23,29 +23,64 @@ type NameDialogState =
   | { mode: "create" }
   | { mode: "rename"; project: ProjectSummary };
 
+const MAX_INVENTORY_ATTEMPTS = 3;
+
+function projectListItemIdentity(item: ProjectListItem): string {
+  return item.availability === "ready"
+    ? `ready:${item.summary.projectId}`
+    : `unavailable:${item.summary.recoveryId}`;
+}
+
 async function listAllProjects(
   repository: ProjectRepository,
 ): Promise<ProjectListItem[]> {
-  const items: ProjectListItem[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | undefined;
+  for (let attempt = 0; attempt < MAX_INVENTORY_ATTEMPTS; attempt += 1) {
+    const items: ProjectListItem[] = [];
+    const seenItems = new Set<string>();
+    const seenCursors = new Set<string>();
+    let cursor: string | undefined;
 
-  while (true) {
-    const result = await repository.list({
-      cursor,
-      limit: MAX_PROJECT_LIST_LIMIT,
-    });
-    items.push(...result.items);
-    if (result.nextCursor === null) return items;
-    if (seenCursors.has(result.nextCursor)) {
-      throw new ProjectRepositoryError(
-        "unexpected-storage-error",
-        "Project storage returned a repeated pagination cursor",
-      );
+    try {
+      while (true) {
+        const result = await repository.list({
+          cursor,
+          limit: MAX_PROJECT_LIST_LIMIT,
+        });
+        for (const item of result.items) {
+          const identity = projectListItemIdentity(item);
+          if (seenItems.has(identity)) {
+            throw new ProjectRepositoryError(
+              "inventory-changed",
+              "Project storage returned a repeated item while pagination was in progress",
+            );
+          }
+          seenItems.add(identity);
+          items.push(item);
+        }
+        if (result.nextCursor === null) return items;
+        if (seenCursors.has(result.nextCursor)) {
+          throw new ProjectRepositoryError(
+            "unexpected-storage-error",
+            "Project storage returned a repeated pagination cursor",
+          );
+        }
+        seenCursors.add(result.nextCursor);
+        cursor = result.nextCursor;
+      }
+    } catch (error) {
+      if (
+        !(error instanceof ProjectRepositoryError) ||
+        error.code !== "inventory-changed"
+      ) {
+        throw error;
+      }
     }
-    seenCursors.add(result.nextCursor);
-    cursor = result.nextCursor;
   }
+
+  throw new ProjectRepositoryError(
+    "unexpected-storage-error",
+    "Project inventory kept changing while it was being loaded",
+  );
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -81,13 +116,13 @@ function recoveryExplanation(reason: UnavailableProjectSummary["reason"]): strin
     : "This project's saved data is damaged or incomplete and cannot be opened safely.";
 }
 
-function useDashboardDialog(onClose: () => void) {
+function useDashboardDialog(onClose: () => void, dismissible = true) {
   const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        if (dismissible) onClose();
         return;
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
@@ -109,7 +144,7 @@ function useDashboardDialog(onClose: () => void) {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [dismissible, onClose]);
   return dialogRef;
 }
 
@@ -126,7 +161,7 @@ function ProjectNameDialog({
   onCancel: () => void;
   onSubmit: (name: string) => void;
 }) {
-  const dialogRef = useDashboardDialog(onCancel);
+  const dialogRef = useDashboardDialog(onCancel, !pending);
   const [name, setName] = useState(
     state.mode === "rename" ? state.project.name : "",
   );
@@ -484,7 +519,10 @@ export function ProjectDashboard({
                 if (item.availability === "unavailable") {
                   const project = item.summary;
                   return (
-                    <article className="project-card unavailable" key={project.recoveryId}>
+                    <article
+                      className="project-card unavailable"
+                      key={`unavailable:${project.recoveryId}`}
+                    >
                       <div className="project-card-preview unavailable-preview" aria-hidden="true">
                         <span>!</span>
                       </div>
@@ -522,7 +560,10 @@ export function ProjectDashboard({
                 const project = item.summary;
                 const duplicating = pendingAction === `duplicate:${project.projectId}`;
                 return (
-                  <article className="project-card" key={project.projectId}>
+                  <article
+                    className="project-card"
+                    key={`ready:${project.projectId}`}
+                  >
                     <button
                       aria-label={`Open ${project.name}`}
                       className="project-card-preview"
