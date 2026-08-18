@@ -5,7 +5,7 @@ scope: Execution state for web-builder feature/project-dashboard
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-18 after PD-R05 and PD-R06 were remediated and closed through production-component regression tests, the complete 559-test run, static checks, live port-3000 compilation checks, and a successful optimized production build; invalidated by progress, scope, branch, workspace-mapping, blocker, approval, review, or verification changes
+freshness: Updated on 2026-08-18 after the verified branch tip 6c48a41 was pushed and draft pull request 9 was opened; invalidated by progress, scope, branch, pull-request, workspace-mapping, blocker, approval, review, or verification changes
 ---
 
 # Progress Journal - web-builder / feature/project-dashboard
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-18 after PD-R05 and PD-R06 were remediated and clo
 `workspaces/project-dashboard/`
 
 **Current step:**
-Review the closed six-finding remediation and successful production build, obtain an explicit owner push decision, and run the complete verification matrix under Node 24.19.x when that runtime is available.
+Review [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9), run the complete verification matrix under Node 24.19.x when that runtime is available, and repeat the final remediation-state browser replay before promoting the pull request from draft.
 
 **Approach:**
 Preserve the canonical `ProjectDocument` and hydration boundary, introduce a storage-independent repository contract, implement browser-local persistence first, move the editor to a project-specific route, and add autosave only after repository behavior is verified.
@@ -56,6 +56,7 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - Closed PD-R05 and PD-R06 after the two affected suites passed 69 of 69 tests, the complete suite passed 559 of 559, and lint, normal typechecking, and `git diff --check` passed.
 - Confirmed the active port-3000 development server returns 200 for `/`, `/preview`, and `/projects/qa-missing-boundary`; its emitted CSS contains the shared editor-boundary tokens. A final post-remediation visual replay was not possible because the installed Browser plugin package is missing its required `scripts/browser-client.mjs` runtime file.
 - After the user stopped port 3000, ran `pnpm build` against the remediated working tree. Next.js 16.3.0 compiled successfully, completed TypeScript and static generation, and emitted `/` as static plus `/preview`, `/projects/[projectId]`, and `/api/form-submissions` as dynamic routes under Node 22.21.1.
+- Committed the final recovery remediation as `6c48a41`, pushed `feature/project-dashboard` to `origin`, and opened [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9) against `main` after confirming no existing pull request used the branch.
 
 **Verification:**
 
@@ -86,14 +87,14 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - The temporary production-browser pass produced no console warnings or errors. It created two QA-only records under the port-3102 origin. The port-3000 dashboard pass created `Virtual QA 2026-08-18 Renamed` and its copy while leaving the two pre-existing records unchanged.
 - The PD-R05 and PD-R06 closure suites pass 2 files and 69 tests, including the three new production-boundary cases. The complete suite passes 41 files and 559 tests; `pnpm lint`, `pnpm typecheck`, and `git diff --check` pass under Node 22.21.1.
 - The clean port-3000 development server serves the dashboard, Preview, and a missing-project route with HTTP 200, and the emitted stylesheet includes `--dashboard-ink: #17201f` for `.project-editor-boundary`.
+- GitHub reports draft pull request 9 open and mergeable with base `main`, head `feature/project-dashboard`, and head commit `6c48a41fcdb65a34ac305419f2555dddde88966d` at creation.
 
 **Remaining:**
 
 - Run lint, typecheck, the complete suite, and the production build under the required Node 24.19.x runtime when it is available; the same matrix and production build pass under Node 22.21.1, and the unchanged five-second editor timeout must not be weakened to hide machine load.
 - Repeat the PD-R05 and PD-R06 visual interaction pass in a supported browser when the Browser plugin runtime is repaired; the production-component closure tests already pass.
-- Review the closed six-finding remediation and decide whether to push.
+- Review draft pull request 9 and decide when its remaining verification is sufficient to mark it ready for review.
 - Review and revise the migration guide's proposed identity, revision, timestamp, idempotency, retention, recovery, and endpoint decisions.
-- Push the local checkpoint only when requested after review closure.
 
 **Last left off:**
-2026-08-18 - PD-R05 and PD-R06 are remediated and closed in the local feature-branch checkpoint. Their affected suites pass 69 of 69 tests, the complete suite passes 559 of 559, lint/typecheck/diff checks pass, and the optimized production build emits all expected routes. The final visual replay remains outstanding only because the installed Browser plugin lacks its required client file. Next action: owner review and explicit push direction, with the full Node 24.19.x verification matrix still outstanding.
+2026-08-18 - Commit `6c48a41` is pushed and draft pull request 9 is open against `main`. The affected 69-test suites, complete 559-test suite, lint/typecheck/diff checks, and optimized production build pass under Node 22.21.1. Next action: review the draft, run the full Node 24.19.x matrix, and repeat the final visual replay when the Browser plugin runtime is repaired before promoting the pull request from draft.

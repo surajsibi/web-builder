@@ -5,7 +5,7 @@ scope: Implementation and verification of the local-first project dashboard, Ind
 authority: Consolidated delivery and verification record; code, configuration, tests, and verified runtime behavior own implemented behavior, while the linked feature specification owns delivery intent and the migration guide owns the proposed future transition procedure
 owner: Project owner
 lifecycle: in_review
-freshness: Revalidated on 2026-08-18 in the local feature-branch state following checkpoint c4b9412ba5dab5546e75c2c6cf8b6b8a209aa2eb through all 69 affected tests, the complete 559-test run, ESLint, normal typechecking, diff checks, pre-remediation browser reproduction, post-remediation live port-3000 compilation checks, and a successful optimized production build; all six scoped findings are closed; invalidated by a relevant code, test, dependency, runtime, browser-support, product-scope, branch, commit, or review-state change
+freshness: Revalidated on 2026-08-18 at commit 6c48a41fcdb65a34ac305419f2555dddde88966d through all 69 affected tests, the complete 559-test run, ESLint, normal typechecking, diff checks, pre-remediation browser reproduction, post-remediation live port-3000 compilation checks, and a successful optimized production build; published in draft pull request 9 with all six scoped findings closed; invalidated by a relevant code, test, dependency, runtime, browser-support, product-scope, branch, implementation-commit, pull-request-disposition, or review-state change
 ---
 
 # Implementation report: Local project dashboard and persistent editor
@@ -16,7 +16,7 @@ The approved local-first slice is implemented. Opening Canvas Studio at `/` now 
 
 The implementation keeps invalid or unsupported stored records visible as bounded **Needs recovery** entries. These entries preserve their raw browser records, disclose only safe recovery metadata, and cannot open, rename, duplicate, preview, save, autosave, delete, or migrate through the normal path.
 
-This is not a cloud or account-backed release. Authentication, authorization, backend APIs, database storage, cloud synchronization, deletion, import/export, guided recovery, publishing, templates, and local-to-backend migration remain outside the implemented scope. The local feature branch includes all six remediations; it is not pushed, merged, or deployed. The remediated production build passes, but owner review, explicit push direction, and the complete Node 24 verification matrix remain outstanding.
+This is not a cloud or account-backed release. Authentication, authorization, backend APIs, database storage, cloud synchronization, deletion, import/export, guided recovery, publishing, templates, and local-to-backend migration remain outside the implemented scope. The feature branch includes all six remediations and is published in [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9); it is not merged or deployed. The remediated production build passes, while owner review, the complete Node 24 verification matrix, and the final remediation-state browser replay remain outstanding.
 
 The branch is rebased onto the Boolean State/Drawer mainline at `4835734`. Whole-project duplication now remaps schema-version-3 component references and Boolean State bindings, and repository loads preserve the migration signal so a supported older project is saved through the normal revision-checked autosave path.
 
@@ -85,10 +85,11 @@ The final pre-push review found two additional medium-severity UI and accessibil
 | Final pre-push review before remediation | Full branch-diff inspection, 8 focused files and 49 tests, complete 41-file and 556-test suite, ESLint, source typecheck across 121 files, and `git diff --check` on 2026-08-18 | Correctly held publication pending PD-R05 and PD-R06 | Normal `pnpm typecheck` was initially blocked by malformed `.next/dev/types`; the rendered follow-up below records its recovery. |
 | Rendered defect reproduction before remediation | Controlled Chrome production-flow pass, rendered PD-R05 boundary inspection, real two-tab PD-R06 conflict, clean port-3000 route smoke after the extra same-folder server stopped, and normal `pnpm typecheck` | Pass; reproduced PD-R05 and PD-R06 | `/`, `/preview`, and the dynamic project route return 200 with one dev server. |
 | PD-R05 and PD-R06 closure | Three fail-before/pass-after production-component cases; 2 affected files and 69 tests; complete 41-file and 559-test suite; ESLint; normal typecheck; `git diff --check`; live port-3000 route and emitted-CSS checks; optimized production build | Pass; all six scoped findings closed | Final visual replay is pending because the installed Browser plugin lacks its required client runtime; the complete Node 24.19.x matrix remains outstanding. |
+| Pull-request publication | `gh pr view 9` after publishing commit `6c48a41` | Draft pull request 9 is open and mergeable from `feature/project-dashboard` into `main` | Mergeability can change with later base or head updates; Node 24 and final browser verification remain before ready-for-review promotion. |
 
 ## Rollout and rollback
 
-There is no rollout yet. The rebased feature and all six remediations are saved in local feature-branch checkpoints, including an optimized production build of the final remediation state. The branch has not been pushed, merged, deployed, or released. The six-finding review hold is cleared, but owner review, the complete Node 24 verification matrix, and explicit push direction remain required.
+There is no product rollout yet. The rebased feature and all six remediations are pushed and published in draft pull request 9, including an optimized production build of the final remediation state. The branch has not been merged, deployed, or released. The six-finding review hold is cleared, but owner review, the complete Node 24 verification matrix, and the final remediation-state browser replay remain before ready-for-review promotion.
 
 The branch boundary is the source rollback boundary before publication. The repository abstraction also contains storage risk: dashboard and editor callers do not depend directly on IndexedDB, and unavailable records are preserved instead of rewritten. If review finds a persistence or recovery defect, stop publication and keep the affected adapter or actions disabled while preserving browser data; do not delete, rewrite, or silently replace stored records as a rollback technique.
 
@@ -104,7 +105,7 @@ Browser projects created during manual testing remain ordinary local IndexedDB d
 
 ## Residual risks and follow-up
 
-- Project owner: review the closed six-finding remediation and successful local build, then decide whether to push after the Node 24 verification matrix.
+- Project owner: review draft pull request 9 and decide when the remaining Node 24 and browser verification is sufficient to promote it from draft.
 - Technical reviewer: review IndexedDB transaction atomicity, raw-record preservation, hydration classification, store isolation, and revision-conflict behavior before merge.
 - Maintainer: rerun lint, typecheck, the complete suite, and the production build under the required Node 24.19.x runtime.
 - Quality/accessibility owner: repeat the remediated direct-route and conflict presentations when the Browser plugin runtime is repaired, and manually exercise a supported screen reader, real storage denial/blocked-upgrade behavior, mixed ready/recovery inventory, direct unavailable routes, and a two-tab conflict in the supported browser matrix.

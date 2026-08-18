@@ -5,7 +5,7 @@ scope: Execution state for the local-first project dashboard, project persistenc
 authority: Selected execution-state authority for this future feature; Project.md and verified code own current behavior, and the linked draft specification owns proposed intent
 owner: Project owner
 lifecycle: draft
-freshness: Re-reviewed on 2026-08-18 in the local feature-branch state following commit c4b9412ba5dab5546e75c2c6cf8b6b8a209aa2eb after all six scoped findings closed through production-component tests, the complete 559-test run, static checks, live port-3000 compilation checks, and a successful optimized production build; invalidated by an approved backend, persistence, migration, authentication, dashboard, recovery, project-schema, hydration-error, API-contract, branch, workspace-mapping, implementation, review, or verification decision
+freshness: Updated on 2026-08-18 after verified commit 6c48a41 was pushed and draft pull request 9 was opened against main; invalidated by an approved backend, persistence, migration, authentication, dashboard, recovery, project-schema, hydration-error, API-contract, branch, pull-request, workspace-mapping, implementation, review, or verification decision
 ---
 
 # Project dashboard and persistence workspace
@@ -14,13 +14,13 @@ freshness: Re-reviewed on 2026-08-18 in the local feature-branch state following
 
 **Feature directory identifier:** `project-dashboard`
 
-**Overall status:** The local-first dashboard slice and all six scoped code-review remediations are implemented and verified in the local feature branch, and the remediated production build passes. The finding-based publication hold is cleared; the branch remains unpushed pending owner review, explicit push direction, and the outstanding Node 24 verification matrix.
+**Overall status:** The local-first dashboard slice and all six scoped code-review remediations are implemented, verified under Node 22.21.1, pushed, and published in [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9). Owner review, the required Node 24.19.x verification matrix, and the final remediation-state browser replay remain before the pull request is ready for review.
 
 **Participating repositories:** `web-builder`
 
 **Active branches:** `web-builder`: `feature/project-dashboard`, originally created from `main` at `da11e47760e39e98f0d6fb989307260c75d8fb9a` and rebased onto `origin/main` at `4835734ba7a371281b9d3d5c9d8bb520c5e9676e`. Repository context: [branch workspace](../../branches/web-builder/feature-project-dashboard/README.md).
 
-**Current milestone:** Review the closed six-finding remediation and successful production build, obtain the owner push decision, then run the complete verification matrix under Node 24.19.x when available; separately review the opt-in migration design before future backend work.
+**Current milestone:** Review draft pull request 9, run the complete verification matrix under Node 24.19.x when available, and repeat the final remediation-state browser replay before promoting the pull request from draft; separately review the opt-in migration design before future backend work.
 
 **Feature summary:** Define how the project dashboard and editor can save, list, load, rename, duplicate, and eventually delete projects. Use browser-local IndexedDB behind a repository interface before a backend exists, then replace that adapter with a revision-checked API without changing the canonical project document or bypassing hydration validation.
 
@@ -49,11 +49,11 @@ freshness: Re-reviewed on 2026-08-18 in the local feature-branch state following
 
 ## Execution state
 
-- **Current step:** Review the closed six-finding remediation and successful build, obtain explicit push direction, and complete the Node 24 verification matrix when that runtime is available.
-- **Done:** Created checkpoint commit `6939faa`, rebased it as `153f397` onto `origin/main` at `4835734`, completed schema-version-3 integration in `4320c81`, saved PD-R01 through PD-R04 in `c4b9412`, found PD-R05 and PD-R06 in the final pre-push review, and remediated both in the current feature-branch checkpoint with production-component closure tests.
+- **Current step:** Review draft pull request 9, complete the Node 24 verification matrix when that runtime is available, and repeat the final remediation-state browser replay before ready-for-review promotion.
+- **Done:** Created checkpoint commit `6939faa`, rebased it as `153f397` onto `origin/main` at `4835734`, completed schema-version-3 integration in `4320c81`, saved PD-R01 through PD-R04 in `c4b9412`, remediated PD-R05 and PD-R06 in `6c48a41`, pushed `feature/project-dashboard`, and opened draft pull request 9 against `main`.
 - **Verification:** The two affected suites pass 69 of 69 tests, including computed shared CSS tokens, keyboard-reachable retry actions, visible storage-failure guidance, visible conflict guidance, manual storage retry, conflict save lockout, and dashboard recovery. Repository-wide ESLint, normal `pnpm typecheck`, `git diff --check`, the complete 41-file, 559-test suite, and the optimized production build pass under Node 22.21.1. The build emits `/` as static and `/preview`, `/projects/[projectId]`, and `/api/form-submissions` as dynamic routes. Earlier controlled Chrome evidence covers the production persistence flow and both pre-remediation defects. A final post-remediation visual replay is outstanding because the installed Browser plugin lacks its required client runtime, and the required-runtime Node 24.19.x verification remains outstanding.
-- **Remaining:** Run lint, typecheck, the complete suite, and the production build under Node 24.19.x when available; repeat the two remediated visual states in a supported browser when the Browser plugin is repaired; obtain owner review and explicit push direction; and separately approve future migration identity, idempotency, retention, recovery, and endpoint decisions.
-- **Last left off:** 2026-08-18 - PD-R05 and PD-R06 are remediated and closed in the local feature-branch checkpoint. The affected 69-test suites, full 559-test suite, lint, typecheck, diff check, live compilation checks, and optimized production build pass under Node 22.21.1. Next action: owner review and explicit push direction, with the full Node 24.19.x matrix still outstanding.
+- **Remaining:** Review draft pull request 9; run lint, typecheck, the complete suite, and the production build under Node 24.19.x when available; repeat the two remediated visual states in a supported browser when the Browser plugin is repaired; decide when to promote the pull request from draft; and separately approve future migration identity, idempotency, retention, recovery, and endpoint decisions.
+- **Last left off:** 2026-08-18 - Commit `6c48a41` is pushed and draft pull request 9 is open against `main`. The affected suites, complete suite, static checks, live compilation checks, and optimized production build pass under Node 22.21.1. Next action: owner review, the full Node 24.19.x matrix, and the final remediation-state browser replay before ready-for-review promotion.
 
 ## Decision intake
 
@@ -69,3 +69,4 @@ freshness: Re-reviewed on 2026-08-18 in the local feature-branch state following
 | 2026-08-16 | Run the supported-browser remediation follow-up. | Confirmed | Controlled Chrome verified that the immediate-Back edit persisted and that Enter-submitted rename restored focus to the initiating control. |
 | 2026-08-18 | Run the final pre-push branch review. | Confirmed | PD-R01 through PD-R04 remain closed; PD-R05 and PD-R06 are open, and publication is on hold pending a remediation decision. |
 | 2026-08-18 | Remediate PD-R05 and PD-R06 after the user approved continuing. | Confirmed | Shared boundary tokens and visible toolbar recovery guidance are implemented; production-component closure tests pass and all six scoped findings are closed. |
+| 2026-08-18 | Push `feature/project-dashboard` and open a pull request. | Confirmed | Commit `6c48a41` was pushed and [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9) was opened against `main`; Node 24 verification and the final browser replay remain before ready-for-review promotion. |

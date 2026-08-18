@@ -5,7 +5,7 @@ scope: Final pre-push code review and remediation verification of local project 
 authority: Verified implementation owns current behavior; this review owns the six scoped findings, their remediation evidence, and their final pre-push disposition
 owner: Project owner
 lifecycle: in_review
-freshness: Re-reviewed and remediated on 2026-08-18 in the local feature-branch state following commit c4b9412ba5dab5546e75c2c6cf8b6b8a209aa2eb through pre-fix rendered reproduction, three fail-before/pass-after production-component cases, all 69 affected tests, the complete 559-test run, ESLint, normal typechecking, diff checks, live port-3000 compilation checks, and a successful optimized production build; all six scoped findings are closed; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, or runtime files
+freshness: Re-reviewed and remediated on 2026-08-18 at commit 6c48a41fcdb65a34ac305419f2555dddde88966d through pre-fix rendered reproduction, three fail-before/pass-after production-component cases, all 69 affected tests, the complete 559-test run, ESLint, normal typechecking, diff checks, live port-3000 compilation checks, and a successful optimized production build; all six scoped findings are closed and published in draft pull request 9; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, runtime, or review disposition
 ---
 
 # Code review: project dashboard persistence, recovery, and accessibility
@@ -320,8 +320,10 @@ The project owner approved remediation of PD-R01 through PD-R04 on 2026-08-15,
 and those findings remain closed. The user approved proceeding with PD-R05 and
 PD-R06 remediation on 2026-08-18; both production-boundary closure suites now
 pass, so all six findings are closed and the finding-based publication hold is
-cleared. This review does not authorize a push, merge, deployment, backend
-expansion, or deletion capability.
+cleared. This review did not itself authorize a push, merge, deployment,
+backend expansion, or deletion capability. The user subsequently authorized
+the push and creation of [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9);
+that later direction does not authorize merge or deployment.
 
 Closure verification passes the 2 affected files and all 69 tests,
 repository-wide ESLint, normal `pnpm typecheck`, `git diff --check`, the
@@ -330,7 +332,7 @@ optimized production build. The earlier port-3000 server also compiled and
 served the changed routes and shared CSS. All current verification ran on Node
 22.21.1, and the repository-required Node 24.19.x matrix remains outstanding.
 
-The owner should review the remediated diff before deciding whether to push.
+The owner should review draft pull request 9 before promoting it from draft.
 Run the complete verification matrix under Node 24.19.x when available, and
 repeat the two remediated states visually when the Browser plugin runtime is
 repaired.
