@@ -5,7 +5,7 @@ scope: Local-first project dashboard, project-specific editor routing, IndexedDB
 authority: Execution plan for the local-first delivery slice; project-persistence-and-backend-spec.md owns proposed product intent, while verified code and tests own implemented behavior
 owner: Project owner
 lifecycle: active
-freshness: Updated on 2026-08-18 after completing the local PD-10 remediation for non-string IndexedDB keys, pagination inventory changes, and pending-dialog Escape; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, review, branch-publication, or scope change
+freshness: Updated on 2026-08-18 after published PD-10 passed Node 24.19 CI and local PD-11 closed cross-type recovery-identity collisions, pending-dialog focus escape, and stale publication records; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, review, branch-publication, or scope change
 ---
 
 # Plan: Local project dashboard and persistent editor
@@ -25,7 +25,7 @@ Open Canvas Studio
 
 The [project persistence and backend specification](project-persistence-and-backend-spec.md) owns the proposed product and storage contract. This plan orders the first browser-local implementation slice. The canonical `ProjectDocument`, migration code, hydration validator, commands, tests, and verified runtime behavior remain authoritative for current behavior.
 
-**Implementation outcome:** PD-00 through PD-10 are complete in the local working tree. The local-first product slice and all nine approved code-review remediations are production-build verified locally; publication and a fresh required-runtime run remain for PD-10, while future backend migration remains outside this implementation.
+**Implementation outcome:** PD-00 through PD-11 are complete in the local working tree. Published head `61641d3` contains the first nine review remediations and passed Node 24.19 CI; the latest two behavioral fixes and publication-record correction are locally verified, while publication and a fresh required-runtime run remain for PD-11. Future backend migration remains outside this implementation.
 
 ### Included in the first release
 
@@ -129,7 +129,8 @@ Text equivalent: the dashboard and project editor use the same repository contra
 | PD-07 | Run end-to-end behavior checks across multiple projects and Preview. | PD-04, PD-06 | Acceptance scenarios and verification matrix | Project owner | Complete |
 | PD-08 | Update maintained execution context with verified as-built behavior. | PD-07 | Documentation, links, diff, and whitespace checks | Project owner | Complete |
 | PD-09 | Remediate the four approved project-dashboard code-review findings. | PD-08 | Focused tests cover unmount save, key/ID containment, 101-project reachability/search, and successful-rename focus restoration; full verification remains green | Project owner | Complete |
-| PD-10 | Remediate the three approved pull-request findings for physical-key typing, inventory-stable enumeration, and pending-dialog dismissal. | PD-09 | Fail-before/pass-after numeric/string-key, changed-inventory, and deferred create/rename tests; focused and full verification remain green | Project owner | Complete locally; publication and required-runtime rerun remain |
+| PD-10 | Remediate the three approved pull-request findings for physical-key typing, inventory-stable enumeration, and pending-dialog dismissal. | PD-09 | Fail-before/pass-after numeric/string-key, changed-inventory, and deferred create/rename tests; focused and full verification remain green | Project owner | Complete, published, and Node 24 verified |
+| PD-11 | Remediate cross-type recovery-identity collisions, pending-dialog focus escape, and stale publication records. | PD-10 | Fail-before/pass-after recovery-ID and keyboard-focus cases; focused and full verification remain green; records cite the actual published head and CI job | Project owner | Complete locally; publication and required-runtime rerun remain |
 
 ## Implementation detail by slice
 
@@ -255,7 +256,17 @@ Close the three approved P2 findings without changing the local-only product sco
 2. Bind offset cursors to an exact, bounded repository snapshot signature. Invalidate a cursor when the inventory changes, discard the partial dashboard scan, and retry from page one at most three times.
 3. Keep create and rename dialogs mounted when Escape is pressed during a pending mutation so success navigation and failure guidance remain attached to visible UI.
 
-The six new behavior cases failed against the published implementation and pass after remediation. The focused repository and dashboard matrix passes 25 tests, and the complete local Node 22 matrix passes 565 tests with the existing temporary 15-second ceiling. The previously published head `a6a7b78` passed the required Node 24.19 `CI / Validate` job in [run 32109626246, job 95626050223](https://github.com/surajsibi/web-builder/actions/runs/32109626246/job/95626050223); the uncommitted PD-10 changes require a fresh required-runtime run after publication.
+The six behavior cases failed against the earlier published implementation and pass after remediation. The focused repository and dashboard matrix passed 25 tests, and the complete local Node 22 matrix passed 565 tests with the existing temporary 15-second ceiling. Published head `61641d3` contains PD-10 and passed the required Node 24.19 `CI / Validate` job in [run 32120382654, job 95659238395](https://github.com/surajsibi/web-builder/actions/runs/32120382654/job/95659238395).
+
+### PD-11 - Follow-up pull-request remediation
+
+Close the two behavioral P2 defects and the publication-record P3 defect without changing product scope:
+
+1. Derive every unavailable IndexedDB `recoveryId`, including string physical keys, through the same type-tagged encoder so a generated numeric identity cannot collide with a literal string key.
+2. Keep the pending name-dialog submit control focusable, semantically disabled, and explicitly focused; guard repeat submission so Tab and Shift+Tab remain inside the modal while the mutation is unresolved.
+3. Correct maintained records and the draft pull-request description to identify published head `61641d3`, nine published findings, 565 published tests, and its successful Node 24.19 job without claiming that later local fixes are published.
+
+Both behavior cases failed against `61641d3` and pass after remediation. The expanded focused matrix passes 27 tests, and the complete local Node 22 matrix passes 567 tests with the temporary 15-second ceiling. Repository-wide lint, typecheck, diff checks, and the optimized build pass. The PD-11 code changes require publication and a fresh Node 24.19 run.
 
 ## Quality and approval gates
 
@@ -296,6 +307,6 @@ Before branch completion:
 
 ## Completion
 
-This plan is ready for implementation only after PD-00 is approved. The feature is complete when PD-01 through PD-10 are implemented, every quality gate passes, the dashboard-to-editor-to-reload journey is verified in a real browser, failure states remain honest and recoverable, and durable as-built knowledge is promoted to its canonical maintained documentation.
+This plan is ready for implementation only after PD-00 is approved. The feature is complete when PD-01 through PD-11 are implemented, every quality gate passes, the dashboard-to-editor-to-reload journey is verified in a real browser, failure states remain honest and recoverable, and durable as-built knowledge is promoted to its canonical maintained documentation.
 
 The branch must not be presented as providing accounts, cloud backup, publishing, deletion, starter templates, or multi-device synchronization.

@@ -5,7 +5,7 @@ scope: Execution state for web-builder feature/project-dashboard
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-18 after PD-R07 through PD-R09 were locally remediated and verified on top of published head a6a7b78; invalidated by progress, scope, branch, pull-request, workspace-mapping, blocker, approval, publication, review, or verification changes
+freshness: Updated on 2026-08-18 after published head 61641d3 passed Node 24.19 CI and PD-R10 through PD-R12 were locally remediated; invalidated by progress, scope, branch, pull-request, workspace-mapping, blocker, approval, publication, review, or verification changes
 ---
 
 # Progress Journal - web-builder / feature/project-dashboard
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-18 after PD-R07 through PD-R09 were locally remedi
 `workspaces/project-dashboard/`
 
 **Current step:**
-Review and publish the locally verified PD-R07 through PD-R09 remediation to [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9), rerun its Node 24.19 matrix, and repeat the final remediation-state browser replay before promoting the pull request from draft.
+Review and publish the locally verified PD-R10 and PD-R11 remediation to [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9), rerun its Node 24.19 matrix, and repeat the final remediation-state browser replay before promoting the pull request from draft.
 
 **Approach:**
 Preserve the canonical `ProjectDocument` and hydration boundary, introduce a storage-independent repository contract, implement browser-local persistence first, move the editor to a project-specific route, and add autosave only after repository behavior is verified.
@@ -64,6 +64,13 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - Remediated PD-R08 with exact, bounded per-repository inventory signatures, the stable `inventory-changed` error, duplicate-item detection, and a three-attempt dashboard restart.
 - Remediated PD-R09 by disabling Escape dismissal for pending create and rename dialogs while preserving idle and recovery-dialog dismissal.
 - Completed local verification for the latest remediation: 3 focused files and 25 tests pass, the complete serial suite passes 41 files and 565 tests with the temporary 15-second ceiling, repository-wide lint, normal typechecking, and `git diff --check` pass, and the optimized Next.js build emits the expected routes.
+- Published PD-R07 through PD-R09 in commit `61641d3` and verified that exact head through [Node 24.19 CI / Validate run 32120382654, job 95659238395](https://github.com/surajsibi/web-builder/actions/runs/32120382654/job/95659238395).
+- Reproduced PD-R10 with numeric key `1` and unavailable literal string key `"indexeddb-key:number:1"`; both returned the same `recoveryId` and caused dashboard duplicate detection to reject the inventory.
+- Reproduced PD-R11 by tabbing from a pending create dialog whose controls were all disabled; focus moved to the underlying **New project** action.
+- Remediated PD-R10 by deriving every unavailable IndexedDB recovery identity, including strings, through one type-tagged encoder.
+- Remediated PD-R11 by keeping the pending submit target focusable with `aria-disabled` and `aria-busy`, focusing it when pending begins, containing Tab in both directions, and guarding repeat submission.
+- Corrected PD-R12 across the maintained publication records to identify published head `61641d3`, nine published findings, 565 published tests, and its successful Node 24.19 job while keeping PD-R10 and PD-R11 explicitly local.
+- Corrected draft pull request 9's description to the same `61641d3` publication boundary and explicitly marked PD-R10 and PD-R11 as local follow-up work.
 
 **Verification:**
 
@@ -96,14 +103,16 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - The clean port-3000 development server serves the dashboard, Preview, and a missing-project route with HTTP 200, and the emitted stylesheet includes `--dashboard-ink: #17201f` for `.project-editor-boundary`.
 - GitHub reports draft pull request 9 open and mergeable with base `main`, head `feature/project-dashboard`, and head commit `6c48a41fcdb65a34ac305419f2555dddde88966d` at creation.
 - The six PD-R07 through PD-R09 cases fail against the published implementation and pass after remediation. The focused matrix passes 25 of 25 tests; the complete Node 22 suite passes 565 of 565 with the temporary ceiling; repository-wide lint, normal typecheck, diff checks, and the optimized build pass.
-- Published head `a6a7b78` passed the required Node 24.19 `CI / Validate` job before PD-R07 through PD-R09; those local changes need a fresh required-runtime run after publication.
+- Historical prepublication checkpoint `a6a7b78` passed the required Node 24.19 `CI / Validate` job before PD-R07 through PD-R09; the next entry records their later publication at `61641d3`.
+- Published head `61641d3` contains PD-R07 through PD-R09 and passes the required Node 24.19 `CI / Validate` job.
+- The two PD-R10 and PD-R11 behavior cases fail against `61641d3` and pass after remediation. The expanded focused matrix passes 27 of 27 tests; the complete Node 22 suite passes 567 of 567 with the temporary ceiling; repository-wide lint, normal typecheck, diff checks, and the optimized build pass.
 
 **Remaining:**
 
-- Commit and push PD-R07 through PD-R09, then rerun lint, typecheck, the complete suite, and the production build under the required Node 24.19.x runtime for the new published head; the local matrix and production build pass under Node 22.21.1, and the unchanged five-second timeout must not be weakened to hide machine load.
+- Commit and push PD-R10 and PD-R11, then rerun lint, typecheck, the complete suite, and the production build under the required Node 24.19.x runtime for the new published head; the local matrix and production build pass under Node 22.21.1, and the unchanged five-second timeout must not be weakened to hide machine load.
 - Repeat the PD-R05 and PD-R06 visual interaction pass in a supported browser when the Browser plugin runtime is repaired; the production-component closure tests already pass.
 - Review draft pull request 9 and decide when its remaining verification is sufficient to mark it ready for review.
 - Review and revise the migration guide's proposed identity, revision, timestamp, idempotency, retention, recovery, and endpoint decisions.
 
 **Last left off:**
-2026-08-18 - PD-R07 through PD-R09 are implemented and locally verified on top of published head `a6a7b78`. The latest focused matrix passes 25 tests, the complete suite passes 565 tests with the temporary 15-second ceiling, and lint, typecheck, diff checks, and the optimized production build pass under Node 22.21.1. Published head `a6a7b78` passed Node 24.19 CI before these changes. Next action: commit and push the remediation, rerun required-runtime CI, and repeat the final visual replay before promoting the pull request from draft.
+2026-08-18 - PD-R10 through PD-R12 are implemented and locally verified on top of published head `61641d3`. The latest focused matrix passes 27 tests, the complete suite passes 567 tests with the temporary 15-second ceiling, and lint, typecheck, diff checks, and the optimized production build pass under Node 22.21.1. Published head `61641d3` passed Node 24.19 CI before the latest code changes. Next action: commit and push PD-R10 and PD-R11, rerun required-runtime CI, and repeat the final visual replay before promoting the pull request from draft.

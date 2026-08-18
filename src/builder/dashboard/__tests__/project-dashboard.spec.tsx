@@ -121,7 +121,9 @@ describe("ProjectDashboard", () => {
     const dialog = screen.getByRole("dialog", { name: "Create a new project" });
     await user.type(within(dialog).getByLabelText("Project name"), "Online Store");
     await user.click(within(dialog).getByRole("button", { name: "Create project" }));
-    expect(within(dialog).getByRole("button", { name: "Creating…" })).toBeDisabled();
+    expect(
+      within(dialog).getByRole("button", { name: "Creating…" }),
+    ).toHaveAttribute("aria-disabled", "true");
 
     await user.keyboard("{Escape}");
 
@@ -130,6 +132,33 @@ describe("ProjectDashboard", () => {
     await act(async () => pendingCreate.resolve(project));
     await waitFor(() => expect(onOpenProject).toHaveBeenCalledWith(project.projectId));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("should keep keyboard focus inside a pending create dialog", async () => {
+    const user = userEvent.setup();
+    const repository = createRepository();
+    const pendingCreate = deferred<
+      Awaited<ReturnType<ProjectRepository["create"]>>
+    >();
+    const createProject = vi
+      .spyOn(repository, "create")
+      .mockReturnValue(pendingCreate.promise);
+    render(<ProjectDashboard repository={repository} />);
+    await user.click(await screen.findByRole("button", { name: "New project" }));
+    const dialog = screen.getByRole("dialog", { name: "Create a new project" });
+    await user.type(within(dialog).getByLabelText("Project name"), "Online Store");
+    await user.click(within(dialog).getByRole("button", { name: "Create project" }));
+    const pendingButton = within(dialog).getByRole("button", { name: "Creating…" });
+    await waitFor(() => expect(pendingButton).toHaveFocus());
+
+    await user.tab();
+    expect(pendingButton).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(pendingButton).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    expect(createProject).toHaveBeenCalledTimes(1);
+    expect(dialog).toBeVisible();
   });
 
   it("should keep a pending rename failure visible after Escape", async () => {
@@ -147,7 +176,9 @@ describe("ProjectDashboard", () => {
     await user.clear(input);
     await user.type(input, "Renamed Store");
     await user.click(within(dialog).getByRole("button", { name: "Save name" }));
-    expect(within(dialog).getByRole("button", { name: "Saving…" })).toBeDisabled();
+    expect(
+      within(dialog).getByRole("button", { name: "Saving…" }),
+    ).toHaveAttribute("aria-disabled", "true");
 
     await user.keyboard("{Escape}");
 

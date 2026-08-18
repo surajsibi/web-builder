@@ -3302,7 +3302,12 @@ textarea:focus-visible {
   color: #ffffff;
 }
 
-.dashboard-button.primary:hover:not(:disabled) {
+.dashboard-button[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.dashboard-button.primary:hover:not(:disabled):not([aria-disabled="true"]) {
   background: #2d3b38;
   transform: translateY(-1px);
 }
@@ -3313,7 +3318,7 @@ textarea:focus-visible {
   color: var(--dashboard-ink);
 }
 
-.dashboard-button.secondary:hover:not(:disabled) {
+.dashboard-button.secondary:hover:not(:disabled):not([aria-disabled="true"]) {
   border-color: #b5beb8;
   background: #f9faf7;
 }

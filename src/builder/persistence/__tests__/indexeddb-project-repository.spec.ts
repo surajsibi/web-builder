@@ -146,7 +146,7 @@ describe("IndexedDbProjectRepository", () => {
         {
           availability: "unavailable",
           summary: expect.objectContaining({
-            recoveryId: project.projectId,
+            recoveryId: expect.stringMatching(/^indexeddb-key:string:/),
             reason: "invalid-project",
           }),
         },
@@ -196,6 +196,36 @@ describe("IndexedDbProjectRepository", () => {
       recoveryId: expect.not.stringMatching(/^1$/),
     });
     await expect(repository.load("1")).rejects.toMatchObject({ code: "not-found" });
+    repository.close();
+  });
+
+  it("should keep unavailable recovery identities unique across physical key types", async () => {
+    const indexedDB = new IDBFactory();
+    const databaseName = "project-repository-recovery-identity-test";
+    const repository = new IndexedDbProjectRepository({ indexedDB, databaseName });
+    const numericProject = createProjectDocument("1", "Numeric Project");
+    const literalStringProject = createProjectDocument(
+      "different-project-id",
+      "Literal String Project",
+    );
+    await repository.list();
+    await replaceStoredRecord(indexedDB, databaseName, 1, numericProject);
+    await replaceStoredRecord(
+      indexedDB,
+      databaseName,
+      "indexeddb-key:number:1",
+      literalStringProject,
+    );
+
+    const listed = await repository.list();
+    const unavailable = listed.items.filter(
+      (item) => item.availability === "unavailable",
+    );
+
+    expect(unavailable).toHaveLength(2);
+    expect(
+      new Set(unavailable.map((item) => item.summary.recoveryId)).size,
+    ).toBe(2);
     repository.close();
   });
 

@@ -85,8 +85,34 @@ function encodeIndexedDbKey(key: IDBValidKey): string {
   ).join("")}`;
 }
 
-function nonStringRecoveryId(key: IDBValidKey): string {
+function indexedDbRecoveryId(key: IDBValidKey): string {
   return `indexeddb-key:${encodeIndexedDbKey(key)}`;
+}
+
+function prepareIndexedDbStoredProject(
+  storageKey: IDBValidKey,
+  rawDocument: unknown,
+) {
+  if (typeof storageKey !== "string") {
+    return prepareUnavailableStoredProject(
+      indexedDbRecoveryId(storageKey),
+      rawDocument,
+      {
+        stage: "document-schema",
+        path: "storageKey",
+        reason: "Stored project key must be a string",
+      },
+    );
+  }
+
+  const prepared = prepareStoredProject(storageKey, rawDocument);
+  return prepared.availability === "ready"
+    ? prepared
+    : prepareUnavailableStoredProject(
+        indexedDbRecoveryId(storageKey),
+        rawDocument,
+        prepared.error,
+      );
 }
 
 export class IndexedDbProjectRepository implements ProjectRepository {
@@ -173,17 +199,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
         }
         const storageKey = cursor.primaryKey;
         const rawDocument = documentFromStoredRecord(cursor.value);
-        const prepared = typeof storageKey === "string"
-          ? prepareStoredProject(storageKey, rawDocument)
-          : prepareUnavailableStoredProject(
-              nonStringRecoveryId(storageKey),
-              rawDocument,
-              {
-                stage: "document-schema",
-                path: "storageKey",
-                reason: "Stored project key must be a string",
-              },
-            );
+        const prepared = prepareIndexedDbStoredProject(storageKey, rawDocument);
         result.push(
           prepared.availability === "ready"
             ? { availability: "ready", summary: prepared.summary }

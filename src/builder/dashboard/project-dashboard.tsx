@@ -162,10 +162,14 @@ function ProjectNameDialog({
   onSubmit: (name: string) => void;
 }) {
   const dialogRef = useDashboardDialog(onCancel, !pending);
+  const pendingButtonRef = useRef<HTMLButtonElement>(null);
   const [name, setName] = useState(
     state.mode === "rename" ? state.project.name : "",
   );
   const title = state.mode === "create" ? "Create a new project" : "Rename project";
+  useEffect(() => {
+    if (pending) pendingButtonRef.current?.focus();
+  }, [pending]);
 
   return (
     <div className="dashboard-dialog-backdrop" role="presentation">
@@ -189,7 +193,7 @@ function ProjectNameDialog({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            onSubmit(name);
+            if (!pending) onSubmit(name);
           }}
         >
           <label htmlFor="project-name">Project name</label>
@@ -217,7 +221,13 @@ function ProjectNameDialog({
             >
               Cancel
             </button>
-            <button className="dashboard-button primary" disabled={pending} type="submit">
+            <button
+              aria-disabled={pending}
+              aria-busy={pending}
+              className="dashboard-button primary"
+              ref={pendingButtonRef}
+              type="submit"
+            >
               {pending
                 ? state.mode === "create" ? "Creating…" : "Saving…"
                 : state.mode === "create" ? "Create project" : "Save name"}
