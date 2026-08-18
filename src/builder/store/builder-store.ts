@@ -27,6 +27,7 @@ import {
 import { createId, type IdGenerator } from "@/builder/project/id-generator";
 import type { ParentById } from "@/builder/project/tree";
 import type { Viewport } from "@/builder/styles/types";
+import type { SaveProjectReceipt } from "@/builder/persistence/project-repository";
 
 export type DocumentContentSnapshot = {
   name: string;
@@ -46,6 +47,13 @@ export type HistoryState = {
   future: HistoryEntry[];
 };
 
+export type ProjectPersistenceStatus =
+  | "saved"
+  | "dirty"
+  | "saving"
+  | "error"
+  | "conflict";
+
 export type SessionActionResult =
   | { status: "applied" }
   | { status: "noop" }
@@ -63,6 +71,8 @@ export type BuilderStoreState = {
   selectedNodeId: NodeId | null;
   activeViewport: Viewport;
   dirty: boolean;
+  persistenceStatus: ProjectPersistenceStatus;
+  persistenceMessage: string | null;
   commitId: number;
   history: HistoryState;
   hydrated: boolean;
@@ -87,10 +97,20 @@ export type BuilderStoreState = {
   ) => SessionActionResult;
   undo: () => HistoryActionResult;
   redo: () => HistoryActionResult;
+  markSaveStarted: () => void;
+  markSaveSucceeded: (input: {
+    capturedCommitId: number;
+    receipt: SaveProjectReceipt;
+  }) => void;
+  markSaveFailed: (input: {
+    status: "error" | "conflict";
+    message: string;
+  }) => void;
 };
 
 type CreateBuilderStoreOptions = {
   initialDocument?: ProjectDocument;
+  initialPersistenceDirty?: boolean;
   idGenerator?: IdGenerator;
 };
 
@@ -199,6 +219,12 @@ function failureId(): string {
     : `command-failure-${Date.now().toString(36)}`;
 }
 
+function changedPersistenceStatus(
+  current: ProjectPersistenceStatus,
+): ProjectPersistenceStatus {
+  return current === "conflict" ? "conflict" : "dirty";
+}
+
 export function createBuilderStore(
   options: CreateBuilderStoreOptions = {},
 ): StoreApi<BuilderStoreState> {
@@ -222,6 +248,10 @@ export function createBuilderStore(
   const initialParentById = initialPrepared?.success
     ? initialPrepared.value.parentById
     : (Object.create(null) as ParentById);
+  const initialPersistenceDirty = Boolean(
+    initialPrepared?.success &&
+      (initialPrepared.value.migrated || options.initialPersistenceDirty),
+  );
 
   return createStore<BuilderStoreState>((set, get) => ({
     document: initialDocument,
@@ -229,7 +259,9 @@ export function createBuilderStore(
     activePageId: initialDocument?.homePageId ?? null,
     selectedNodeId: null,
     activeViewport: "desktop",
-    dirty: initialPrepared?.success ? initialPrepared.value.migrated : false,
+    dirty: initialPersistenceDirty,
+    persistenceStatus: initialPersistenceDirty ? "dirty" : "saved",
+    persistenceMessage: null,
     commitId: 0,
     history: EMPTY_HISTORY,
     hydrated: initialDocument !== null,
@@ -250,6 +282,8 @@ export function createBuilderStore(
         selectedNodeId: null,
         activeViewport: "desktop",
         dirty: result.value.migrated,
+        persistenceStatus: result.value.migrated ? "dirty" : "saved",
+        persistenceMessage: null,
         commitId: 0,
         history: { past: [], future: [] },
         hydrated: true,
@@ -300,6 +334,11 @@ export function createBuilderStore(
           activePageId: preparation.candidate.activePageId,
           selectedNodeId: preparation.candidate.selectedNodeId,
           dirty: true,
+          persistenceStatus: changedPersistenceStatus(state.persistenceStatus),
+          persistenceMessage:
+            state.persistenceStatus === "conflict"
+              ? state.persistenceMessage
+              : null,
           commitId,
           history,
         });
@@ -438,6 +477,11 @@ export function createBuilderStore(
         activePageId,
         selectedNodeId,
         dirty: true,
+        persistenceStatus: changedPersistenceStatus(state.persistenceStatus),
+        persistenceMessage:
+          state.persistenceStatus === "conflict"
+            ? state.persistenceMessage
+            : null,
         commitId,
         history: {
           past: state.history.past.slice(0, -1),
@@ -483,6 +527,11 @@ export function createBuilderStore(
         activePageId,
         selectedNodeId,
         dirty: true,
+        persistenceStatus: changedPersistenceStatus(state.persistenceStatus),
+        persistenceMessage:
+          state.persistenceStatus === "conflict"
+            ? state.persistenceMessage
+            : null,
         commitId,
         history: {
           past: limitHistoryEntries([...state.history.past, entry]),
@@ -491,6 +540,38 @@ export function createBuilderStore(
       });
 
       return { status: "applied", commitId };
+    },
+
+    markSaveStarted: () => {
+      const state = get();
+      if (!state.document || state.persistenceStatus === "conflict") return;
+      set({ persistenceStatus: "saving", persistenceMessage: null });
+    },
+
+    markSaveSucceeded: ({ capturedCommitId, receipt }) => {
+      const state = get();
+      if (!state.document || state.document.projectId !== receipt.projectId) {
+        return;
+      }
+      const hasNewerChanges = state.commitId !== capturedCommitId;
+      set({
+        document: {
+          ...state.document,
+          revision: receipt.revision,
+          updatedAt: receipt.updatedAt,
+        },
+        dirty: hasNewerChanges,
+        persistenceStatus: hasNewerChanges ? "dirty" : "saved",
+        persistenceMessage: null,
+      });
+    },
+
+    markSaveFailed: ({ status, message }) => {
+      set({
+        dirty: true,
+        persistenceStatus: status,
+        persistenceMessage: message,
+      });
     },
   }));
 }
