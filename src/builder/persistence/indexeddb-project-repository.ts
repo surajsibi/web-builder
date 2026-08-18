@@ -5,7 +5,7 @@ import type { IdGenerator } from "@/builder/project/id-generator";
 
 import {
   asStoredRecord,
-  assertReadyStoredProject,
+  assertReadyPreparedStoredProject,
   buildSavedProject,
   createProjectPaginationState,
   defaultDuplicateProjectName,
@@ -91,8 +91,9 @@ function indexedDbRecoveryId(key: IDBValidKey): string {
 
 function prepareIndexedDbStoredProject(
   storageKey: IDBValidKey,
-  rawDocument: unknown,
+  storedValue: unknown,
 ) {
+  const rawDocument = documentFromStoredRecord(storedValue);
   if (typeof storageKey !== "string") {
     return prepareUnavailableStoredProject(
       indexedDbRecoveryId(storageKey),
@@ -113,6 +114,15 @@ function prepareIndexedDbStoredProject(
         rawDocument,
         prepared.error,
       );
+}
+
+function assertReadyIndexedDbStoredProject(
+  storageKey: IDBValidKey,
+  storedValue: unknown,
+): ProjectLoadResult {
+  return assertReadyPreparedStoredProject(
+    prepareIndexedDbStoredProject(storageKey, storedValue),
+  );
 }
 
 export class IndexedDbProjectRepository implements ProjectRepository {
@@ -198,8 +208,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
           return;
         }
         const storageKey = cursor.primaryKey;
-        const rawDocument = documentFromStoredRecord(cursor.value);
-        const prepared = prepareIndexedDbStoredProject(storageKey, rawDocument);
+        const prepared = prepareIndexedDbStoredProject(storageKey, cursor.value);
         result.push(
           prepared.availability === "ready"
             ? { availability: "ready", summary: prepared.summary }
@@ -232,7 +241,7 @@ export class IndexedDbProjectRepository implements ProjectRepository {
     if (stored === undefined) {
       throw new ProjectRepositoryError("not-found", "Project not found");
     }
-    return assertReadyStoredProject(projectId, stored);
+    return assertReadyIndexedDbStoredProject(projectId, stored);
   }
 
   async save(
@@ -328,7 +337,10 @@ export class IndexedDbProjectRepository implements ProjectRepository {
       if (stored === undefined) {
         throw new ProjectRepositoryError("not-found", "Project not found");
       }
-      const { document: current } = assertReadyStoredProject(projectId, stored);
+      const { document: current } = assertReadyIndexedDbStoredProject(
+        projectId,
+        stored,
+      );
       const next = mutate(current);
       await requestResult(store.put(asStoredRecord(next.document)));
       await done;

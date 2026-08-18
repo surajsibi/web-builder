@@ -2,10 +2,10 @@
 doc_id: WEB-BUILDER-PROJECT-DASHBOARD-CODE-REVIEW-2026-08-14
 type: Q2
 scope: Final pre-push code review and remediation verification of local project persistence, recovery UI, dashboard behavior, and save-state accessibility on web-builder feature/project-dashboard
-authority: Verified implementation owns current behavior; this review owns the twelve scoped findings, their remediation evidence, and their pull-request disposition
+authority: Verified implementation owns current behavior; this review owns the fourteen scoped findings, their remediation evidence, and their pull-request disposition
 owner: Project owner
 lifecycle: in_review
-freshness: Re-reviewed and locally remediated on 2026-08-18 at published head 61641d35084c3941f7f5ec0b6b5968c74d5d9d60 plus the current working-tree changes through two additional fail-before/pass-after cases, all 27 focused tests, the complete 567-test run, repository-wide ESLint, normal typechecking, diff checks, and a successful optimized production build; all twelve scoped findings are closed locally, while the latest two code fixes require publication and a fresh required-runtime run; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, runtime, branch publication, or review disposition
+freshness: Re-reviewed and remediated on 2026-08-18 at published checkpoint 714973e459cf5ca3a964ce996d5be53a63ae3fd4 plus the current branch through the PD-R13 fail-before/pass-after case, all 27 focused tests, the complete 567-test run, repository-wide ESLint, normal typechecking, diff checks, a successful optimized production build, and the final controlled Chrome replay; all fourteen scoped findings are closed, and the live pull-request head owns current publication status; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, runtime, branch publication, or review disposition
 ---
 
 # Code review: project dashboard persistence, recovery, and accessibility
@@ -32,8 +32,13 @@ The follow-up review identified two more medium-severity defects and one
 low-severity publication-record defect. Generated recovery identities could
 collide with literal string keys, pending dialogs allowed keyboard focus to
 escape, and maintained records still described the published remediation as
-local. All three are now remediated in the current working tree; all twelve
-scoped findings are closed locally.
+local. All three were published at `714973e` and passed its Node 24.19 job.
+
+The latest review identified one more medium-severity consistency defect and
+one low-severity publication-record defect. List and action paths returned
+different recovery IDs for the same IndexedDB record, while maintained records
+again lagged the published head. Both are remediated in the current branch; all
+fourteen scoped findings are closed.
 
 ## Question, scope, and baseline
 
@@ -87,9 +92,11 @@ keyboard-focus loss is Low.
 | PD-R07 | IndexedDB listing coerced every `IDBValidKey` with `String(cursor.primaryKey)`. | Medium | A numeric key `1` could be listed as ready for document ID `"1"` even though string-key operations target a different record or return not-found; numeric/string collisions also produced duplicate UI identities. | Require a string physical key before readiness and preserve every other key type as unavailable. | Project owner | Numeric-only and colliding numeric/string records remain distinct; only the string record loads or mutates. | Remediated, published, and Node 24 verified |
 | PD-R08 | Every page rebuilt and sorted the complete inventory, while the cursor contained only an offset. | Medium | A save or create between page requests could omit one project and duplicate another. | Bind cursors to an exact inventory snapshot and restart bounded dashboard enumeration when the snapshot changes. | Project owner | A 101-project scan mutated after page one returns all 101 unique IDs and includes the updated project. | Remediated, published, and Node 24 verified |
 | PD-R09 | Escape always closed the create or rename dialog even while its controls were disabled for a pending mutation. | Medium | Completion could navigate after an apparently dismissed create, while failure guidance could be written into a closed dialog. | Ignore Escape while pending and keep completion effects attached to the visible dialog. | Project owner | Deferred create success and rename failure both keep the dialog open after Escape until their visible completion state. | Remediated, published, and Node 24 verified |
-| PD-R10 | Only non-string IndexedDB keys received a type-tagged recovery identity. | Medium | Numeric key `1` collided with an unavailable literal string key `"indexeddb-key:number:1"`, causing dashboard duplicate detection to hide the complete inventory. | Encode every unavailable physical key, including strings, through the same typed identity scheme. | Project owner | Numeric and adversarial literal-string records both remain unavailable with distinct recovery IDs. | Remediated and verified locally |
-| PD-R11 | Pending name dialogs disabled every input and button, leaving no focusable target for the focus trap. | Medium | Tab could move focus into the non-inert dashboard, allowing another action while the unresolved mutation later navigated or updated dialog state. | Keep a semantically disabled pending target focusable, move focus to it, trap Tab and Shift+Tab, and guard repeat submission. | Project owner | Pending create focus remains on the modal target in both Tab directions and Enter does not resubmit. | Remediated and verified locally |
-| PD-R12 | Maintained records and the pull-request description still treated PD-R07 through PD-R09 as local and cited `a6a7b78`. | Low | Reviewers received an incorrect publication and required-runtime status after `61641d3` passed CI. | Correct the existing authorities and PR description to the actual published head, finding count, test count, and CI job. | Project owner | Records distinguish published `61641d3` from the later local fixes and link its successful Node 24.19 job. | Remediated and verified locally |
+| PD-R10 | Only non-string IndexedDB keys received a type-tagged recovery identity. | Medium | Numeric key `1` collided with an unavailable literal string key `"indexeddb-key:number:1"`, causing dashboard duplicate detection to hide the complete inventory. | Encode every unavailable physical key, including strings, through the same typed identity scheme. | Project owner | Numeric and adversarial literal-string records both remain unavailable with distinct recovery IDs. | Remediated, published in `714973e`, and Node 24 verified |
+| PD-R11 | Pending name dialogs disabled every input and button, leaving no focusable target for the focus trap. | Medium | Tab could move focus into the non-inert dashboard, allowing another action while the unresolved mutation later navigated or updated dialog state. | Keep a semantically disabled pending target focusable, move focus to it, trap Tab and Shift+Tab, and guard repeat submission. | Project owner | Pending create focus remains on the modal target in both Tab directions and Enter does not resubmit. | Remediated, published in `714973e`, browser verified, and Node 24 verified |
+| PD-R12 | Maintained records and the pull-request description still treated PD-R07 through PD-R09 as local and cited `a6a7b78`. | Low | Reviewers received an incorrect publication and required-runtime status after `61641d3` passed CI. | Correct the existing authorities and PR description to the actual published head, finding count, test count, and CI job. | Project owner | Records distinguish published `61641d3` from the later local fixes and link its successful Node 24.19 job. | Remediated and published in `714973e` |
+| PD-R13 | IndexedDB `list()` encoded unavailable string keys, while load and mutation assertions derived `unavailableProject.recoveryId` from the raw route key. | Medium | The same corrupt physical record had two recovery identities across inventory and action errors, violating the stable opaque adapter-reference contract and reintroducing cross-path ambiguity. | Prepare records through the IndexedDB adapter path for list, load, and mutations, then assert the already-prepared result. | Project owner | One mismatched string-key record returns the same encoded recovery ID from list, load, save, rename, and duplicate. | Remediated and verified in current branch |
+| PD-R14 | Maintained records and the PR description still described PD-R10 and PD-R11 as local after checkpoint `714973e` published them and passed CI. | Low | Reviewers received an incorrect branch, finding, browser-verification, and required-runtime status. | Record `714973e` as the historical verified checkpoint and make the live PR head/check rollup authoritative for later publication state. | Project owner | Records no longer claim PD-R10 or PD-R11 require publication, and the PR identifies the exact current head and check. | Remediated in current branch; live PR update follows publication |
 
 ### PD-R01 — Browser Back can discard recent edits
 
@@ -315,8 +322,33 @@ the maintained records and PR description still cited `a6a7b78`, six findings,
 
 Remediation: the existing authorities now identify `61641d3` as the published
 nine-finding, 565-test checkpoint and link its successful required-runtime job.
-The later PD-R10 and PD-R11 code fixes remain explicitly local until a separate
-authorized publication.
+Checkpoint `714973e` later published PD-R10 through PD-R12 and passed its
+required Node 24.19 job.
+
+### PD-R13 - Recovery identity changes between list and project actions
+
+The IndexedDB inventory used the adapter-specific type-tagged encoder for an
+unavailable string key, but `load()` and transactional mutations still called
+the generic assertion with the raw route key. The same mismatched record was
+therefore listed as `indexeddb-key:string:"project-1"` and returned as raw
+`project-1` in `unavailableProject.recoveryId`.
+
+Remediation: IndexedDB list, load, save, rename, and duplicate now prepare the
+stored record through one adapter path. A shared assertion consumes that
+prepared result, preserving clone and error behavior without changing the
+memory repository's raw-key identity contract. The regression requires the
+same list-derived recovery ID across every IndexedDB project action.
+
+### PD-R14 - Publication records lag checkpoint 714973e
+
+Checkpoint `714973e` published PD-R10 through PD-R12 and passed Node 24.19 CI,
+but the maintained records and PR description still described the two code
+fixes as local, cited `61641d3`, and called the final browser replay pending.
+
+Remediation: the records identify `714973e` as the verified twelve-finding
+checkpoint and record the completed Chrome replay. Later status is expressed
+against the current branch and live PR checks instead of embedding a
+self-invalidating latest-commit hash in the commit that changes that hash.
 
 ### Rendered browser follow-up - 2026-08-18
 
@@ -383,13 +415,10 @@ text. After remediation:
   working tree, completed TypeScript and static generation, and emitted all
   expected static and dynamic routes.
 
-A final post-remediation visual replay could not run because the installed
-Browser plugin package is missing its required `scripts/browser-client.mjs`
-runtime file. The skill prohibits substituting a different automation surface.
-This leaves a supported-browser visual smoke as follow-up evidence, but it does
-not reopen either finding: both production boundaries and their recovery
-behavior are covered directly by fail-before/pass-after tests, and the live
-server compiles the changed CSS and routes.
+At that PD-R05 and PD-R06 checkpoint, a final post-remediation visual replay
+could not run because the installed Browser plugin package was missing its
+required `scripts/browser-client.mjs` runtime file. The later 2026-08-18 replay
+recorded under residual verification completed the supported-browser follow-up.
 
 ## Positive controls verified
 
@@ -409,27 +438,25 @@ server compiles the changed CSS and routes.
 The project owner approved remediation of PD-R01 through PD-R04 on 2026-08-15,
 and those findings remain closed. The user approved proceeding with PD-R05 and
 PD-R06 remediation on 2026-08-18, approved execution of PD-R07 through PD-R09,
-and then approved remediation of PD-R10 through PD-R12 on the same date. All
-twelve findings are closed in the local working tree. PD-R07 through PD-R09 are
-published; PD-R10 and PD-R11 still require publication and required-runtime
-verification. This review did not itself authorize a push, merge, deployment,
-backend expansion, or deletion capability. The user previously authorized the
-push and creation of [draft pull request 9](https://github.com/surajsibi/web-builder/pull/9);
-that direction does not authorize another push, merge, or deployment.
+and then approved remediation of PD-R10 through PD-R12 on the same date. The
+user subsequently approved PD-R13 and PD-R14 remediation and explicitly
+authorized its commit and push. All fourteen findings are closed in the current
+branch. PD-R07 through PD-R12 are published through checkpoint `714973e`; the
+live pull-request head owns later publication and required-runtime status. This
+review does not authorize merge, deployment, backend expansion, or deletion.
 
 Latest closure verification passes 3 focused files and all 27 tests,
 repository-wide ESLint, normal `pnpm typecheck`, `git diff --check`, the
 complete 41-file, 567-test suite with the temporary 15-second ceiling, and the
-optimized production build under Node 22.21.1. Published head `61641d3`
-passed the Node 24.19 `CI / Validate` job in
-[run 32120382654, job 95659238395](https://github.com/surajsibi/web-builder/actions/runs/32120382654/job/95659238395).
-That job predates PD-R10 and PD-R11, so the required-runtime matrix must run
-again after those code changes are published.
+optimized production build under Node 22.21.1. Checkpoint `714973e` passed the
+Node 24.19 `CI / Validate` job in
+[run 32125020513, job 95673532383](https://github.com/surajsibi/web-builder/actions/runs/32125020513/job/95673532383).
+Every later published head must pass the same required-runtime matrix before
+merge.
 
 The owner should review draft pull request 9 before promoting it from draft.
-Publish the latest remediation, rerun the complete Node 24.19.x matrix, and
-repeat the remediated states visually when the Browser plugin runtime is
-repaired.
+Publish the latest remediation and require the resulting head to pass the
+complete Node 24.19.x matrix.
 
 ## Residual risk and follow-up
 
@@ -441,10 +468,18 @@ displayed the new project name, and found the initiating **Rename** button as
 `document.activeElement`. This closes the two rendered remediation follow-up
 items. The retained QA project remains local to that Chrome profile.
 
+Controlled Chrome verification on 2026-08-18 used a separate QA IndexedDB
+database to render numeric key `1` and literal string key
+`"indexeddb-key:number:1"` as two distinct recovery cards; each card opened its
+own recovery details. Deferred create and rename flows kept focus on the
+guarded pending target through Tab, Shift+Tab, Escape, and Enter, while the
+instrumented mutation count remained one. The replay reported no console
+warnings or errors, and its temporary source route was removed afterward.
+
 An unmount-triggered save continues asynchronously after the editor leaves the
 screen; if browser storage then fails, the departed editor cannot present that
 failure. Hard unloads still receive the existing unsaved-change warning, and
-revision conflicts still refuse the write. Complete the post-publication Node
-24 verification matrix and browser smoke before ready-for-review promotion, and
-re-review the twelve findings if the cited implementation or regression tests
-change.
+revision conflicts still refuse the write. Require the current published head
+to pass the Node 24 verification matrix before ready-for-review promotion, and
+re-review the fourteen findings if the cited implementation or regression
+tests change.

@@ -122,7 +122,7 @@ describe("IndexedDbProjectRepository", () => {
     repository.close();
   });
 
-  it("should contain a record whose storage key and project identity differ", async () => {
+  it("should keep an unavailable recovery identity stable across list and project actions", async () => {
     const indexedDB = new IDBFactory();
     const databaseName = "project-repository-identity-test";
     let id = 0;
@@ -141,7 +141,8 @@ describe("IndexedDbProjectRepository", () => {
       mismatched,
     );
 
-    await expect(repository.list()).resolves.toMatchObject({
+    const listed = await repository.list();
+    expect(listed).toMatchObject({
       items: [
         {
           availability: "unavailable",
@@ -152,23 +153,38 @@ describe("IndexedDbProjectRepository", () => {
         },
       ],
     });
+    const unavailable = listed.items[0];
+    expect(unavailable?.availability).toBe("unavailable");
+    if (!unavailable || unavailable.availability !== "unavailable") {
+      throw new Error("Expected the mismatched record to require recovery");
+    }
+    const recoveryId = unavailable.summary.recoveryId;
+
     await expect(repository.load(project.projectId)).rejects.toMatchObject({
       code: "invalid-project",
+      unavailableProject: { recoveryId },
     });
     await expect(
       repository.save(project.projectId, {
         expectedRevision: project.revision,
         content: projectContent(project),
       }),
-    ).rejects.toMatchObject({ code: "invalid-project" });
+    ).rejects.toMatchObject({
+      code: "invalid-project",
+      unavailableProject: { recoveryId },
+    });
     await expect(
       repository.rename(project.projectId, {
         name: "Wrong target",
         expectedRevision: project.revision,
       }),
-    ).rejects.toMatchObject({ code: "invalid-project" });
+    ).rejects.toMatchObject({
+      code: "invalid-project",
+      unavailableProject: { recoveryId },
+    });
     await expect(repository.duplicate(project.projectId)).rejects.toMatchObject({
       code: "invalid-project",
+      unavailableProject: { recoveryId },
     });
     repository.close();
   });

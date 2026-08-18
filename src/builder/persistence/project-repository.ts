@@ -279,7 +279,14 @@ export function assertReadyStoredProject(
   storageKey: string,
   value: unknown,
 ): ProjectLoadResult {
-  const prepared = prepareStoredProject(storageKey, documentFromStoredRecord(value));
+  return assertReadyPreparedStoredProject(
+    prepareStoredProject(storageKey, documentFromStoredRecord(value)),
+  );
+}
+
+export function assertReadyPreparedStoredProject(
+  prepared: PreparedStoredProject,
+): ProjectLoadResult {
   if (prepared.availability === "ready") {
     return {
       document: cloneProjectDocument(prepared.document),
