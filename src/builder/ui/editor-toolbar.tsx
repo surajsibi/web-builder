@@ -120,13 +120,20 @@ export function EditorToolbar({
 
       <div className="toolbar-status-actions">
         <div
-          aria-label={persistenceMessage ?? SAVE_STATUS_LABEL[persistenceStatus]}
+          aria-atomic="true"
           aria-live="polite"
-          className={`save-indicator ${persistenceStatus}`}
-          title={persistenceMessage ?? undefined}
+          className="toolbar-persistence-status"
+          role={persistenceMessage ? "status" : undefined}
         >
-          <span aria-hidden="true" />
-          {SAVE_STATUS_LABEL[persistenceStatus]}
+          <div className={`save-indicator ${persistenceStatus}`}>
+            <span aria-hidden="true" />
+            {SAVE_STATUS_LABEL[persistenceStatus]}
+          </div>
+          {persistenceMessage ? (
+            <p className="toolbar-persistence-message">
+              {persistenceMessage}
+            </p>
+          ) : null}
         </div>
         {onSaveNow ? (
           <button

@@ -90,6 +90,61 @@ describe("EditorShell", () => {
     expect(screen.getByText("Editor Test Project")).toBeInTheDocument();
   });
 
+  it("should show storage-failure guidance and keep manual retry available", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    const onSaveNow = vi.fn();
+    const message =
+      "Changes could not be saved because browser storage is unavailable.";
+    store.getState().markSaveFailed({ status: "error", message });
+
+    render(<EditorShell onSaveNow={onSaveNow} store={store} />);
+
+    const guidance = screen.getByText(message);
+    const status = guidance.closest('[role="status"]');
+    const saveButton = screen.getByRole("button", { name: "Save now" });
+    expect(guidance).toBeVisible();
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
+    expect(status).toHaveTextContent("Save failed");
+    expect(saveButton).toBeEnabled();
+
+    await user.click(saveButton);
+    expect(onSaveNow).toHaveBeenCalledOnce();
+  });
+
+  it("should show conflict guidance and keep the dashboard recovery action available", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    const onDashboard = vi.fn();
+    const message =
+      "This project changed in another editor. Reload it or return to Projects before making more changes.";
+    store.getState().markSaveFailed({ status: "conflict", message });
+
+    render(
+      <EditorShell
+        onDashboard={onDashboard}
+        onSaveNow={vi.fn()}
+        store={store}
+      />,
+    );
+
+    const guidance = screen.getByText(message);
+    const status = guidance.closest('[role="status"]');
+    const returnButton = screen.getByRole("button", {
+      name: "Return to Projects",
+    });
+    expect(guidance).toBeVisible();
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
+    expect(status).toHaveTextContent("Save conflict");
+    expect(screen.getByRole("button", { name: "Save now" })).toBeDisabled();
+    expect(returnButton).toBeEnabled();
+
+    await user.click(returnButton);
+    expect(onDashboard).toHaveBeenCalledOnce();
+  });
+
   it("should render the toolbar, component library, empty canvas, and empty Inspector", () => {
     const previewStorage = createMemoryPreviewStorage();
 

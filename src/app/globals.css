@@ -244,6 +244,39 @@ textarea:focus-visible {
   box-shadow: 0 0 0 0.2rem rgb(251 113 133 / 12%);
 }
 
+.save-indicator.error,
+.save-indicator.conflict {
+  color: #fecdd3;
+}
+
+.toolbar-persistence-status {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.toolbar-persistence-message {
+  background: #222735;
+  border: 1px solid #565e73;
+  border-left: 3px solid #fb7185;
+  border-radius: 0.65rem;
+  box-shadow: 0 0.75rem 1.6rem rgb(8 10 16 / 32%);
+  color: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 0;
+  max-width: min(24rem, calc(100vw - 2rem));
+  padding: 0.65rem 0.75rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.65rem);
+  white-space: normal;
+  width: max-content;
+  z-index: 30;
+}
+
 .toolbar-save-button {
   background: transparent;
   border: 1px solid #454b5e;
@@ -3124,10 +3157,6 @@ textarea:focus-visible {
 .project-dashboard {
   --dashboard-bg: #f5f6f1;
   --dashboard-card: #ffffff;
-  --dashboard-ink: #17201f;
-  --dashboard-muted: #68716f;
-  --dashboard-line: #dfe4dd;
-  --dashboard-green: #c8f26b;
   --dashboard-green-strong: #aee23e;
   background:
     radial-gradient(circle at 92% 4%, rgb(200 242 107 / 24%), transparent 22rem),

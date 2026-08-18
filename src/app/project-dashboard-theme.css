@@ -1,0 +1,7 @@
+.project-dashboard,
+.project-editor-boundary {
+  --dashboard-ink: #17201f;
+  --dashboard-muted: #68716f;
+  --dashboard-line: #dfe4dd;
+  --dashboard-green: #c8f26b;
+}

@@ -1,8 +1,11 @@
+import "@/app/project-dashboard-theme.css";
+
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ProjectEditorLoader } from "@/builder/persistence/project-editor-loader";
+import { ProjectRepositoryError } from "@/builder/persistence/project-repository";
 import { MemoryProjectRepository } from "@/builder/testing/memory-project-repository";
 
 vi.mock("next/navigation", () => ({
@@ -36,7 +39,7 @@ describe("ProjectEditorLoader", () => {
     );
 
     expect(await screen.findByText("Commerce Site")).toBeVisible();
-    expect(screen.getByLabelText("Saved locally")).toBeVisible();
+    expect(screen.getByText("Saved locally")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Return to Projects" }));
 
     expect(onNavigateDashboard).toHaveBeenCalledOnce();
@@ -61,9 +64,9 @@ describe("ProjectEditorLoader", () => {
       />,
     );
 
-    expect(await screen.findByLabelText("Unsaved changes")).toBeVisible();
+    expect(await screen.findByText("Unsaved changes")).toBeVisible();
     await waitFor(() => expect(save).toHaveBeenCalledOnce());
-    await waitFor(() => expect(screen.getByLabelText("Saved locally")).toBeVisible());
+    await waitFor(() => expect(screen.getByText("Saved locally")).toBeVisible());
     await expect(repository.load(project.projectId)).resolves.toMatchObject({
       document: { schemaVersion: 3, revision: 1 },
       migrated: false,
@@ -113,5 +116,52 @@ describe("ProjectEditorLoader", () => {
     ).toBeVisible();
     expect(screen.queryByText("Your page is empty")).not.toBeInTheDocument();
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("should present keyboard-reachable retry actions when browser storage is unavailable", async () => {
+    const user = userEvent.setup();
+    const repository = createRepository();
+    const load = vi.spyOn(repository, "load").mockRejectedValue(
+      new ProjectRepositoryError(
+        "storage-unavailable",
+        "Synthetic storage failure",
+      ),
+    );
+    render(
+      <ProjectEditorLoader
+        projectId="storage-failure"
+        repository={repository}
+      />,
+    );
+
+    const heading = await screen.findByRole("heading", {
+      name: "Storage unavailable",
+    });
+    const boundary = heading.closest("main");
+    if (!(boundary instanceof HTMLElement)) {
+      throw new Error("Expected the storage error boundary to render");
+    }
+    const returnButton = screen.getByRole("button", {
+      name: "Return to Projects",
+    });
+    const retryButton = screen.getByRole("button", { name: "Try again" });
+
+    expect(returnButton).toBeVisible();
+    expect(returnButton).toBeEnabled();
+    expect(retryButton).toBeVisible();
+    expect(retryButton).toBeEnabled();
+    expect(
+      getComputedStyle(boundary).getPropertyValue("--dashboard-ink").trim(),
+    ).toBe("#17201f");
+    expect(
+      getComputedStyle(boundary).getPropertyValue("--dashboard-line").trim(),
+    ).toBe("#dfe4dd");
+
+    await user.tab();
+    expect(returnButton).toHaveFocus();
+    await user.tab();
+    expect(retryButton).toHaveFocus();
+    await user.click(retryButton);
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
   });
 });

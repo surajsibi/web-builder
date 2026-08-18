@@ -5,7 +5,7 @@ scope: Execution state for web-builder feature/project-dashboard
 authority: Selected repository execution-state record for this branch and feature
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-16 after completing and verifying the four approved code-review remediations, including the Chrome Back-navigation and rename-focus follow-up, in the working tree based on commit 4320c81bf8e284f80a69708b93f02afda823ffa5; invalidated by progress, scope, branch, workspace-mapping, blocker, approval, review, or verification changes
+freshness: Updated on 2026-08-18 after PD-R05 and PD-R06 were remediated and closed through production-component regression tests, the complete 559-test run, static checks, live port-3000 compilation checks, and a successful optimized production build; invalidated by progress, scope, branch, workspace-mapping, blocker, approval, review, or verification changes
 ---
 
 # Progress Journal - web-builder / feature/project-dashboard
@@ -14,7 +14,7 @@ freshness: Updated on 2026-08-16 after completing and verifying the four approve
 `workspaces/project-dashboard/`
 
 **Current step:**
-Review the verified local checkpoint and decide whether to push the feature branch.
+Review the closed six-finding remediation and successful production build, obtain an explicit owner push decision, and run the complete verification matrix under Node 24.19.x when that runtime is available.
 
 **Approach:**
 Preserve the canonical `ProjectDocument` and hydration boundary, introduce a storage-independent repository contract, implement browser-local persistence first, move the editor to a project-specific route, and add autosave only after repository behavior is verified.
@@ -45,6 +45,17 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - Contained hydrated records whose embedded project identity differs from their physical storage key as read-only **Needs recovery** entries across list, load, save, rename, and duplicate.
 - Made dashboard loading consume all repository cursors with repeated-cursor protection, preserving search reachability beyond 100 projects.
 - Kept the initiating project card mounted across successful rename refresh and closed through the shared focus-restoring path.
+- Completed a final pre-push review of all three feature commits at `c4b9412`; PD-R01 through PD-R04 remain closed, while PD-R05 records the direct-route retry button's missing shared CSS variables and PD-R06 records the production toolbar's undiscoverable save-recovery guidance.
+- Ran a controlled Chrome pass against the user's port-3000 dashboard and a temporary port-3102 production server without changing source code or stopping the user-started servers. Dashboard create, search, keyboard rename with focus restoration, and duplicate passed on port 3000. The production server additionally passed project routing, edit/autosave, reload persistence, manual save, immediate Browser Back persistence, rename, duplicate-content preservation, and editor viewport switching.
+- Reproduced PD-R06 with two editors at the same project revision: the stale tab displayed only **Save conflict**, kept the full reload-or-return instruction solely in `aria-label` and `title`, omitted it from visible page text, and disabled **Save now**.
+- Confirmed the PD-R05 boundary token defect in the rendered missing-project state: `--dashboard-ink` and `--dashboard-line` were empty on `.project-editor-boundary`, and the secondary action fell back to a current-color border rather than the intended dashboard token. The exact storage-error **Try again** state was not forced because doing so would require changing browser storage permissions or data outside the UI flow.
+- The user confirmed that the same project directory was also running on port 3001 and closed that extra server. With only port 3000 listening, `/`, `/preview`, and the dynamic project route returned 200; a controlled Chrome reload and dashboard-to-editor navigation settled to **Saved locally**. This resolves the development-runtime blocker and confirms it was not a third branch-code defect.
+- Remediated PD-R05 by moving the shared dashboard button tokens into a root-imported stylesheet that applies to both `.project-dashboard` and `.project-editor-boundary`.
+- Remediated PD-R06 by rendering the full storage-failure or revision-conflict guidance visibly in the production toolbar, preserving polite atomic announcements, keeping manual storage retry enabled, and retaining conflict lockout with a usable **Return to Projects** action.
+- Added production-component regression tests for computed boundary tokens, visible and enabled retry actions, keyboard order, retry dispatch, visible storage-failure guidance, visible conflict guidance, manual retry, conflict save lockout, and dashboard recovery. The three new cases failed before the remediations and pass afterward.
+- Closed PD-R05 and PD-R06 after the two affected suites passed 69 of 69 tests, the complete suite passed 559 of 559, and lint, normal typechecking, and `git diff --check` passed.
+- Confirmed the active port-3000 development server returns 200 for `/`, `/preview`, and `/projects/qa-missing-boundary`; its emitted CSS contains the shared editor-boundary tokens. A final post-remediation visual replay was not possible because the installed Browser plugin package is missing its required `scripts/browser-client.mjs` runtime file.
+- After the user stopped port 3000, ran `pnpm build` against the remediated working tree. Next.js 16.3.0 compiled successfully, completed TypeScript and static generation, and emitted `/` as static plus `/preview`, `/projects/[projectId]`, and `/api/form-submissions` as dynamic routes under Node 22.21.1.
 
 **Verification:**
 
@@ -64,17 +75,25 @@ Preserve the canonical `ProjectDocument` and hydration boundary, introduce a sto
 - The post-rebase focused whole-project duplication suite passes 2 of 2, including component-reference and Boolean State binding remapping.
 - The final focused persistence, IndexedDB, loader, autosave, and whole-project duplication matrix passes 5 files and 19 tests.
 - The pre-remediation focused matrix failed all four closure behaviors; after remediation, the four focused files pass 23 of 23 tests.
-- The final complete suite passes 41 files and 556 tests with the temporary 15-second runner ceiling; repository-wide lint, typecheck, and the production build also pass.
+- The earlier checkpoint complete suite passed 41 files and 556 tests. The remediated feature-branch state passes 41 files and 559 tests with the temporary 15-second runner ceiling; repository-wide lint, normal typechecking, and the optimized production build also pass.
 - A post-rebase Chrome smoke test lists two local projects, opens an existing project route, renders the 26-component library, reloads, and settles to **Saved locally**. The only console error is the known browser-extension `cz-shortcut-listen` body attribute mismatch.
 - A controlled Chrome follow-up on 2026-08-16 created a project, added a second Heading, issued Browser Back immediately after the add interaction, reopened the project, and found both Headings. The same run submitted rename with Enter, displayed the renamed project, and verified that focus returned to the initiating **Rename** button.
 - The only Chrome console error was the known extension-injected `cz-shortcut-listen` body-attribute hydration mismatch; no application-generated browser failure appeared during the follow-up.
+- The 2026-08-18 focused final-review matrix passes 8 files and 49 tests; the complete suite passes 41 files and 556 tests with the temporary 15-second ceiling; repository-wide ESLint and `git diff --check` pass.
+- A source-only TypeScript compiler run passes 121 files. The normal `pnpm typecheck` was initially blocked by malformed generated dev types while two same-folder servers were active; after port 3001 stopped and the dev state regenerated, `pnpm typecheck` passed outside the restricted sandbox under Node 22.21.1.
+- The remediated production build passes after the user stopped the active development server. It reports the expected Node engine warning and an unrelated warning that `C:\Users\Suraj\pnpm-lock.yaml` is outside this repository.
+- Before the extra server stopped, the port-3000 session served `/` but returned 404 for both `/preview` and `/projects/<projectId>` while the workspace global app-path manifest omitted those routes. After the user stopped the same-folder port-3001 server, only port 3000 remained and all three URLs returned 200. The temporary port-3102 server used during isolation was stopped after testing.
+- The temporary production-browser pass produced no console warnings or errors. It created two QA-only records under the port-3102 origin. The port-3000 dashboard pass created `Virtual QA 2026-08-18 Renamed` and its copy while leaving the two pre-existing records unchanged.
+- The PD-R05 and PD-R06 closure suites pass 2 files and 69 tests, including the three new production-boundary cases. The complete suite passes 41 files and 559 tests; `pnpm lint`, `pnpm typecheck`, and `git diff --check` pass under Node 22.21.1.
+- The clean port-3000 development server serves the dashboard, Preview, and a missing-project route with HTTP 200, and the emitted stylesheet includes `--dashboard-ink: #17201f` for `.project-editor-boundary`.
 
 **Remaining:**
 
-- Review the remediated implementation and revise product behavior if requested.
+- Run lint, typecheck, the complete suite, and the production build under the required Node 24.19.x runtime when it is available; the same matrix and production build pass under Node 22.21.1, and the unchanged five-second editor timeout must not be weakened to hide machine load.
+- Repeat the PD-R05 and PD-R06 visual interaction pass in a supported browser when the Browser plugin runtime is repaired; the production-component closure tests already pass.
+- Review the closed six-finding remediation and decide whether to push.
 - Review and revise the migration guide's proposed identity, revision, timestamp, idempotency, retention, recovery, and endpoint decisions.
-- Push the local checkpoint only when requested.
-- Run the full suite under the required Node 24.19.x environment when it is available; do not weaken the unchanged five-second editor test to hide machine load.
+- Push the local checkpoint only when requested after review closure.
 
 **Last left off:**
-2026-08-16 - All four approved code-review findings are remediated and saved in a local checkpoint; the focused 23-test matrix, repository-wide lint and typecheck, complete 556-test suite, production build, and controlled Chrome Back/rename-focus follow-up pass. The next action is owner review and an explicit push decision; required-runtime Node 24.19.x verification remains outstanding.
+2026-08-18 - PD-R05 and PD-R06 are remediated and closed in the local feature-branch checkpoint. Their affected suites pass 69 of 69 tests, the complete suite passes 559 of 559, lint/typecheck/diff checks pass, and the optimized production build emits all expected routes. The final visual replay remains outstanding only because the installed Browser plugin lacks its required client file. Next action: owner review and explicit push direction, with the full Node 24.19.x verification matrix still outstanding.
