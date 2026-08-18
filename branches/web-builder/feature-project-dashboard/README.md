@@ -5,7 +5,7 @@ scope: Repository branch workspace index for web-builder feature/project-dashboa
 authority: Discovery index for the linked branch context; workspace.md owns feature execution state
 owner: Project owner
 lifecycle: draft
-freshness: Updated on 2026-08-18 after checkpoint 714973e published the first twelve review remediations and passed Node 24.19 CI, the final browser replay passed, and the follow-up recovery-identity and publication-record findings were remediated in the current branch; invalidated by a future branch, pull-request, feature-scope, implementation, publication, review, or workspace-mapping change
+freshness: Updated on 2026-08-18 after published head b9e7879 closed all fourteen review findings and passed Node 24.19 CI, with the final browser replay also complete; invalidated by a future branch, pull-request, feature-scope, implementation, publication, review, or workspace-mapping change
 ---
 
 # Repository branch workspace - web-builder / feature/project-dashboard
@@ -18,7 +18,7 @@ freshness: Updated on 2026-08-18 after checkpoint 714973e published the first tw
 
 **Feature workspace:** [`workspaces/project-dashboard/`](../../../workspaces/project-dashboard/workspace.md)
 
-**Summary:** Implements the local-first project dashboard, project-specific editor route, repository abstraction, IndexedDB adapter, revision-safe autosave path, and fourteen verified review remediations while retaining the later opt-in migration plan for authenticated backend storage. [Draft pull request 9](https://github.com/surajsibi/web-builder/pull/9) published the first twelve findings at checkpoint `714973e`, which passed [Node 24.19 CI / Validate](https://github.com/surajsibi/web-builder/actions/runs/32125020513/job/95673532383). The current branch also keeps adapter-derived recovery identities stable across list, load, and mutation errors; the pull request's current-head check is the publication authority before ready-for-review promotion.
+**Summary:** Implements the local-first project dashboard, project-specific editor route, repository abstraction, IndexedDB adapter, revision-safe autosave path, and fourteen verified review remediations while retaining the later opt-in migration plan for authenticated backend storage. [Draft pull request 9](https://github.com/surajsibi/web-builder/pull/9) published all fourteen findings at head `b9e7879`, which passed [Node 24.19 CI / Validate](https://github.com/surajsibi/web-builder/actions/runs/32128646603/job/95684696642). Owner review remains; promotion requires a green live current-head check.
 
 ## Index
 

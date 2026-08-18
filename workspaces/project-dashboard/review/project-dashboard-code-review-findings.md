@@ -5,7 +5,7 @@ scope: Final pre-push code review and remediation verification of local project 
 authority: Verified implementation owns current behavior; this review owns the fourteen scoped findings, their remediation evidence, and their pull-request disposition
 owner: Project owner
 lifecycle: in_review
-freshness: Re-reviewed and remediated on 2026-08-18 at published checkpoint 714973e459cf5ca3a964ce996d5be53a63ae3fd4 plus the current branch through the PD-R13 fail-before/pass-after case, all 27 focused tests, the complete 567-test run, repository-wide ESLint, normal typechecking, diff checks, a successful optimized production build, and the final controlled Chrome replay; all fourteen scoped findings are closed, and the live pull-request head owns current publication status; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, runtime, branch publication, or review disposition
+freshness: Re-reviewed and remediated on 2026-08-18 through published head b9e787916d505b631b1a85299470c76eab4db44d, its successful Node 24.19 CI job, the PD-R13 fail-before/pass-after case, all 27 focused tests, the complete 567-test run, repository-wide ESLint, normal typechecking, diff checks, a successful optimized production build, and the final controlled Chrome replay; all fourteen scoped findings are closed; invalidated by changes to the cited persistence, dashboard, editor-boundary, toolbar, CSS, regression-test, runtime, branch publication, or review disposition
 ---
 
 # Code review: project dashboard persistence, recovery, and accessibility
@@ -37,8 +37,8 @@ local. All three were published at `714973e` and passed its Node 24.19 job.
 The latest review identified one more medium-severity consistency defect and
 one low-severity publication-record defect. List and action paths returned
 different recovery IDs for the same IndexedDB record, while maintained records
-again lagged the published head. Both are remediated in the current branch; all
-fourteen scoped findings are closed.
+again lagged the published head. Both are published at `b9e7879`, which passed
+the required Node 24.19 CI job; all fourteen scoped findings are closed.
 
 ## Question, scope, and baseline
 
@@ -95,8 +95,8 @@ keyboard-focus loss is Low.
 | PD-R10 | Only non-string IndexedDB keys received a type-tagged recovery identity. | Medium | Numeric key `1` collided with an unavailable literal string key `"indexeddb-key:number:1"`, causing dashboard duplicate detection to hide the complete inventory. | Encode every unavailable physical key, including strings, through the same typed identity scheme. | Project owner | Numeric and adversarial literal-string records both remain unavailable with distinct recovery IDs. | Remediated, published in `714973e`, and Node 24 verified |
 | PD-R11 | Pending name dialogs disabled every input and button, leaving no focusable target for the focus trap. | Medium | Tab could move focus into the non-inert dashboard, allowing another action while the unresolved mutation later navigated or updated dialog state. | Keep a semantically disabled pending target focusable, move focus to it, trap Tab and Shift+Tab, and guard repeat submission. | Project owner | Pending create focus remains on the modal target in both Tab directions and Enter does not resubmit. | Remediated, published in `714973e`, browser verified, and Node 24 verified |
 | PD-R12 | Maintained records and the pull-request description still treated PD-R07 through PD-R09 as local and cited `a6a7b78`. | Low | Reviewers received an incorrect publication and required-runtime status after `61641d3` passed CI. | Correct the existing authorities and PR description to the actual published head, finding count, test count, and CI job. | Project owner | Records distinguish published `61641d3` from the later local fixes and link its successful Node 24.19 job. | Remediated and published in `714973e` |
-| PD-R13 | IndexedDB `list()` encoded unavailable string keys, while load and mutation assertions derived `unavailableProject.recoveryId` from the raw route key. | Medium | The same corrupt physical record had two recovery identities across inventory and action errors, violating the stable opaque adapter-reference contract and reintroducing cross-path ambiguity. | Prepare records through the IndexedDB adapter path for list, load, and mutations, then assert the already-prepared result. | Project owner | One mismatched string-key record returns the same encoded recovery ID from list, load, save, rename, and duplicate. | Remediated and verified in current branch |
-| PD-R14 | Maintained records and the PR description still described PD-R10 and PD-R11 as local after checkpoint `714973e` published them and passed CI. | Low | Reviewers received an incorrect branch, finding, browser-verification, and required-runtime status. | Record `714973e` as the historical verified checkpoint and make the live PR head/check rollup authoritative for later publication state. | Project owner | Records no longer claim PD-R10 or PD-R11 require publication, and the PR identifies the exact current head and check. | Remediated in current branch; live PR update follows publication |
+| PD-R13 | IndexedDB `list()` encoded unavailable string keys, while load and mutation assertions derived `unavailableProject.recoveryId` from the raw route key. | Medium | The same corrupt physical record had two recovery identities across inventory and action errors, violating the stable opaque adapter-reference contract and reintroducing cross-path ambiguity. | Prepare records through the IndexedDB adapter path for list, load, and mutations, then assert the already-prepared result. | Project owner | One mismatched string-key record returns the same encoded recovery ID from list, load, save, rename, and duplicate. | Remediated, published in `b9e7879`, and Node 24 verified |
+| PD-R14 | Maintained records and the PR description still described PD-R10 and PD-R11 as local after checkpoint `714973e` published them and passed CI. | Low | Reviewers received an incorrect branch, finding, browser-verification, and required-runtime status. | Record `714973e` as the historical verified checkpoint and make the live PR head/check rollup authoritative for later publication state. | Project owner | Records no longer claim PD-R10 or PD-R11 require publication, and the PR identifies the exact current head and check. | Remediated and published in `b9e7879` |
 
 ### PD-R01 — Browser Back can discard recent edits
 
@@ -441,22 +441,19 @@ PD-R06 remediation on 2026-08-18, approved execution of PD-R07 through PD-R09,
 and then approved remediation of PD-R10 through PD-R12 on the same date. The
 user subsequently approved PD-R13 and PD-R14 remediation and explicitly
 authorized its commit and push. All fourteen findings are closed in the current
-branch. PD-R07 through PD-R12 are published through checkpoint `714973e`; the
-live pull-request head owns later publication and required-runtime status. This
+branch and published at `b9e7879`, which passed its required Node 24.19 job. The
+live pull-request head owns current publication and required-runtime status. This
 review does not authorize merge, deployment, backend expansion, or deletion.
 
 Latest closure verification passes 3 focused files and all 27 tests,
 repository-wide ESLint, normal `pnpm typecheck`, `git diff --check`, the
 complete 41-file, 567-test suite with the temporary 15-second ceiling, and the
-optimized production build under Node 22.21.1. Checkpoint `714973e` passed the
+optimized production build under Node 22.21.1. Published head `b9e7879` passed the
 Node 24.19 `CI / Validate` job in
-[run 32125020513, job 95673532383](https://github.com/surajsibi/web-builder/actions/runs/32125020513/job/95673532383).
-Every later published head must pass the same required-runtime matrix before
-merge.
+[run 32128646603, job 95684696642](https://github.com/surajsibi/web-builder/actions/runs/32128646603/job/95684696642).
 
-The owner should review draft pull request 9 before promoting it from draft.
-Publish the latest remediation and require the resulting head to pass the
-complete Node 24.19.x matrix.
+Owner review remains for draft pull request 9; promotion requires a green live
+current-head check.
 
 ## Residual risk and follow-up
 
@@ -479,7 +476,6 @@ warnings or errors, and its temporary source route was removed afterward.
 An unmount-triggered save continues asynchronously after the editor leaves the
 screen; if browser storage then fails, the departed editor cannot present that
 failure. Hard unloads still receive the existing unsaved-change warning, and
-revision conflicts still refuse the write. Require the current published head
-to pass the Node 24 verification matrix before ready-for-review promotion, and
-re-review the fourteen findings if the cited implementation or regression
-tests change.
+revision conflicts still refuse the write. Promotion requires a green live
+current-head check; re-review the fourteen findings if the cited implementation
+or regression tests change.

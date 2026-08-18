@@ -5,7 +5,7 @@ scope: Local-first project dashboard, project-specific editor routing, IndexedDB
 authority: Execution plan for the local-first delivery slice; project-persistence-and-backend-spec.md owns proposed product intent, while verified code and tests own implemented behavior
 owner: Project owner
 lifecycle: active
-freshness: Updated on 2026-08-18 after checkpoint 714973e published PD-11 and passed Node 24.19 CI, the final browser replay passed, and PD-12 closed cross-path recovery-identity drift and repeated publication-record staleness; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, review, branch-publication, or scope change
+freshness: Updated on 2026-08-18 after published head b9e7879 completed PD-12 and passed Node 24.19 CI, with the final browser replay also complete; invalidated by a dashboard, persistence, recovery, route, project-schema, hydration-error, editor-store, autosave, dependency, review, branch-publication, or scope change
 ---
 
 # Plan: Local project dashboard and persistent editor
@@ -25,7 +25,7 @@ Open Canvas Studio
 
 The [project persistence and backend specification](project-persistence-and-backend-spec.md) owns the proposed product and storage contract. This plan orders the first browser-local implementation slice. The canonical `ProjectDocument`, migration code, hydration validator, commands, tests, and verified runtime behavior remain authoritative for current behavior.
 
-**Implementation outcome:** PD-00 through PD-12 are complete in the current branch. Checkpoint `714973e` contains the first twelve review remediations and passed Node 24.19 CI; the final controlled Chrome replay passes, and the current branch also keeps adapter-derived recovery identities stable across list and project actions. The pull request's current-head check remains the required publication gate. Future backend migration remains outside this implementation.
+**Implementation outcome:** PD-00 through PD-12 are complete and published at head `b9e7879`, which passed [Node 24.19 CI / Validate](https://github.com/surajsibi/web-builder/actions/runs/32128646603/job/95684696642). The final controlled Chrome replay also passes. Owner review remains; promotion requires a green live current-head check. Future backend migration remains outside this implementation.
 
 ### Included in the first release
 
@@ -131,7 +131,7 @@ Text equivalent: the dashboard and project editor use the same repository contra
 | PD-09 | Remediate the four approved project-dashboard code-review findings. | PD-08 | Focused tests cover unmount save, key/ID containment, 101-project reachability/search, and successful-rename focus restoration; full verification remains green | Project owner | Complete |
 | PD-10 | Remediate the three approved pull-request findings for physical-key typing, inventory-stable enumeration, and pending-dialog dismissal. | PD-09 | Fail-before/pass-after numeric/string-key, changed-inventory, and deferred create/rename tests; focused and full verification remain green | Project owner | Complete, published, and Node 24 verified |
 | PD-11 | Remediate cross-type recovery-identity collisions, pending-dialog focus escape, and stale publication records. | PD-10 | Fail-before/pass-after recovery-ID and keyboard-focus cases; focused and full verification remain green; records cite the actual published head and CI job | Project owner | Complete, published in `714973e`, and Node 24 verified |
-| PD-12 | Keep recovery identities stable across IndexedDB inventory and action errors, and make publication records resistant to repeated head drift. | PD-11 | Fail-before/pass-after list/load/mutation identity case; focused and full verification remain green; live PR owns current-head status | Project owner | Complete in current branch; current-head CI required before merge |
+| PD-12 | Keep recovery identities stable across IndexedDB inventory and action errors, and make publication records resistant to repeated head drift. | PD-11 | Fail-before/pass-after list/load/mutation identity case; focused and full verification remain green; live PR owns current-head status | Project owner | Complete, published in `b9e7879`, and Node 24 verified |
 
 ## Implementation detail by slice
 
@@ -277,7 +277,7 @@ Close the new behavioral P2 and publication-record P3 findings without changing 
 2. Preserve the shared clone and error behavior by asserting one already-prepared repository result instead of duplicating hydration logic in the adapter.
 3. Record `714973e` as the verified twelve-finding checkpoint while treating the live pull-request head and check rollup as the authority for later publication state, avoiding a self-invalidating latest-commit claim inside the commit itself.
 
-The cross-path assertion failed against `714973e`: list returned `indexeddb-key:string:"project-1"`, while load returned raw `project-1`. It passes after remediation for list, load, save, rename, and duplicate. The affected three-file matrix passes 27 tests, the complete local Node 22 matrix passes 567 tests with the temporary 15-second ceiling, and repository-wide lint, typecheck, diff checks, and the optimized build pass. Every published head containing PD-12 must pass the required Node 24.19 check before merge.
+The cross-path assertion failed against `714973e`: list returned `indexeddb-key:string:"project-1"`, while load returned raw `project-1`. It passes after remediation for list, load, save, rename, and duplicate. The affected three-file matrix passes 27 tests, the complete local Node 22 matrix passes 567 tests with the temporary 15-second ceiling, and repository-wide lint, typecheck, diff checks, and the optimized build pass. Published head `b9e7879` passed [Node 24.19 CI / Validate](https://github.com/surajsibi/web-builder/actions/runs/32128646603/job/95684696642). Owner review remains; promotion requires a green live current-head check.
 
 ## Quality and approval gates
 

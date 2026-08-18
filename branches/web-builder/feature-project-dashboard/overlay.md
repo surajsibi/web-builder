@@ -5,7 +5,7 @@ scope: Repository-specific knowledge for web-builder feature/project-dashboard
 authority: Repository-specific overlay for the linked feature; code, configuration, tests, and verified runtime behavior remain authoritative
 owner: Project owner
 lifecycle: draft
-freshness: Rechecked on 2026-08-18 in the current branch through all 27 focused tests, the complete 567-test run, repository-wide ESLint, normal typechecking, diff checks, a successful optimized production build, and the final controlled Chrome replay; all fourteen scoped findings are closed; invalidated by a repository architecture, implementation, dependency, branch, publication, review, or verification change
+freshness: Rechecked on 2026-08-18 through published head b9e7879, its successful Node 24.19 CI job, all 27 focused tests, the complete 567-test run, repository-wide ESLint, normal typechecking, diff checks, a successful optimized production build, and the final controlled Chrome replay; all fourteen scoped findings are closed; invalidated by a repository architecture, implementation, dependency, branch, publication, review, or verification change
 ---
 
 # Repository overlay - web-builder / feature/project-dashboard
@@ -39,7 +39,7 @@ freshness: Rechecked on 2026-08-18 in the current branch through all 27 focused 
 - Project data exists only in the current browser profile and is not an account backup.
 - Project deletion, authentication, cloud synchronization, publishing, and templates remain outside this slice.
 - The repository declares Node `>=24.19.0 <25`; the latest local verification ran under Node 22.21.1 with an engine warning because Node 24 is not installed in this environment.
-- The branch is rebased onto `origin/main` at `4835734`, which introduces project schema version 3 and Boolean State/Drawer behavior. Checkpoint `714973e` passed [Node 24.19 CI / Validate](https://github.com/surajsibi/web-builder/actions/runs/32125020513/job/95673532383); every later published head must pass the same required check before merge.
+- The branch is rebased onto `origin/main` at `4835734`, which introduces project schema version 3 and Boolean State/Drawer behavior. Published head `b9e7879` passed [Node 24.19 CI / Validate](https://github.com/surajsibi/web-builder/actions/runs/32128646603/job/95684696642). Owner review remains; promotion requires a green live current-head check.
 
 ## Risks
 
