@@ -5,7 +5,7 @@ scope: Execution state for connected block-template infrastructure and one state
 authority: Selected feature execution-state authority for connected state blocks; code, schemas, tests, and verified runtime behavior remain authoritative for implemented behavior
 owner: Suraj
 lifecycle: draft
-freshness: CSB-09 accountable exception closure, the final post-remediation 619-test rerun, production build/startup verification, Firefox 153.0 Disclosure smoke, approved verification-closure amendment, and CSB-10 completion recorded through 2026-08-19 for the feat/connected-state-blocks working tree based at c032701e52c5c8046a32d9365b8f5782fb75bbc6; invalidated by a scope, branch, ownership, plan-review, block-template, Boolean State, Button, implementation, benchmark, runtime, browser, assistive-technology, documentation, verification, or accountable-decision change
+freshness: CSB-09 accountable exception closure, the final post-remediation 619-test rerun, production build/startup verification, Firefox 153.0 Disclosure smoke, approved verification-closure amendment, CSB-10 completion, commit 0fd1f72, branch publication, and draft PR 10 recorded through 2026-08-19 for feat/connected-state-blocks based at c032701e52c5c8046a32d9365b8f5782fb75bbc6; invalidated by a scope, branch, ownership, plan-review, block-template, Boolean State, Button, implementation, benchmark, runtime, browser, assistive-technology, documentation, verification, pull-request, or accountable-decision change
 ---
 
 # Components workspace
@@ -20,7 +20,7 @@ freshness: CSB-09 accountable exception closure, the final post-remediation 619-
 
 **Active branches:** `web-builder`: `feat/connected-state-blocks`, created from `main` at `c032701e52c5c8046a32d9365b8f5782fb75bbc6`.
 
-**Current milestone:** Prepare the confirmed feature-only commit and draft PR. GitHub authentication is valid and the approved scope excludes `ANALYZE_UP_PROJECT_GUIDE.md` and `tmp/`. CSB-10 documentation and accountable report review are complete; NVDA/Firefox is the sole remaining documented exception, and no unexecuted case may be represented as passing evidence.
+**Current milestone:** Review [draft PR #10](https://github.com/surajsibi/web-builder/pull/10). Commit `0fd1f72` (`Add connected state blocks and Disclosure`) is published on `feat/connected-state-blocks`; the approved scope excludes `ANALYZE_UP_PROJECT_GUIDE.md` and `tmp/`. CSB-10 documentation and accountable report review are complete; NVDA/Firefox is the sole remaining documented exception, and no unexecuted case may be represented as passing evidence.
 
 **Feature summary:** Extend the existing block-template compiler so one atomic insertion can create ordinary editable components, a nonvisual Boolean State, and safe internal connections using temporary template-local keys that never enter persisted project data. The only planned adopter is an accessible state-powered Disclosure with explicit persisted Button/state/panel configuration and non-mutating effective semantics.
 
