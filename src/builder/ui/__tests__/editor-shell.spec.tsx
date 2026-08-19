@@ -55,6 +55,52 @@ function createEditorTestStore(
   });
 }
 
+function addDisclosureFixture(
+  project: ProjectDocument,
+  options?: {
+    binding?: "valid" | "inverted";
+    content?: "sibling" | "moved" | "missing";
+    hidden?: boolean;
+  },
+) {
+  const page = project.pages[asPageId("page-editor-test")];
+  const button = createTestNode("button", "node-disclosure-button");
+  const content = createTestNode("container", "node-disclosure-content");
+  const state = createTestNode("boolean-state", "node-disclosure-state");
+  const rootChildren = [button.id, state.id];
+  if ((options?.content ?? "sibling") === "sibling") {
+    rootChildren.splice(1, 0, content.id);
+  }
+  const root = createTestNode("container", "node-disclosure-root", rootChildren);
+
+  root.meta.name = "Disclosure";
+  button.meta.name = "Show details";
+  content.meta.name = "Disclosure content";
+  state.meta.name = "Disclosure open";
+  button.props.text = "Show details";
+  button.props.targetStateNodeId = state.id;
+  button.props.stateAction = "toggle";
+  button.props.stateAccessibility = "disclosure";
+  button.props.disclosureContentNodeId = content.id;
+  content.stateBinding = {
+    stateNodeId: state.id,
+    on: options?.binding === "inverted" ? "hide" : "show",
+    off: options?.binding === "inverted" ? "show" : "hide",
+  };
+  if (options?.hidden) content.styles.base.display = "none";
+
+  Object.assign(page.nodes, {
+    [root.id]: root,
+    [button.id]: button,
+    [state.id]: state,
+    ...((options?.content ?? "sibling") === "missing"
+      ? {}
+      : { [content.id]: content }),
+  });
+  page.rootIds.push(root.id);
+  if (options?.content === "moved") page.rootIds.push(content.id);
+}
+
 describe("EditorShell", () => {
   it("should not rerender the shell when only the active drop target changes", () => {
     const store = createEditorTestStore();
@@ -977,6 +1023,365 @@ describe("EditorShell", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("should distinguish persisted Disclosure configuration and reconnect an inverted panel", () => {
+    const store = createEditorTestStore((project) =>
+      addDisclosureFixture(project, { binding: "inverted" }),
+    );
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select Show details" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+
+    expect(screen.getByText(/Persisted configuration:/)).toHaveTextContent(
+      "Persisted configuration: Enabled",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The controlled Container must use On → Show and Off → Hide.",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reconnect visibility" }),
+    );
+
+    const page = store.getState().document!.pages[asPageId("page-editor-test")];
+    expect(page.nodes[asNodeId("node-disclosure-content")].stateBinding).toEqual({
+      stateNodeId: "node-disclosure-state",
+      on: "show",
+      off: "hide",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    const canvasButton = within(
+      screen.getByRole("region", { name: "Page canvas" }),
+    ).getByRole("button", { name: "Show details" });
+    expect(canvasButton).not.toHaveAttribute("aria-expanded");
+
+    fireEvent.click(canvasButton);
+
+    expect(canvasButton).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("should restore moved Disclosure content to the Button parent", () => {
+    const store = createEditorTestStore((project) =>
+      addDisclosureFixture(project, { content: "moved" }),
+    );
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select Show details" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "must share one direct parent",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Restore shared structure" }),
+    );
+
+    expect(
+      store.getState().parentById[asNodeId("node-disclosure-content")],
+    ).toBe("node-disclosure-root");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("should reject shared-structure repair before moving state when content is locked", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore((project) => {
+      addDisclosureFixture(project, { content: "moved" });
+      const page = project.pages[asPageId("page-editor-test")];
+      const root = page.nodes[asNodeId("node-disclosure-root")];
+      const content = page.nodes[asNodeId("node-disclosure-content")];
+      const state = page.nodes[asNodeId("node-disclosure-state")];
+      root.childIds = root.childIds.filter((nodeId) => nodeId !== state.id);
+      content.meta.locked = true;
+      page.rootIds.push(state.id);
+    });
+    const before = structuredClone(store.getState().document);
+    render(<EditorShell store={store} />);
+
+    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    await user.click(
+      screen.getByRole("button", { name: "Select Show details" }),
+    );
+    await user.click(screen.getByRole("tab", { name: "State" }));
+    await user.click(
+      screen.getByRole("button", { name: "Restore shared structure" }),
+    );
+
+    expect(store.getState().document).toEqual(before);
+    expect(
+      screen.getByText("Change rejected: A locked node cannot be moved"),
+    ).toBeInTheDocument();
+  });
+
+  it("should explicitly reveal independently hidden Disclosure content", () => {
+    const store = createEditorTestStore((project) =>
+      addDisclosureFixture(project, { hidden: true }),
+    );
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select Show details" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "independently hidden",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show at this viewport" }),
+    );
+
+    expect(
+      store.getState().document!.pages[asPageId("page-editor-test")].nodes[
+        asNodeId("node-disclosure-content")
+      ].styles.base.display,
+    ).toBe("block");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["desktop", "tablet", "base"],
+    ["tablet", "mobile", "tablet"],
+  ] as const)(
+    "should override inherited %s hiding when revealing at the %s viewport",
+    async (_sourceViewport, viewport, hiddenLayer) => {
+      const user = userEvent.setup();
+      const store = createEditorTestStore((project) => {
+        addDisclosureFixture(project);
+        const content =
+          project.pages[asPageId("page-editor-test")].nodes[
+            asNodeId("node-disclosure-content")
+          ];
+        if (hiddenLayer === "base") {
+          content.styles.base.display = "none";
+        } else {
+          content.styles.tablet = {
+            ...content.styles.tablet,
+            display: "none",
+          };
+        }
+      });
+      store.getState().setViewport(viewport);
+      render(<EditorShell store={store} />);
+
+      await user.click(screen.getByRole("tab", { name: "Layers" }));
+      await user.click(
+        screen.getByRole("button", { name: "Select Show details" }),
+      );
+      await user.click(screen.getByRole("tab", { name: "State" }));
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "independently hidden",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Show at this viewport" }),
+      );
+
+      const content =
+        store.getState().document!.pages[asPageId("page-editor-test")].nodes[
+          asNodeId("node-disclosure-content")
+        ];
+      expect(content.styles[viewport]?.display).toBe("block");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
+
+  it("should describe ancestor-controlled visibility as unverified instead of ready", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore((project) => {
+      addDisclosureFixture(project);
+      const page = project.pages[asPageId("page-editor-test")];
+      const root = page.nodes[asNodeId("node-disclosure-root")];
+      const ancestorState = createTestNode(
+        "boolean-state",
+        "node-disclosure-ancestor-state",
+      );
+      ancestorState.props.defaultValue = false;
+      root.stateBinding = {
+        stateNodeId: ancestorState.id,
+        on: "show",
+        off: "hide",
+      };
+      page.nodes[ancestorState.id] = ancestorState;
+      page.rootIds.push(ancestorState.id);
+    });
+    render(<EditorShell store={store} />);
+
+    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    await user.click(
+      screen.getByRole("button", { name: "Select Show details" }),
+    );
+    await user.click(screen.getByRole("tab", { name: "State" }));
+
+    const diagnostic = screen.getByText(/Effective semantics:/);
+    expect(diagnostic).toHaveTextContent(
+      "An ancestor visibility binding requires live runtime evaluation on the Canvas or in Preview.",
+    );
+    expect(diagnostic).not.toHaveTextContent(/ready/i);
+  });
+
+  it("should preserve a deleted-panel reference until configuration is explicitly cleared", () => {
+    const store = createEditorTestStore((project) =>
+      addDisclosureFixture(project, { content: "missing" }),
+    );
+    render(<EditorShell store={store} />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Layers" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select Show details" }));
+    fireEvent.click(screen.getByRole("tab", { name: "State" }));
+    const buttonBefore = store.getState().document!.pages[
+      asPageId("page-editor-test")
+    ].nodes[asNodeId("node-disclosure-button")];
+    expect(buttonBefore.props.disclosureContentNodeId).toBe(
+      "node-disclosure-content",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "controlled content no longer exists",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear Disclosure configuration" }),
+    );
+
+    const buttonAfter = store.getState().document!.pages[
+      asPageId("page-editor-test")
+    ].nodes[asNodeId("node-disclosure-button")];
+    expect(buttonAfter.props).toMatchObject({
+      stateAccessibility: "none",
+      disclosureContentNodeId: "",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("should insert the production Disclosure as one selected named subtree", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    const dispatch = vi.fn(store.getState().dispatchEditorCommand);
+    store.setState({ dispatchEditorCommand: dispatch });
+    render(<EditorShell store={store} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Add Disclosure block" }),
+    );
+
+    expect(dispatch).toHaveBeenCalledWith({
+      kind: "block.insert",
+      pageId: "page-editor-test",
+      blockType: "disclosure",
+      destination: { parentId: null, index: 0 },
+    });
+    const page = store.getState().document!.pages[
+      asPageId("page-editor-test")
+    ];
+    expect(store.getState().history.past).toHaveLength(1);
+    expect(store.getState().selectedNodeId).toBe("node-editor-1");
+    expect(page.nodes[asNodeId("node-editor-1")]).toMatchObject({
+      meta: { name: "Disclosure" },
+      childIds: ["node-editor-2", "node-editor-3", "node-editor-5"],
+    });
+    expect(page.nodes[asNodeId("node-editor-2")]).toMatchObject({
+      meta: { name: "Show details" },
+      props: {
+        targetStateNodeId: "node-editor-5",
+        stateAction: "toggle",
+        stateAccessibility: "disclosure",
+        disclosureContentNodeId: "node-editor-3",
+      },
+    });
+    expect(page.nodes[asNodeId("node-editor-3")]).toMatchObject({
+      meta: { name: "Disclosure content" },
+      childIds: ["node-editor-4"],
+      stateBinding: {
+        stateNodeId: "node-editor-5",
+        on: "show",
+        off: "hide",
+      },
+    });
+    expect(page.nodes[asNodeId("node-editor-5")]).toMatchObject({
+      type: "boolean-state",
+      meta: { name: "Disclosure open" },
+      props: { defaultValue: false },
+    });
+    const canvas = within(
+      screen.getByRole("region", { name: "Page canvas" }),
+    );
+    const canvasButton = canvas.getByRole("button", { name: "Show details" });
+    expect(canvasButton).not.toHaveAttribute("aria-expanded");
+    expect(
+      canvas.getByText("Replace this text with your details.").parentElement,
+    ).toHaveAttribute("data-state-visibility", "inactive");
+    expect(
+      screen.getByText("Added Disclosure at Page root.", {
+        selector: ".editor-announcement",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    const layers = screen.getByRole("tree", { name: "Page layers" });
+    for (const name of [
+      "Disclosure",
+      "Show details",
+      "Disclosure content",
+      "Disclosure open",
+    ]) {
+      expect(
+        within(layers).getByRole("button", { name: `Select ${name}` }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("should diagnose and explicitly reconnect a broken production Disclosure", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    render(<EditorShell store={store} />);
+    await user.click(
+      screen.getByRole("button", { name: "Add Disclosure block" }),
+    );
+    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    await user.click(
+      screen.getByRole("button", { name: "Select Show details" }),
+    );
+    await user.click(screen.getByRole("tab", { name: "State" }));
+
+    expect(screen.getByText(/Effective semantics:/)).toHaveTextContent(
+      "The persisted relationship is structurally valid; live expanded state is evaluated on the Canvas and in Preview.",
+    );
+
+    act(() => {
+      store.getState().dispatchEditorCommand({
+        kind: "node.updateStateBinding",
+        pageId: asPageId("page-editor-test"),
+        nodeId: asNodeId("node-editor-3"),
+        binding: {
+          stateNodeId: asNodeId("node-editor-5"),
+          on: "hide",
+          off: "show",
+        },
+      });
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "must use On → Show and Off → Hide",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Reconnect visibility" }),
+    );
+
+    const page = store.getState().document!.pages[
+      asPageId("page-editor-test")
+    ];
+    expect(page.nodes[asNodeId("node-editor-3")].stateBinding).toEqual({
+      stateNodeId: "node-editor-5",
+      on: "show",
+      off: "hide",
+    });
+    expect(page.nodes[asNodeId("node-editor-2")].props).toMatchObject({
+      targetStateNodeId: "node-editor-5",
+      stateAccessibility: "disclosure",
+      disclosureContentNodeId: "node-editor-3",
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("should insert and configure a linked SVG Image through the Inspector", () => {
     const store = createEditorTestStore();
     render(<EditorShell store={store} />);
@@ -1286,6 +1691,8 @@ describe("EditorShell", () => {
       behavior: "button",
       targetStateNodeId: "",
       stateAction: "none",
+      stateAccessibility: "none",
+      disclosureContentNodeId: "",
     });
   });
 

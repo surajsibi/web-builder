@@ -55,7 +55,7 @@ describe("componentRegistry", () => {
       card: 1,
       image: 1,
       link: 1,
-      button: 5,
+      button: 6,
       form: 1,
       input: 3,
       textarea: 2,
@@ -69,11 +69,17 @@ describe("componentRegistry", () => {
     );
   });
 
-  it("should declare the Button Boolean State reference", () => {
+  it("should declare both page-scoped Button relationship references", () => {
     expect(componentRegistry.button.references).toEqual([
       {
         path: "targetStateNodeId",
         targetType: "boolean-state",
+        scope: "page",
+        onDuplicate: "remap-if-target-cloned",
+      },
+      {
+        path: "disclosureContentNodeId",
+        targetType: "container",
         scope: "page",
         onDuplicate: "remap-if-target-cloned",
       },
@@ -110,6 +116,35 @@ describe("componentRegistry", () => {
         href: "/docs",
         targetStateNodeId: "menu-state",
         stateAction: "toggle",
+      }),
+    ).toThrow();
+  });
+
+  it("should enforce the closed persisted Disclosure configuration", () => {
+    const defaults = componentRegistry.button.defaults.props;
+
+    expect(() =>
+      componentRegistry.button.propsSchema.parse({
+        ...defaults,
+        disclosureContentNodeId: "content",
+      }),
+    ).toThrow();
+    expect(() =>
+      componentRegistry.button.propsSchema.parse({
+        ...defaults,
+        stateAccessibility: "disclosure",
+        targetStateNodeId: "state",
+        stateAction: "toggle",
+        disclosureContentNodeId: "content",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      componentRegistry.button.propsSchema.parse({
+        ...defaults,
+        stateAccessibility: "disclosure",
+        targetStateNodeId: "state",
+        stateAction: "turn-on",
+        disclosureContentNodeId: "content",
       }),
     ).toThrow();
   });
@@ -271,6 +306,8 @@ describe("componentRegistry", () => {
           behavior: "button",
           targetStateNodeId: "",
           stateAction: "none",
+          stateAccessibility: "none",
+          disclosureContentNodeId: "",
         }}
         style={{}}
       />,
@@ -300,6 +337,8 @@ describe("componentRegistry", () => {
           behavior: "button",
           targetStateNodeId: "",
           stateAction: "none",
+          stateAccessibility: "none",
+          disclosureContentNodeId: "",
         }}
         style={{}}
       />,
@@ -330,6 +369,8 @@ describe("componentRegistry", () => {
           behavior: "button",
           targetStateNodeId: "",
           stateAction: "none",
+          stateAccessibility: "none",
+          disclosureContentNodeId: "",
         }}
         style={{}}
       />,
@@ -359,6 +400,8 @@ describe("componentRegistry", () => {
           behavior: "button",
           targetStateNodeId: "",
           stateAction: "none",
+          stateAccessibility: "none",
+          disclosureContentNodeId: "",
         }}
         style={{}}
       />,
@@ -492,6 +535,8 @@ describe("componentRegistry", () => {
           behavior: "submit",
           targetStateNodeId: "",
           stateAction: "none",
+          stateAccessibility: "none",
+          disclosureContentNodeId: "",
         }}
         style={{}}
       />,
@@ -622,6 +667,8 @@ describe("componentRegistry", () => {
             behavior: "submit",
             targetStateNodeId: "",
             stateAction: "none",
+            stateAccessibility: "none",
+            disclosureContentNodeId: "",
           }}
           style={{}}
         />

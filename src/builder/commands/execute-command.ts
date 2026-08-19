@@ -8,6 +8,7 @@ import type {
   ProjectDocument,
 } from "@/builder/model/project-document";
 import { booleanStateBindingSchema } from "@/builder/model/state-binding";
+import { reconcileDisclosureButtonProps } from "@/builder/interaction/disclosure-semantics";
 import { evaluatePositioningEligibility } from "@/builder/positioning/eligibility";
 import {
   blockRegistry,
@@ -500,6 +501,25 @@ function nextReadableNodeName(
 
   while (reservedNames.has(`${label} ${suffix}`)) suffix += 1;
   const name = `${label} ${suffix}`;
+  reservedNames.add(name);
+  return name;
+}
+
+function nextUniqueNodeName(
+  nameHint: string,
+  reservedNames: Set<string>,
+): string {
+  if (!reservedNames.has(nameHint)) {
+    reservedNames.add(nameHint);
+    return nameHint;
+  }
+
+  let suffix = 2;
+  let name = `${nameHint} ${suffix}`;
+  while (reservedNames.has(name)) {
+    suffix += 1;
+    name = `${nameHint} ${suffix}`;
+  }
   reservedNames.add(name);
   return name;
 }
@@ -1075,14 +1095,19 @@ function insertBlock(
   if (mode === "dry-run") return { status: "valid" };
 
   const templates: (typeof template)[] = [];
-  const collectTemplates = (node: typeof template) => {
+  const pathByTemplate = new Map<typeof template, string>();
+  const collectTemplates = (node: typeof template, path: string) => {
     templates.push(node);
-    for (const child of node.children) collectTemplates(child);
+    pathByTemplate.set(node, path);
+    node.children.forEach((child, index) => {
+      collectTemplates(child, `${path}.children[${index}]`);
+    });
   };
-  collectTemplates(template);
+  collectTemplates(template, "root");
 
   const reservedIds = collectProjectNodeIds(snapshot.document);
   const idByTemplate = new Map<typeof template, NodeId>();
+  const idByKey = new Map<string, NodeId>();
   for (const node of templates) {
     const nodeId = reserveUniqueNodeId(reservedIds, services.idGenerator);
     if (!nodeId) {
@@ -1093,6 +1118,7 @@ function insertBlock(
       });
     }
     idByTemplate.set(node, nodeId);
+    if (node.key !== undefined) idByKey.set(node.key, nodeId);
   }
 
   const nodeIds = templates.map((node) => idByTemplate.get(node) as NodeId);
@@ -1104,6 +1130,58 @@ function insertBlock(
 
   for (const node of templates) {
     const nodeId = idByTemplate.get(node) as NodeId;
+    const path = pathByTemplate.get(node) as string;
+    const props = structuredClone(node.props);
+    for (const reference of node.nodeReferences ?? []) {
+      const targetNodeId = idByKey.get(reference.targetKey);
+      if (!targetNodeId) {
+        return rejected({
+          code: "block-invalid",
+          pageId: page.id,
+          reason: `Block "${command.blockType}" reference "${reference.path}" at "${path}" could not be materialized.`,
+        });
+      }
+      props[reference.path] = targetNodeId;
+    }
+
+    const parsedProps = componentRegistry[node.type].propsSchema.safeParse(props);
+    if (!parsedProps.success) {
+      return rejected({
+        code: "block-invalid",
+        pageId: page.id,
+        reason: `Block "${command.blockType}" materialized props at "${path}" are invalid.`,
+      });
+    }
+
+    let stateBinding: BuilderNode["stateBinding"];
+    if (node.stateBinding !== undefined) {
+      const stateNodeId = idByKey.get(node.stateBinding.stateKey);
+      if (!stateNodeId) {
+        return rejected({
+          code: "block-invalid",
+          pageId: page.id,
+          reason: `Block "${command.blockType}" state binding at "${path}" could not be materialized.`,
+        });
+      }
+      const parsedBinding = booleanStateBindingSchema.safeParse({
+        stateNodeId,
+        on: node.stateBinding.on,
+        off: node.stateBinding.off,
+      });
+      if (!parsedBinding.success) {
+        return rejected({
+          code: "block-invalid",
+          pageId: page.id,
+          reason: `Block "${command.blockType}" materialized state binding at "${path}" is invalid.`,
+        });
+      }
+      stateBinding = {
+        stateNodeId: asNodeId(parsedBinding.data.stateNodeId),
+        on: parsedBinding.data.on,
+        off: parsedBinding.data.off,
+      };
+    }
+
     materializedNodes[nodeId] = {
       id: nodeId,
       type: node.type,
@@ -1111,10 +1189,14 @@ function insertBlock(
       childIds: node.children.map(
         (child) => idByTemplate.get(child) as NodeId,
       ),
-      props: structuredClone(node.props),
+      props: parsedProps.data,
       styles: structuredClone(node.styles),
+      ...(stateBinding !== undefined && { stateBinding }),
       meta: {
-        name: nextReadableNodeName(node.type, reservedNames),
+        name:
+          node.nameHint === undefined
+            ? nextReadableNodeName(node.type, reservedNames)
+            : nextUniqueNodeName(node.nameHint, reservedNames),
         locked: false,
       },
     };
@@ -1500,9 +1582,17 @@ function updateProps(
   }
 
   const definition = componentRegistry[resolved.node.type];
+  const nextProps =
+    resolved.node.type === "button"
+      ? reconcileDisclosureButtonProps(
+          resolved.page,
+          resolved.node.props,
+          command.nextProps,
+        )
+      : command.nextProps;
   let parsedProps: JsonObject;
   try {
-    parsedProps = definition.propsSchema.parse(command.nextProps) as JsonObject;
+    parsedProps = definition.propsSchema.parse(nextProps) as JsonObject;
   } catch (error) {
     return rejected({
       code: "props-invalid",

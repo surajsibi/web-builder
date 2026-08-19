@@ -6,6 +6,12 @@ import {
 } from "@/builder/commands/execute-command";
 import { asNodeId, asPageId } from "@/builder/model/ids";
 import { buildProjectParentIndex } from "@/builder/project/tree";
+import {
+  blockRegistry,
+  resolveBlockTemplate,
+  type BlockType,
+} from "@/builder/registry/block-registry";
+import type { ResolvedComponentTemplate } from "@/builder/registry/define-block-registry";
 import { createTestNode, createTestProject } from "@/builder/testing/project-fixtures";
 
 const BENCHMARK_OPTIONS = {
@@ -14,6 +20,37 @@ const BENCHMARK_OPTIONS = {
   warmupIterations: 1,
   warmupTime: 0,
 };
+
+const BLOCK_INSERT_BENCHMARK_OPTIONS = {
+  iterations: 50,
+  time: 0,
+  warmupIterations: 10,
+  warmupTime: 0,
+};
+
+const BLOCK_INSERT_FIXTURE_NODE_COUNT = 1_000;
+
+function countTemplateNodes(template: ResolvedComponentTemplate): number {
+  return (
+    1 +
+    template.children.reduce(
+      (count, child) => count + countTemplateNodes(child),
+      0,
+    )
+  );
+}
+
+function listBlockInsertCases(): readonly BlockType[] {
+  const blockTypes: BlockType[] = ["commerce-navbar"];
+
+  // The baseline revision predates Disclosure. Keeping one benchmark source
+  // lets the same fixed legacy case run against both revisions.
+  if (Object.hasOwn(blockRegistry, "disclosure")) {
+    blockTypes.push("disclosure" as BlockType);
+  }
+
+  return blockTypes;
+}
 
 function createFlatSnapshot(nodeCount: number): CommandSnapshot {
   const document = createTestProject();
@@ -115,6 +152,42 @@ describe("executeEditorCommand command path", () => {
         }
       },
       BENCHMARK_OPTIONS,
+    );
+  }
+});
+
+describe("block.insert fixed fixture", () => {
+  const snapshot = createFlatSnapshot(BLOCK_INSERT_FIXTURE_NODE_COUNT);
+
+  for (const blockType of listBlockInsertCases()) {
+    const templateNodeCount = countTemplateNodes(resolveBlockTemplate(blockType));
+
+    bench(
+      `block.insert ${blockType} (fixture: ${BLOCK_INSERT_FIXTURE_NODE_COUNT} nodes, template: ${templateNodeCount} nodes)`,
+      () => {
+        let generatedId = 0;
+        const result = executeEditorCommand(
+          snapshot,
+          {
+            kind: "block.insert",
+            pageId: snapshot.activePageId,
+            blockType,
+            destination: {
+              parentId: null,
+              index: BLOCK_INSERT_FIXTURE_NODE_COUNT,
+            },
+          },
+          {
+            idGenerator: () =>
+              `node-benchmark-${blockType}-${generatedId++}`,
+          },
+        );
+
+        if (result.status !== "applied") {
+          throw new Error(`${blockType} insertion benchmark was ${result.status}`);
+        }
+      },
+      BLOCK_INSERT_BENCHMARK_OPTIONS,
     );
   }
 });

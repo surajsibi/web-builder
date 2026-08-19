@@ -9,6 +9,10 @@ export type RuntimeSchema<Value> = {
   parse(input: unknown): Value;
 };
 
+export type ComponentTemplatePropsValidationContext = {
+  symbolicReferencePaths: ReadonlySet<string>;
+};
+
 export type NonEmptyReadonlyArray<Value> = readonly [Value, ...Value[]];
 
 export type LeafChildrenRule = {
@@ -151,6 +155,10 @@ type ComponentDefinitionBase<
   };
   allowedParents?: NonEmptyReadonlyArray<Type>;
   propsSchema: RuntimeSchema<Props>;
+  validateTemplateProps?: (
+    props: Readonly<JsonObject>,
+    context: ComponentTemplatePropsValidationContext,
+  ) => void;
   inspector: ComponentInspectorConfig<Props>;
   editor?: ComponentEditorMetadata;
   references?: readonly ComponentNodeReference<Props, Type>[];
@@ -192,6 +200,10 @@ type RegistryEntry = {
         accepts: "any" | readonly string[];
       };
   propsSchema: RuntimeSchema<JsonObject>;
+  validateTemplateProps?: (
+    props: Readonly<JsonObject>,
+    context: ComponentTemplatePropsValidationContext,
+  ) => void;
   inspector: {
     props: readonly {
       path: string;
@@ -469,6 +481,16 @@ export function validateComponentRegistry(
       throw new Error(`${type}.defaults.props does not pass propsSchema`, {
         cause: error,
       });
+    }
+    try {
+      definition.validateTemplateProps?.(definition.defaults.props, {
+        symbolicReferencePaths: new Set(),
+      });
+    } catch (error) {
+      throw new Error(
+        `${type}.defaults.props does not pass validateTemplateProps`,
+        { cause: error },
+      );
     }
 
     try {

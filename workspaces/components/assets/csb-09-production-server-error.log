@@ -1,0 +1,2 @@
+⚠ Warning: Next.js ignored a parent-directory pnpm-lock.yaml because it is outside the current Git repository ([local workspace path redacted]).
+ To use this directory, set `outputFileTracingRoot` in your Next.js config.

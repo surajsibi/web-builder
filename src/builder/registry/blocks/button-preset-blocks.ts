@@ -58,9 +58,12 @@ function createButtonPresetDefinition({
   styles,
 }: ButtonPresetOptions): BlockDefinition {
   return {
-    label,
-    category: "Button presets",
-    icon: ButtonIcon,
+    library: {
+      label,
+      category: "Button presets",
+      family: "buttons",
+      icon: ButtonIcon,
+    },
     createTemplate: (): ComponentTemplate => ({
       type: "button",
       props: {

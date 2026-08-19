@@ -1,4 +1,7 @@
-import type { ComponentTemplate } from "@/builder/registry/define-block-registry";
+import type {
+  BlockDefinition,
+  ComponentTemplate,
+} from "@/builder/registry/define-block-registry";
 import { px, spacing } from "@/builder/registry/components/style-defaults";
 
 import { NavbarBlockIcon } from "./block-icons";
@@ -221,9 +224,12 @@ export function createNavbarTemplate(): ComponentTemplate {
   };
 }
 
-export const navbarBlockDefinition = {
-  label: "Navbar",
-  category: "Navigation",
-  icon: NavbarBlockIcon,
+export const navbarBlockDefinition: BlockDefinition = {
+  library: {
+    label: "Navbar",
+    category: "Navigation",
+    family: "navbar",
+    icon: NavbarBlockIcon,
+  },
   createTemplate: createNavbarTemplate,
 };

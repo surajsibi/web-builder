@@ -18,6 +18,7 @@ import type {
   EditorCommand,
   StyleChange,
 } from "@/builder/commands/types";
+import { dryRunEditorCommand } from "@/builder/commands/execute-command";
 import type { JsonObject } from "@/builder/model/json";
 import type { NodeId, PageId } from "@/builder/model/ids";
 import type { BooleanStateBinding } from "@/builder/model/state-binding";
@@ -47,7 +48,10 @@ import {
 import { EditorCanvas } from "@/builder/ui/editor-canvas";
 import { EditorLeftSidebar } from "@/builder/ui/editor-left-sidebar";
 import { EditorToolbar } from "@/builder/ui/editor-toolbar";
-import { InspectorPanel } from "@/builder/ui/inspector-panel";
+import {
+  InspectorPanel,
+  type DisclosureRepairAction,
+} from "@/builder/ui/inspector-panel";
 import {
   previewStyleForChanges,
   type SpacingMode,
@@ -444,7 +448,7 @@ export function EditorShell({
         blockType: type,
         destination: target.destination,
       },
-      `Added ${blockRegistry[type].label} at ${target.label}.`,
+      `Added ${blockRegistry[type].library.label} at ${target.label}.`,
     );
   };
 
@@ -670,6 +674,123 @@ export function EditorShell({
     );
   };
 
+  const repairDisclosure = (action: DisclosureRepairAction) => {
+    if (!selectedNode || selectedNode.type !== "button") return;
+
+    if (action.kind === "reconnect-visibility") {
+      runCommand(
+        {
+          kind: "node.updateStateBinding",
+          pageId: activePage.id,
+          nodeId: action.contentNodeId,
+          binding: {
+            stateNodeId: action.stateNodeId,
+            on: "show",
+            off: "hide",
+          },
+        },
+        "Reconnected Disclosure content visibility.",
+      );
+      return;
+    }
+
+    if (action.kind === "reveal") {
+      const repairNode = activePage.nodes[action.nodeId];
+      if (!repairNode) {
+        setAnnouncement("Change rejected: the Disclosure content is unavailable.");
+        return;
+      }
+      runCommand(
+        {
+          kind: "node.updateStyles",
+          pageId: activePage.id,
+          nodeId: action.nodeId,
+          viewport: action.viewport,
+          changes: [
+            {
+              target: { property: "display" },
+              value:
+                componentRegistry[repairNode.type].defaults.styles.base.display ??
+                "block",
+            },
+          ],
+        },
+        "Restored Disclosure content visibility.",
+      );
+      return;
+    }
+
+    const initial = store.getState();
+    const initialPage = initial.document?.pages[activePage.id];
+    const parent = initialPage?.nodes[action.parentNodeId];
+    if (!initial.document || !initialPage || !parent) {
+      setAnnouncement("Change rejected: the Disclosure parent is unavailable.");
+      return;
+    }
+
+    const plannedNodeIds = [action.stateNodeId, action.contentNodeId].filter(
+      (nodeId) => initial.parentById[nodeId] !== action.parentNodeId,
+    );
+    for (const nodeId of plannedNodeIds) {
+      const preflight = dryRunEditorCommand(
+        {
+          document: initial.document,
+          parentById: initial.parentById,
+          activePageId: activePage.id,
+          selectedNodeId: initial.selectedNodeId,
+        },
+        {
+          kind: "node.move",
+          pageId: activePage.id,
+          nodeId,
+          destination: {
+            parentId: action.parentNodeId,
+            index: parent.childIds.length,
+          },
+        },
+      );
+      if (preflight.status === "rejected") {
+        setAnnouncement(`Change rejected: ${preflight.error.reason}`);
+        return;
+      }
+    }
+
+    const historyGroupId = `disclosure-structure:${selectedNode.id}:${state.commitId + 1}`;
+    let lastResult: CommandResult | null = null;
+    for (const nodeId of plannedNodeIds) {
+      const current = store.getState();
+      const currentPage = current.document?.pages[activePage.id];
+      const currentParent = currentPage?.nodes[action.parentNodeId];
+      if (!currentPage || !currentParent) {
+        setAnnouncement("Change rejected: the Disclosure parent is unavailable.");
+        return;
+      }
+      lastResult = current.dispatchEditorCommand(
+        {
+          kind: "node.move",
+          pageId: activePage.id,
+          nodeId,
+          destination: {
+            parentId: action.parentNodeId,
+            index: currentParent.childIds.length,
+          },
+        },
+        { historyGroupId },
+      );
+      if (lastResult.status !== "applied" && lastResult.status !== "noop") {
+        setAnnouncement(
+          actionMessage(lastResult, "Restored the Disclosure shared structure."),
+        );
+        return;
+      }
+    }
+    setAnnouncement(
+      lastResult
+        ? actionMessage(lastResult, "Restored the Disclosure shared structure.")
+        : "Disclosure structure is already restored.",
+    );
+  };
+
   const createStateAndConnect = (name: string, defaultValue: boolean) => {
     if (!selectedNode) return;
     runCommand(
@@ -741,7 +862,7 @@ export function EditorShell({
             source.kind === "component"
               ? source.componentType
               : source.kind === "block"
-                ? blockRegistry[source.blockType].label
+                ? blockRegistry[source.blockType].library.label
                 : page?.nodes[source.nodeId]?.meta.name ?? "node";
           const result = current.dispatchEditorCommand(
             commandForEditorDrop(current.activePageId, source, target),
@@ -906,6 +1027,7 @@ export function EditorShell({
           }
           node={selectedNode}
           onCreateStateAndConnect={createStateAndConnect}
+          onRepairDisclosure={repairDisclosure}
           parentId={selectedNode ? (state.parentById[selectedNode.id] ?? null) : null}
           onDelete={deleteSelectedNode}
           onCollapsedChange={(collapsed) => {
@@ -944,7 +1066,7 @@ export function EditorShell({
             {state.dragSession.source.kind === "component"
               ? componentRegistry[state.dragSession.source.componentType].library.label
               : state.dragSession.source.kind === "block"
-                ? blockRegistry[state.dragSession.source.blockType].label
+                ? blockRegistry[state.dragSession.source.blockType].library.label
                 : activePage.nodes[state.dragSession.source.nodeId]?.meta.name ?? "Node"}
           </span>
         ) : null}

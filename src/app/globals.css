@@ -3143,6 +3143,143 @@ textarea:focus-visible {
   }
 }
 
+@media (max-width: 48rem) {
+  .editor-shell {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-width: 0;
+  }
+
+  .editor-toolbar {
+    gap: 0.5rem;
+    grid-template-areas:
+      "brand page"
+      "history viewport"
+      "status status";
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 0.5rem;
+  }
+
+  .editor-brand {
+    grid-area: brand;
+  }
+
+  .toolbar-page-select {
+    grid-area: page;
+    min-width: 0;
+  }
+
+  .toolbar-page-select select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .toolbar-history {
+    grid-area: history;
+    justify-self: start;
+  }
+
+  .viewport-switcher {
+    grid-area: viewport;
+    justify-self: end;
+  }
+
+  .toolbar-status-actions {
+    grid-area: status;
+    justify-content: space-between;
+    justify-self: stretch;
+  }
+
+  .editor-workspace,
+  .editor-workspace[data-left-panel-collapsed="true"],
+  .editor-workspace[data-inspector-collapsed="true"] {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .editor-sidebar,
+  .editor-canvas-panel {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .library-panel {
+    min-height: min(26rem, 55vh);
+  }
+
+  .library-panel.is-collapsed {
+    min-height: 11rem;
+  }
+
+  .editor-canvas-panel {
+    min-height: 48rem;
+  }
+
+  .canvas-stage {
+    padding: 1rem;
+  }
+
+  .inspector-panel {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    min-height: min(30rem, 60vh);
+  }
+
+  .inspector-panel.is-collapsed {
+    min-height: 3.5rem;
+  }
+
+  .inspector-panel.is-collapsed .inspector-rail-toggle {
+    flex-direction: row;
+  }
+}
+
+@media (max-width: 32rem) {
+  .editor-toolbar {
+    grid-template-areas:
+      "brand"
+      "page"
+      "history"
+      "viewport"
+      "status";
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbar-page-select,
+  .toolbar-history,
+  .viewport-switcher,
+  .toolbar-status-actions {
+    justify-self: stretch;
+  }
+
+  .toolbar-history,
+  .viewport-switcher {
+    justify-content: center;
+  }
+
+  .viewport-switcher button {
+    flex: 1 1 0;
+    font-size: 0.7rem;
+    min-width: 0;
+    padding-inline: 0.2rem;
+  }
+
+  .toolbar-status-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .save-indicator {
+    white-space: normal;
+  }
+
+  .toolbar-preview-link {
+    text-align: center;
+  }
+}
+
 /* Project dashboard */
 .sr-only {
   clip: rect(0 0 0 0);

@@ -1,11 +1,11 @@
 ---
 doc_id: WEB-BUILDER-BOOLEAN-STATE-CONNECTIONS-TUTORIAL
 type: L1
-scope: Canvas Studio authors connecting ordinary components and Buttons to page-scoped Boolean State
+scope: Canvas Studio authors inserting the Disclosure block or connecting ordinary components and Buttons to page-scoped Boolean State
 authority: Task-oriented guide derived from the verified Inspector, runtime, command, migration, and rendering behavior; code, tests, and Project.md remain authoritative
-owner: Unassigned; accountable project owner required before promotion from draft
+owner: Suraj
 lifecycle: draft
-freshness: Verified against the local feat/boolean-state-drawer implementation on 2026-08-14; invalidated by a Boolean State, State tab, Button action, rendering, migration, or Component Library behavior change
+freshness: Updated against the feat/connected-state-blocks working tree and Chrome 151.0.7922.138 evidence on 2026-08-18; invalidated by a Boolean State, connected block, Disclosure, State tab, Button action, duplication, rendering, migration, or Component Library behavior change
 ---
 
 # Tutorial: Connect components with Boolean State
@@ -24,6 +24,39 @@ Normal Button -- Toggle --> Menu open (Boolean State)
 ```
 
 One state may control any number of components. Each connected component chooses its own behavior for On and Off.
+
+## Insert the ready-made Disclosure
+
+Use the Disclosure block when you need one Button that reveals and hides one content region:
+
+1. Open **Blocks** or **Interactive** in the Component Library.
+2. Insert or drag **Disclosure** onto the page.
+3. In Layers, expand the new **Disclosure** root. It owns **Show details**, **Disclosure content**, **Disclosure details**, and the nonvisual **Disclosure open** Boolean State.
+4. Edit the Button label and content as ordinary components.
+5. Open Preview and activate the Button with pointer, Enter, or Space. It starts collapsed, retains Button focus, and reports its current expanded state while the complete relationship remains valid.
+
+The block is not a persisted special component. One atomic insertion creates five ordinary nodes with fresh IDs. The template's private connection keys disappear during insertion; the saved Button and visibility binding contain only the new page-local node IDs.
+
+### Duplicate or delete the complete interaction
+
+Duplicate the **Disclosure** root when you want an independent copy. The copied Button and content binding are remapped to the copied Boolean State, so two complete Disclosures do not share runtime state. Deleting the root also deletes its nested state.
+
+Duplicating only the Button or only the controlled content follows the ordinary external-reference rule and keeps its existing targets. Use whole-root duplication unless sharing those targets is intentional.
+
+### Repair a broken Disclosure relationship
+
+Disclosure semantics require all of these conditions together:
+
+- an unlinked, non-submit Button configured to Toggle its Boolean State;
+- a controlled Container targeting that same state with On -> Show and Off -> Hide;
+- the Button, Container, and Boolean State under the same Disclosure root; and
+- effective content visibility that agrees with the live state at the current viewport.
+
+Moving, deleting, reconnecting, inverting, or independently hiding one part can break that relationship. The Inspector preserves recoverable configuration, shows the reason, and offers explicit reconnection, shared-parent restoration, viewport reveal, or configuration clearing. Until repaired, rendering omits `aria-expanded` instead of exposing a potentially false state.
+
+### Disclosure is not Accordion
+
+Disclosure provides one Button and one controlled content region. It does not create an Accordion group, heading structure, exclusive-open behavior, arrow-key navigation, or stable `aria-controls` association. Build and verify those contracts separately before describing a group of Disclosures as an Accordion.
 
 ## Build a working example
 
@@ -141,6 +174,9 @@ Those behaviors are intentionally not hidden inside the current visibility setti
 
 - [Shared state-binding model](../../../src/builder/model/state-binding.ts)
 - [Boolean State and ordinary Button definitions](../../../src/builder/registry/components/component-definitions.tsx)
+- [Connected block contract](../../../src/builder/registry/define-block-registry.ts)
+- [Disclosure block template](../../../src/builder/registry/blocks/disclosure-block.ts)
+- [Disclosure effective semantics](../../../src/builder/interaction/disclosure-semantics.ts)
 - [State Inspector workflow](../../../src/builder/ui/inspector-panel.tsx)
 - [Visibility rendering behavior](../../../src/builder/rendering/node-rendering-controller.tsx)
 - [Legacy project migration](../../../src/builder/project/migrations.ts)
