@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "recordedDate": "2026-08-18",
+  "schemaVersion": 2,
+  "recordedDate": "2026-08-19",
   "decision": "pass",
   "threshold": {
     "medianRegressionPct": 10,
@@ -15,7 +15,11 @@
     "percentileMethod": "nearest-rank",
     "baselineRanFirst": true,
     "sameMachine": true,
-    "productionEquivalentCommand": "block.insert"
+    "productionEquivalentCommand": "block.insert",
+    "baselinePreparation": "Create a detached worktree at baselineCommit, expose the same installed candidate dependency tree used by both passes, and place benchmarkHarnessBlob at src/builder/commands/__benchmarks__/csb08-insertion.bench.ts; this adds only the measurement harness and does not replace baseline production source.",
+    "dependencyExecution": "Both passes used one installed dependency tree from candidateLockfileBlob. The baseline and candidate lockfile blobs are both retained because current main added fake-indexeddb; that package is not imported by the benchmark harness or command path.",
+    "baselineCommand": "$env:CSB_BENCHMARK_ROOT='<detached-baseline-worktree>'; $env:CSB_BENCHMARK_OUTPUT='workspaces/components/assets/csb-08-baseline-benchmark.json'; $env:CSB_BENCHMARK_LOG_OUTPUT='workspaces/components/assets/csb-08-baseline-benchmark.txt'; pnpm dlx node@24.19.0 node_modules/vitest/vitest.mjs bench --config vitest.config.mts src/builder/commands/__benchmarks__/csb08-insertion.bench.ts --run --environment node --maxWorkers 1 --no-file-parallelism",
+    "candidateCommand": "Remove-Item Env:CSB_BENCHMARK_ROOT -ErrorAction SilentlyContinue; $env:CSB_BENCHMARK_OUTPUT='workspaces/components/assets/csb-08-candidate-benchmark.json'; $env:CSB_BENCHMARK_LOG_OUTPUT='workspaces/components/assets/csb-08-candidate-benchmark.txt'; pnpm dlx node@24.19.0 node_modules/vitest/vitest.mjs bench --config vitest.config.mts src/builder/commands/__benchmarks__/csb08-insertion.bench.ts --run --environment node --maxWorkers 1 --no-file-parallelism"
   },
   "environment": {
     "node": "v24.19.0",
@@ -27,12 +31,15 @@
   },
   "revisions": {
     "baselineCommit": "c032701e52c5c8046a32d9365b8f5782fb75bbc6",
-    "candidateHead": "c032701e52c5c8046a32d9365b8f5782fb75bbc6",
-    "candidateState": "uncommitted feat/connected-state-blocks working tree",
+    "candidateCommit": "40de821543b873d941f39da9030c7e8e2e06780e",
+    "candidateState": "clean committed source tree; only generated evidence artifacts changed during execution",
+    "benchmarkHarnessBlob": "8f28f4315f7711dc53efcca903d406e39138bd8f",
+    "benchmarkReporterBlob": "2888a6818c62ba00e0434c26cfb0ec6ba9ff8ac6",
+    "vitestConfigBlob": "cf88bf931e3eeebe875a0c46e130dc77a6316769",
     "baselineCommandBlob": "c0a6ad612ae19be6a8f3a3559361ec914764d3b6",
     "candidateCommandBlob": "e29febcddab295edc9d960bd1a9ef1efa72e72f2",
     "baselineLockfileBlob": "76d76e114a3e359772109b85e27e120988b6c5b4",
-    "candidateLockfileBlob": "76d76e114a3e359772109b85e27e120988b6c5b4"
+    "candidateLockfileBlob": "15d22f5eca17dd056c715c94b3e3191b6d3be217"
   },
   "templates": {
     "commerceNavbarNodeCount": 70,
@@ -40,24 +47,28 @@
   },
   "results": {
     "commerceNavbar": {
-      "baselineMedianMs": 42.1018,
-      "candidateMedianMs": 43.0521,
-      "medianRegressionPct": 2.26,
-      "baselineP95Ms": 47.3969,
-      "candidateP95Ms": 49.7531,
-      "p95RegressionPct": 4.97,
+      "baselineMedianMs": 56.7057,
+      "candidateMedianMs": 58.5483,
+      "medianRegressionPct": 3.25,
+      "baselineP95Ms": 90.6095,
+      "candidateP95Ms": 86.1221,
+      "p95RegressionPct": -4.95,
       "medianPassed": true,
       "p95Passed": true
     },
     "disclosure": {
-      "candidateMedianMs": 26.0237,
-      "candidateP95Ms": 29.9891
+      "candidateMedianMs": 38.4245,
+      "candidateP95Ms": 51.1941
     }
   },
   "artifacts": {
     "baselineJson": "csb-08-baseline-benchmark.json",
-    "baselineLog": "csb-08-baseline-benchmark.log",
+    "baselineJsonSha256": "9e0a4d1a9ca8e7617d4b3d35265744a2a704a2dc268b892224152120cbdc2015",
+    "baselineLog": "csb-08-baseline-benchmark.txt",
+    "baselineLogSha256": "894b2113a99eb0bb5b588178f04c83e95adcc48c78aa8e89dae566a32683d2e4",
     "candidateJson": "csb-08-candidate-benchmark.json",
-    "candidateLog": "csb-08-candidate-benchmark.log"
+    "candidateJsonSha256": "27af9c5c4917c720afcfb894b6881ce65f62ea3cbe0bbb70603a4425814fb1dd",
+    "candidateLog": "csb-08-candidate-benchmark.txt",
+    "candidateLogSha256": "e258446fbdfb98528ee5fd4b39421047d9ff4554d4ba10e58f4aed0125d0f57a"
   }
 }

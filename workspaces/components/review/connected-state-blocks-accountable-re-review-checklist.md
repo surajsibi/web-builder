@@ -6,6 +6,7 @@ authority: Supporting sign-off worksheet only; the plan owns proposed execution,
 owner: Suraj
 lifecycle: approved
 freshness: Gate 1 sign-off recorded for Suraj on 2026-08-18 at feat/connected-state-blocks commit c032701e52c5c8046a32d9365b8f5782fb75bbc6; supersede this record rather than editing its accepted meaning if any reviewed contract, finding, plan, branch, ownership, or approval changes
+amended_by: WEB-BUILDER-CONNECTED-STATE-BLOCKS-PR-REVIEW-REMEDIATION-REVIEW
 risk: R2 because approval permits work on persisted Button configuration, interaction semantics, and accessibility output
 ---
 
@@ -162,6 +163,8 @@ These are accepted design dispositions, not claims that unexecuted implementatio
 - [x] Check that every relative Markdown link resolves.
 - [x] Check that CSB-01 through CSB-10 each appear once in the ordered-work table and have explicit dependencies, verification, owner, and status.
 - [x] Confirm the usage guide path is under `workspaces/components/notes/`, the D5 report path is under `workspaces/components/reports/`, and no artifact points to another feature workspace.
+
+  **Amended delivery disposition (2026-08-19):** The implementation extended the pre-existing canonical [Boolean State connections and Disclosure tutorial](../../navbar/notes/Boolean-State-Connections-Tutorial.md) instead of creating a duplicate guide. The [PR-review remediation review](connected-state-blocks-pr-review-remediation-review.md) owns this explicit location correction; the checked item above remains the immutable Gate 1 expectation.
 - [x] Search for stale in-scope Dismissible Announcement work, work IDs outside CSB-01 through CSB-10, synthetic node-ID placeholders, or any `keyedNodeIds` implementation path; none exist.
 - [x] Record all four assignees, every Gate 1 decision, every required verifier acceptance, and the Accountable Owner's outcome.
 

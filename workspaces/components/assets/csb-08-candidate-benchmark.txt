@@ -1,0 +1,6 @@
+BENCHMARK EVIDENCE
+Node: v24.19.0
+Platform: win32 x64
+Percentile method: nearest-rank
+src/builder/commands/__benchmarks__/csb08-insertion.bench.ts | block.insert commerce-navbar (fixture: 1000 nodes, template: 70 nodes) | median 58.5483 ms | p95 86.1221 ms | samples 50
+src/builder/commands/__benchmarks__/csb08-insertion.bench.ts | block.insert disclosure (fixture: 1000 nodes, template: 5 nodes) | median 38.4245 ms | p95 51.1941 ms | samples 50

@@ -8,6 +8,7 @@ lifecycle: approved
 freshness: Approved by Suraj on 2026-08-19 after the final post-remediation 619-test suite, production build/startup verification, Firefox 153.0 Disclosure smoke, and synchronized report review; invalidated by a relevant implementation, runtime, browser, accessibility, verification, release-scope, or owner-decision change
 risk: R2 because NVDA with Firefox remains the sole accepted release-verification exception
 amends: WEB-BUILDER-CONNECTED-STATE-BLOCKS-RELEASE-EXCEPTION-REVIEW
+amended_by: WEB-BUILDER-CONNECTED-STATE-BLOCKS-PR-REVIEW-REMEDIATION-REVIEW
 ---
 
 # Accessibility and verification closure review: Connected State Blocks
@@ -15,6 +16,8 @@ amends: WEB-BUILDER-CONNECTED-STATE-BLOCKS-RELEASE-EXCEPTION-REVIEW
 ## Question, scope, and baseline
 
 This review records Suraj's accountable approval of the Connected State Blocks implementation report and determines the final verification status for `feat/connected-state-blocks`. It amends, without rewriting, the historical [release-exception review](connected-state-blocks-release-exception-review.md).
+
+The later [PR-review remediation review](connected-state-blocks-pr-review-remediation-review.md) records current-main integration, superseding current-source verification, portable benchmark evidence, and the explicit tutorial-location correction. This approved record remains unchanged as the historical decision for its earlier working-tree baseline.
 
 The baseline is the uncommitted feature working tree based at `c032701e52c5c8046a32d9365b8f5782fb75bbc6` on 2026-08-19. The reviewed evidence is the final post-remediation Node 24.19.0 serialized suite, the fresh Next.js 16.3.0 production build and root-route startup check, the Chrome verification already recorded by the earlier review, and the later Playwright 1.62.1 headless Firefox 153.0 Disclosure smoke.
 
