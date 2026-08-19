@@ -20,7 +20,7 @@ freshness: Current-main integration and all six PR-review remediations are verif
 
 **Active branches:** `web-builder`: `feat/connected-state-blocks`, created from `main` at `c032701e52c5c8046a32d9365b8f5782fb75bbc6`.
 
-**Current milestone:** Commit and push the generated evidence/documentation amendment after source commit `40de821`, update [draft PR 10](https://github.com/surajsibi/web-builder/pull/10), and request re-review. The unrelated untracked `ANALYZE_UP_PROJECT_GUIDE.md` remains excluded. NVDA/Firefox is the sole remaining documented exception.
+**Current milestone:** Branch commit `cef948b` is pushed, [draft PR 10](https://github.com/surajsibi/web-builder/pull/10) has been updated, and re-review has been requested. The branch is awaiting re-review. The unrelated untracked `ANALYZE_UP_PROJECT_GUIDE.md` remains excluded. NVDA/Firefox is the sole remaining documented exception.
 
 **Feature summary:** Extend the existing block-template compiler so one atomic insertion can create ordinary editable components, a nonvisual Boolean State, and safe internal connections using temporary template-local keys that never enter persisted project data. The only planned adopter is an accessible state-powered Disclosure with explicit persisted Button/state/panel configuration and non-mutating effective semantics.
 
