@@ -1050,7 +1050,7 @@ const buttonV4PropsSchema = z
     }
   });
 
-export const buttonPropsSchema = z
+const buttonV5PropsSchema = z
   .object({
     text: z.string().min(1),
     href: safeHrefSchema,
@@ -1104,6 +1104,57 @@ export const buttonPropsSchema = z
       });
     }
   });
+
+const buttonV6PropsSchema = buttonV5PropsSchema.safeExtend({
+  stateAccessibility: z.enum(["none", "disclosure"]),
+  disclosureContentNodeId: nodeReferenceIdSchema,
+});
+
+function refineButtonDisclosureConfiguration(
+  props: z.infer<typeof buttonV6PropsSchema>,
+  context: z.RefinementCtx,
+  requireMaterializedReferences: boolean,
+) {
+  if (
+    props.stateAccessibility === "none" &&
+    props.disclosureContentNodeId !== ""
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["disclosureContentNodeId"],
+      message: "A Button without Disclosure semantics cannot keep controlled content",
+    });
+  }
+
+  if (props.stateAccessibility !== "disclosure") return;
+
+  if (
+    props.href !== "" ||
+    props.behavior !== "button" ||
+    props.stateAction !== "toggle" ||
+    (requireMaterializedReferences && props.targetStateNodeId === "") ||
+    (requireMaterializedReferences && props.disclosureContentNodeId === "")
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["stateAccessibility"],
+      message:
+        "Disclosure semantics require an unlinked regular Button that toggles a Boolean State and references controlled content",
+    });
+  }
+}
+
+const buttonTemplatePropsSchema = buttonV6PropsSchema.superRefine(
+  (props, context) => {
+    refineButtonDisclosureConfiguration(props, context, false);
+  },
+);
+
+export const buttonPropsSchema = buttonV6PropsSchema.superRefine(
+  (props, context) => {
+    refineButtonDisclosureConfiguration(props, context, true);
+  },
+);
 
 export type ButtonProps = z.infer<typeof buttonPropsSchema>;
 
@@ -1223,7 +1274,7 @@ const buttonStyles = {
 } satisfies ResponsiveStyles;
 
 export const buttonDefinition = {
-  version: 5,
+  version: 6,
   library: {
     label: "Button",
     category: "Actions",
@@ -1240,6 +1291,8 @@ export const buttonDefinition = {
       behavior: "button",
       targetStateNodeId: "",
       stateAction: "none",
+      stateAccessibility: "none",
+      disclosureContentNodeId: "",
     },
     styles: buttonStyles,
   },
@@ -1248,10 +1301,36 @@ export const buttonDefinition = {
     directInteraction: (props) => props.stateAction !== "none",
   },
   propsSchema: buttonPropsSchema,
+  validateTemplateProps: (value, { symbolicReferencePaths }) => {
+    const props = buttonTemplatePropsSchema.parse(value);
+    const hasStateReference = symbolicReferencePaths.has("targetStateNodeId");
+    const hasContentReference = symbolicReferencePaths.has(
+      "disclosureContentNodeId",
+    );
+
+    if ((props.stateAction !== "none") !== hasStateReference) {
+      throw new Error(
+        "A template Button state action must declare exactly one symbolic state reference",
+      );
+    }
+    if (
+      (props.stateAccessibility === "disclosure") !== hasContentReference
+    ) {
+      throw new Error(
+        "A template Disclosure Button must declare exactly one symbolic controlled-content reference",
+      );
+    }
+  },
   references: [
     {
       path: "targetStateNodeId",
       targetType: "boolean-state",
+      scope: "page",
+      onDuplicate: "remap-if-target-cloned",
+    },
+    {
+      path: "disclosureContentNodeId",
+      targetType: "container",
       scope: "page",
       onDuplicate: "remap-if-target-cloned",
     },
@@ -1304,6 +1383,22 @@ export const buttonDefinition = {
             ...props,
             targetStateNodeId: "",
             stateAction: "none",
+          },
+          styles: { ...value.styles },
+        };
+      },
+    },
+    {
+      fromVersion: 5,
+      toVersion: 6,
+      migrate: (value) => {
+        const props = buttonV5PropsSchema.parse(value.props);
+
+        return {
+          props: {
+            ...props,
+            stateAccessibility: "none",
+            disclosureContentNodeId: "",
           },
           styles: { ...value.styles },
         };

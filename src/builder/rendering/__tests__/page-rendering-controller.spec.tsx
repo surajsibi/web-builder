@@ -1,6 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { executeEditorCommand } from "@/builder/commands/execute-command";
+import { asNodeId, asPageId } from "@/builder/model/ids";
+import { prepareProjectHydration } from "@/builder/project/hydration";
 import { PageRenderingController } from "@/builder/rendering/page-rendering-controller";
 import {
   createTestNode,
@@ -49,6 +53,59 @@ function createStateDrivenPage() {
     ),
     shownWhenOn,
     state,
+  };
+}
+
+function createDisclosurePage() {
+  const project = createTestProject();
+  const sourcePage = project.pages[asPageId("page-home")];
+  sourcePage.rootIds.splice(0);
+  for (const nodeId of Object.keys(sourcePage.nodes)) {
+    delete sourcePage.nodes[asNodeId(nodeId)];
+  }
+  const prepared = prepareProjectHydration(project);
+  if (!prepared.success) throw new Error(prepared.error.reason);
+  const generatedIds = [
+    "disclosure-root",
+    "disclosure-toggle",
+    "disclosure-content",
+    "disclosure-copy",
+    "disclosure-state",
+  ];
+  const result = executeEditorCommand(
+    {
+      document: prepared.value.document,
+      parentById: prepared.value.parentById,
+      activePageId: asPageId("page-home"),
+      selectedNodeId: null,
+    },
+    {
+      kind: "block.insert",
+      pageId: asPageId("page-home"),
+      blockType: "disclosure",
+      destination: { parentId: null, index: 0 },
+    },
+    { idGenerator: () => generatedIds.shift() ?? "unexpected-node" },
+  );
+  if (result.status !== "applied") {
+    throw new Error(
+      `Expected Disclosure insertion: ${
+        result.status === "rejected" ? result.error.reason : result.reason
+      }`,
+    );
+  }
+  const page = result.candidate.document.pages[asPageId("page-home")];
+  const root = page.nodes[asNodeId("disclosure-root")];
+  const toggle = page.nodes[asNodeId("disclosure-toggle")];
+  const content = page.nodes[asNodeId("disclosure-content")];
+  const state = page.nodes[asNodeId("disclosure-state")];
+
+  return {
+    content,
+    page,
+    root,
+    state,
+    toggle,
   };
 }
 
@@ -166,5 +223,74 @@ describe("PageRenderingController", () => {
 
     expect(screen.getByText("Menu is open")).toBeInTheDocument();
     expect(screen.queryByText("Menu is closed")).not.toBeInTheDocument();
+  });
+
+  it("should keep aria-expanded truthful through pointer activation without mutating the page", async () => {
+    const user = userEvent.setup();
+    const { page } = createDisclosurePage();
+    const original = structuredClone(page);
+
+    render(<PageRenderingController page={page} viewport="desktop" />);
+
+    const button = screen.getByRole("button", { name: "Show details" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText("Replace this text with your details."),
+    ).not.toBeInTheDocument();
+
+    await user.click(button);
+
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByText("Replace this text with your details."),
+    ).toBeInTheDocument();
+    expect(page).toEqual(original);
+  });
+
+  it.each([
+    ["Enter", "{Enter}"],
+    ["Space", " "],
+  ])("should preserve native %s activation for Disclosure", async (_name, key) => {
+    const user = userEvent.setup();
+    const { page } = createDisclosurePage();
+
+    render(<PageRenderingController page={page} viewport="desktop" />);
+    const button = screen.getByRole("button", { name: "Show details" });
+    button.focus();
+
+    await user.keyboard(key);
+
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveFocus();
+  });
+
+  it("should omit aria-expanded when the controlled content is independently hidden", () => {
+    const { content, page } = createDisclosurePage();
+    content.styles.base.display = "none";
+
+    render(<PageRenderingController page={page} viewport="desktop" />);
+
+    expect(screen.getByRole("button", { name: "Show details" })).not.toHaveAttribute(
+      "aria-expanded",
+    );
+  });
+
+  it("should omit collapsed semantics while Editor authoring keeps inactive content visible", () => {
+    const { page } = createDisclosurePage();
+
+    render(
+      <PageRenderingController
+        page={page}
+        runtime={{ mode: "editor" }}
+        viewport="desktop"
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Show details" })).not.toHaveAttribute(
+      "aria-expanded",
+    );
+    expect(
+      screen.getByText("Replace this text with your details.").parentElement,
+    ).toHaveAttribute("data-state-visibility", "inactive");
   });
 });

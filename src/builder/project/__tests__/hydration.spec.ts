@@ -187,7 +187,7 @@ describe("prepareProjectHydration", () => {
     if (!result.success) return;
     expect(result.value.migrated).toBe(true);
     expect(result.value.document.pages[input.homePageId].nodes[button.id]).toMatchObject({
-      componentVersion: 5,
+      componentVersion: 6,
       props: {
         text: "Legacy action",
         href: "",
@@ -198,6 +198,8 @@ describe("prepareProjectHydration", () => {
         behavior: "button",
         targetStateNodeId: "",
         stateAction: "none",
+        stateAccessibility: "none",
+        disclosureContentNodeId: "",
       },
     });
     expect(input.pages[input.homePageId].nodes[button.id]).toMatchObject({
@@ -233,7 +235,7 @@ describe("prepareProjectHydration", () => {
     expect(result.value.migrated).toBe(true);
     expect(result.value.document.pages[input.homePageId].nodes[button.id])
       .toMatchObject({
-        componentVersion: 5,
+        componentVersion: 6,
         props: {
           text: "Legacy arrow",
           icon: "arrow-right",
@@ -242,8 +244,62 @@ describe("prepareProjectHydration", () => {
           behavior: "button",
           targetStateNodeId: "",
           stateAction: "none",
+          stateAccessibility: "none",
+          disclosureContentNodeId: "",
         },
       });
+  });
+
+  it("should migrate a version 5 Button to disabled Disclosure configuration", () => {
+    const input = createTestProject();
+    const page = input.pages[input.homePageId];
+    const button = createTestNode("button", "node-button-v5");
+    button.componentVersion = 5;
+    delete button.props.stateAccessibility;
+    delete button.props.disclosureContentNodeId;
+    page.rootIds.push(button.id);
+    page.nodes[button.id] = button;
+    const original = structuredClone(input);
+
+    const result = prepareProjectHydration(input);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.value.migrated).toBe(true);
+    expect(result.value.document.pages[input.homePageId].nodes[button.id]).toMatchObject({
+      componentVersion: 6,
+      props: {
+        stateAccessibility: "none",
+        disclosureContentNodeId: "",
+      },
+    });
+    expect(input).toEqual(original);
+  });
+
+  it("should preserve schema-valid unresolved Disclosure references without repair", () => {
+    const input = createTestProject();
+    const page = input.pages[input.homePageId];
+    const button = createTestNode("button", "node-unresolved-disclosure");
+    button.props.targetStateNodeId = "missing-state";
+    button.props.stateAction = "toggle";
+    button.props.stateAccessibility = "disclosure";
+    button.props.disclosureContentNodeId = "missing-content";
+    page.rootIds.push(button.id);
+    page.nodes[button.id] = button;
+    const original = structuredClone(input);
+
+    const result = prepareProjectHydration(input);
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.value.migrated).toBe(false);
+    expect(result.value.document.pages[input.homePageId].nodes[button.id].props)
+      .toMatchObject({
+        stateAccessibility: "disclosure",
+        targetStateNodeId: "missing-state",
+        disclosureContentNodeId: "missing-content",
+      });
+    expect(input).toEqual(original);
   });
 
   it("should migrate a version 1 Input with password reveal disabled", () => {

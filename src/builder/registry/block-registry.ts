@@ -13,6 +13,7 @@ import {
 } from "./blocks/button-preset-blocks";
 import { passwordRevealInputBlockDefinition } from "./blocks/input-preset-blocks";
 import { commerceNavbarBlockDefinition } from "./blocks/commerce-navbar-block";
+import { disclosureBlockDefinition } from "./blocks/disclosure-block";
 import { navbarBlockDefinition } from "./blocks/navbar-block";
 
 export const blockRegistry = defineBlockRegistry({
@@ -26,6 +27,7 @@ export const blockRegistry = defineBlockRegistry({
   "button-glass": buttonGlassBlockDefinition,
   "button-glow": buttonGlowBlockDefinition,
   "input-password-reveal": passwordRevealInputBlockDefinition,
+  disclosure: disclosureBlockDefinition,
 });
 
 export type BlockType = keyof typeof blockRegistry;
@@ -35,5 +37,6 @@ export function resolveBlockTemplate(blockType: BlockType) {
   return resolveComponentTemplate(
     definition.createTemplate(),
     `${blockType}.root`,
+    blockType,
   );
 }

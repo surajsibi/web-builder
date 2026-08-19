@@ -1,0 +1,64 @@
+{
+  "files": [
+    {
+      "filepath": "C:/Users/Suraj/Desktop/web builder/src/builder/commands/__benchmarks__/execute-command.bench.ts",
+      "groups": [
+        {
+          "fullName": "src/builder/commands/__benchmarks__/execute-command.bench.ts > block.insert fixed fixture",
+          "benchmarks": [
+            {
+              "id": "-361932439_1_0",
+              "name": "block.insert commerce-navbar (fixture: 1000 nodes, template: 70 nodes)",
+              "rank": 2,
+              "rme": 2.7770583633747434,
+              "samples": [],
+              "totalTime": 2158.6103000000016,
+              "min": 36.45960000000014,
+              "max": 55.803499999999985,
+              "hz": 23.163050783182108,
+              "period": 43.17220600000003,
+              "mean": 43.17220600000003,
+              "variance": 17.78565904547374,
+              "sd": 4.217304713377223,
+              "sem": 0.5964169522318046,
+              "df": 49,
+              "critical": 2.0102,
+              "moe": 1.1989173573763736,
+              "p75": 45.97279999999955,
+              "p99": 55.803499999999985,
+              "p995": 55.803499999999985,
+              "p999": 55.803499999999985,
+              "sampleCount": 50,
+              "median": 43.05210000000034
+            },
+            {
+              "id": "-361932439_1_1",
+              "name": "block.insert disclosure (fixture: 1000 nodes, template: 5 nodes)",
+              "rank": 1,
+              "rme": 2.737022869131957,
+              "samples": [],
+              "totalTime": 1305.0926,
+              "min": 21.696399999999812,
+              "max": 30.870499999999993,
+              "hz": 38.311457746369875,
+              "period": 26.101851999999997,
+              "mean": 26.101851999999997,
+              "variance": 6.315256071526554,
+              "sd": 2.513017324159655,
+              "sem": 0.3553943182305129,
+              "df": 49,
+              "critical": 2.0102,
+              "moe": 0.714413658506977,
+              "p75": 28.205400000000736,
+              "p99": 30.870499999999993,
+              "p995": 30.870499999999993,
+              "p999": 30.870499999999993,
+              "sampleCount": 50,
+              "median": 26.02365000000009
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1669,6 +1669,8 @@ describe("Phase 5 editor UI", () => {
       behavior: "button",
       targetStateNodeId: "",
       stateAction: "none",
+      stateAccessibility: "none",
+      disclosureContentNodeId: "",
     });
     expect(screen.getByRole("status")).toHaveTextContent("Change rejected:");
   });

@@ -1,0 +1,39 @@
+{
+  "files": [
+    {
+      "filepath": "C:/Users/Suraj/AppData/Local/Temp/csb08-baseline-488053cccef64c2cb47b363f07538c24/src/builder/commands/__benchmarks__/execute-command.bench.ts",
+      "groups": [
+        {
+          "fullName": "src/builder/commands/__benchmarks__/execute-command.bench.ts > block.insert fixed fixture",
+          "benchmarks": [
+            {
+              "id": "-361932439_1_0",
+              "name": "block.insert commerce-navbar (fixture: 1000 nodes, template: 70 nodes)",
+              "rank": 1,
+              "rme": 2.543828943358345,
+              "samples": [],
+              "totalTime": 2063.7102000000004,
+              "min": 35.11920000000009,
+              "max": 51.742699999999786,
+              "hz": 24.228208010989132,
+              "period": 41.27420400000001,
+              "mean": 41.27420400000001,
+              "variance": 13.640324068962673,
+              "sd": 3.69328093555888,
+              "sem": 0.5223087988721361,
+              "df": 49,
+              "critical": 2.0102,
+              "moe": 1.0499451474927681,
+              "p75": 43.42979999999989,
+              "p99": 51.742699999999786,
+              "p995": 51.742699999999786,
+              "p999": 51.742699999999786,
+              "sampleCount": 50,
+              "median": 42.10180000000037
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

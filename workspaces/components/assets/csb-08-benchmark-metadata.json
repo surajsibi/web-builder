@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "recordedDate": "2026-08-18",
+  "decision": "pass",
+  "threshold": {
+    "medianRegressionPct": 10,
+    "p95RegressionPct": 10,
+    "acceptedBy": "Suraj",
+    "acceptedRole": "Performance Owner"
+  },
+  "method": {
+    "fixtureNodeCount": 1000,
+    "warmupIterations": 10,
+    "measuredIterations": 50,
+    "percentileMethod": "nearest-rank",
+    "baselineRanFirst": true,
+    "sameMachine": true,
+    "productionEquivalentCommand": "block.insert"
+  },
+  "environment": {
+    "node": "v24.19.0",
+    "vitest": "4.1.10",
+    "operatingSystem": "Microsoft Windows 11 Pro 10.0.26200 64-bit",
+    "cpu": "11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz",
+    "physicalCores": 4,
+    "logicalProcessors": 8
+  },
+  "revisions": {
+    "baselineCommit": "c032701e52c5c8046a32d9365b8f5782fb75bbc6",
+    "candidateHead": "c032701e52c5c8046a32d9365b8f5782fb75bbc6",
+    "candidateState": "uncommitted feat/connected-state-blocks working tree",
+    "baselineCommandBlob": "c0a6ad612ae19be6a8f3a3559361ec914764d3b6",
+    "candidateCommandBlob": "e29febcddab295edc9d960bd1a9ef1efa72e72f2",
+    "baselineLockfileBlob": "76d76e114a3e359772109b85e27e120988b6c5b4",
+    "candidateLockfileBlob": "76d76e114a3e359772109b85e27e120988b6c5b4"
+  },
+  "templates": {
+    "commerceNavbarNodeCount": 70,
+    "disclosureNodeCount": 5
+  },
+  "results": {
+    "commerceNavbar": {
+      "baselineMedianMs": 42.1018,
+      "candidateMedianMs": 43.0521,
+      "medianRegressionPct": 2.26,
+      "baselineP95Ms": 47.3969,
+      "candidateP95Ms": 49.7531,
+      "p95RegressionPct": 4.97,
+      "medianPassed": true,
+      "p95Passed": true
+    },
+    "disclosure": {
+      "candidateMedianMs": 26.0237,
+      "candidateP95Ms": 29.9891
+    }
+  },
+  "artifacts": {
+    "baselineJson": "csb-08-baseline-benchmark.json",
+    "baselineLog": "csb-08-baseline-benchmark.log",
+    "candidateJson": "csb-08-candidate-benchmark.json",
+    "candidateLog": "csb-08-candidate-benchmark.log"
+  }
+}

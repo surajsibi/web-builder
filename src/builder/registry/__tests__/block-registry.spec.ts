@@ -9,6 +9,8 @@ import {
   type BlockDefinition,
 } from "@/builder/registry/define-block-registry";
 
+import { LEGACY_BLOCK_ROOT_CONTRACTS } from "./fixtures/legacy-block-contracts";
+
 function TestIcon() {
   return null;
 }
@@ -17,14 +19,69 @@ function createDefinition(
   createTemplate: BlockDefinition["createTemplate"],
 ): BlockDefinition {
   return {
-    label: "Test block",
-    category: "Test",
-    icon: TestIcon,
+    library: {
+      label: "Test block",
+      category: "Test",
+      family: "layout",
+      icon: TestIcon,
+    },
     createTemplate,
   };
 }
 
 describe("blockRegistry", () => {
+  it("should preserve the registry and resolved-root contract for every existing unconnected template", () => {
+    const actual = LEGACY_BLOCK_ROOT_CONTRACTS.map(({ blockType }) => {
+      const definition = blockRegistry[blockType];
+      const template = resolveBlockTemplate(blockType);
+
+      return {
+        blockType,
+        library: {
+          label: definition.library.label,
+          category: definition.library.category,
+          family: definition.library.family,
+        },
+        type: template.type,
+        componentVersion: template.componentVersion,
+        childTypes: template.children.map((child) => child.type),
+      };
+    });
+
+    expect(actual).toEqual(LEGACY_BLOCK_ROOT_CONTRACTS);
+  });
+
+  it("should keep existing templates free of connected-template metadata", () => {
+    const connectedFields = [
+      "key",
+      "nameHint",
+      "nodeReferences",
+      "stateBinding",
+    ] as const;
+    const discoveredFields: string[] = [];
+
+    const inspect = (
+      blockType: keyof typeof blockRegistry,
+      template: ReturnType<typeof resolveBlockTemplate>,
+      path: string,
+    ) => {
+      for (const field of connectedFields) {
+        if (Object.hasOwn(template, field)) {
+          discoveredFields.push(`${blockType}:${path}:${field}`);
+        }
+      }
+      template.children.forEach((child, index) => {
+        inspect(blockType, child, `${path}.children[${index}]`);
+      });
+    };
+
+    for (const { blockType } of LEGACY_BLOCK_ROOT_CONTRACTS) {
+      inspect(blockType, resolveBlockTemplate(blockType), "root");
+    }
+
+    expect(discoveredFields).toEqual([]);
+  });
+
   it("should expose a resolved Navbar template composed from editable primitives", () => {
     const template = resolveBlockTemplate("navbar");
 
@@ -39,6 +96,7 @@ describe("blockRegistry", () => {
       "button-glass",
       "button-glow",
       "input-password-reveal",
+      "disclosure",
     ]);
     expect(template.type).toBe("section");
     expect(template.props).toMatchObject({ semanticTag: "header" });

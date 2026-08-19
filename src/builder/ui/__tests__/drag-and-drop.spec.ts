@@ -11,6 +11,29 @@ import {
 } from "@/builder/ui/drag-and-drop";
 
 describe("commandForEditorDrop", () => {
+  it("should translate a Disclosure library drag into the shared block.insert contract", () => {
+    const target = {
+      surface: "canvas" as const,
+      intent: "root" as const,
+      targetNodeId: null,
+      destination: { parentId: null, index: 1 },
+      label: "Page root",
+    };
+
+    expect(
+      commandForEditorDrop(
+        asPageId("page-home"),
+        { kind: "block", blockType: "disclosure" },
+        target,
+      ),
+    ).toEqual({
+      kind: "block.insert",
+      pageId: "page-home",
+      blockType: "disclosure",
+      destination: target.destination,
+    });
+  });
+
   it("should translate component and node drops into dispatcher commands", () => {
     const target = {
       surface: "canvas" as const,

@@ -6,6 +6,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -24,13 +25,15 @@ import { ComponentLibrary } from "@/builder/ui/component-library";
 
 afterEach(cleanup);
 
-function renderComponentLibrary() {
+function renderComponentLibrary(options?: {
+  onInsertBlock?: (type: BlockType) => void;
+}) {
   render(
     <DragDropProvider>
       <ComponentLibrary
         getBlockInsertionLabel={() => "Page root"}
         getComponentInsertionLabel={() => "Page root"}
-        onInsertBlock={vi.fn()}
+        onInsertBlock={options?.onInsertBlock ?? vi.fn()}
         onInsertComponent={vi.fn()}
       />
     </DragDropProvider>,
@@ -48,7 +51,7 @@ describe("ComponentLibrary", () => {
       ...BUTTON_PRESET_CATALOG.map(({ blockType }) => {
         const typedBlockType = blockType as BlockType;
         return {
-          accessibleName: `Add ${blockRegistry[typedBlockType].label} button`,
+          accessibleName: `Add ${blockRegistry[typedBlockType].library.label} button`,
           node: resolveBlockTemplate(typedBlockType),
         };
       }),
@@ -240,6 +243,91 @@ describe("ComponentLibrary", () => {
     expect(screen.getAllByRole("button", { name: /^Add / })).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: "Add Checkbox" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Add Boolean State" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("should expose Disclosure in All, Blocks, and Interactive with an open noninteractive preview", async () => {
+    const user = userEvent.setup();
+    const onInsertBlock = vi.fn();
+    renderComponentLibrary({ onInsertBlock });
+    const familyNavigation = screen.getByRole("navigation", {
+      name: "Component families",
+    });
+    const disclosureAction = screen.getByRole("button", {
+      name: "Add Disclosure block",
+    });
+
+    expect(
+      within(familyNavigation).getByRole("button", { name: "Interactive (1)" }),
+    ).toBeInTheDocument();
+    expect(disclosureAction).toHaveTextContent("Show details");
+    expect(disclosureAction).toHaveTextContent(
+      "Replace this text with your details.",
+    );
+    expect(
+      disclosureAction.querySelector("button, a, input, textarea, select"),
+    ).not.toBeInTheDocument();
+    expect(
+      disclosureAction.querySelector('[data-preview-component="boolean-state"]'),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(familyNavigation).getByRole("button", { name: /Blocks/ }),
+    );
+    expect(
+      screen.getByRole("button", { name: "Add Disclosure block" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      within(familyNavigation).getByRole("button", { name: /Interactive/ }),
+    );
+    const interactiveAction = screen.getByRole("button", {
+      name: "Add Disclosure block",
+    });
+    await user.click(interactiveAction);
+
+    expect(onInsertBlock).toHaveBeenCalledOnce();
+    expect(onInsertBlock).toHaveBeenCalledWith("disclosure");
+  });
+
+  it.each(["state", "toggle", "show hide", "disclosure", "details"])(
+    "should find Disclosure from the registry-owned %s search term",
+    (query) => {
+      renderComponentLibrary();
+
+      fireEvent.change(
+        screen.getByRole("searchbox", { name: "Search components" }),
+        { target: { value: query } },
+      );
+
+      expect(
+        screen.getByRole("button", { name: "Add Disclosure block" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Add Boolean State" }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it("should let Disclosure enter Favorites without exposing its nested state", async () => {
+    const user = userEvent.setup();
+    renderComponentLibrary();
+    const familyNavigation = screen.getByRole("navigation", {
+      name: "Component families",
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: "Favorite Disclosure" }),
+    );
+    await user.click(
+      within(familyNavigation).getByRole("button", { name: /Favorites/ }),
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Add Disclosure block" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Add Boolean State" }),

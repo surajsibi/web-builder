@@ -11,9 +11,12 @@ export const INPUT_PRESET_CATALOG = [
 ] as const satisfies readonly { blockType: string }[];
 
 export const passwordRevealInputBlockDefinition: BlockDefinition = {
-  label: "Password reveal",
-  category: "Inputs",
-  icon: InputIcon,
+  library: {
+    label: "Password reveal",
+    category: "Inputs",
+    family: "inputs",
+    icon: InputIcon,
+  },
   createTemplate: (): ComponentTemplate => ({
     type: "input",
     props: {

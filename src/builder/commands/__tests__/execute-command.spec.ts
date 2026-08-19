@@ -33,6 +33,33 @@ function createSnapshot(options?: {
   };
 }
 
+function addDisclosureToSnapshot(snapshot: CommandSnapshot) {
+  const page = snapshot.document.pages[asPageId("page-home")];
+  const button = createTestNode("button", "node-disclosure-button");
+  const content = createTestNode("container", "node-disclosure-content");
+  const state = createTestNode("boolean-state", "node-disclosure-state");
+  const root = createTestNode("container", "node-disclosure-root", [
+    button.id,
+    content.id,
+    state.id,
+  ]);
+  button.props.targetStateNodeId = state.id;
+  button.props.stateAction = "toggle";
+  button.props.stateAccessibility = "disclosure";
+  button.props.disclosureContentNodeId = content.id;
+  content.stateBinding = {
+    stateNodeId: state.id,
+    on: "show",
+    off: "hide",
+  };
+  page.rootIds.push(root.id);
+  for (const node of [root, button, content, state]) page.nodes[node.id] = node;
+  const tree = buildProjectParentIndex(snapshot.document);
+  if (!tree.success) throw new Error(tree.issue.reason);
+  snapshot.parentById = tree.parentById;
+  return { button, content, page, root, state };
+}
+
 describe("executeEditorCommand", () => {
   it("should reject a malformed runtime command as invalid input", () => {
     const snapshot = createSnapshot();
@@ -160,6 +187,8 @@ describe("executeEditorCommand", () => {
     const connected = createTestNode("container", "node-page-connected");
     button.props.targetStateNodeId = state.id;
     button.props.stateAction = "toggle";
+    button.props.stateAccessibility = "disclosure";
+    button.props.disclosureContentNodeId = connected.id;
     connected.stateBinding = {
       stateNodeId: state.id,
       on: "show",
@@ -194,9 +223,14 @@ describe("executeEditorCommand", () => {
       duplicate.nodes[result.value.idMap[button.id]].props.targetStateNodeId,
     ).toBe(duplicateStateId);
     expect(
+      duplicate.nodes[result.value.idMap[button.id]].props
+        .disclosureContentNodeId,
+    ).toBe(result.value.idMap[connected.id]);
+    expect(
       duplicate.nodes[result.value.idMap[connected.id]].stateBinding?.stateNodeId,
     ).toBe(duplicateStateId);
     expect(page.nodes[button.id].props.targetStateNodeId).toBe(state.id);
+    expect(page.nodes[button.id].props.disclosureContentNodeId).toBe(connected.id);
     expect(page.nodes[connected.id].stateBinding?.stateNodeId).toBe(state.id);
   });
 
@@ -588,6 +622,42 @@ describe("executeEditorCommand", () => {
     expect(snapshot.document).toEqual(original);
   });
 
+  it.each([
+    {
+      blockType: "input-password-reveal",
+      nodeId: "node-password-reveal",
+    },
+    {
+      blockType: "button-raised-3d",
+      nodeId: "node-raised-button",
+    },
+  ] as const)(
+    "should preserve the public block.insert value for the existing $blockType template",
+    ({ blockType, nodeId }) => {
+      const snapshot = createSnapshot();
+
+      const result = executeEditorCommand(
+        snapshot,
+        {
+          kind: "block.insert",
+          pageId: asPageId("page-home"),
+          blockType,
+          destination: { parentId: null, index: 1 },
+        },
+        { idGenerator: () => nodeId },
+      );
+
+      expect(result.status).toBe("applied");
+      if (result.status !== "applied") return;
+      expect(result.value).toEqual({
+        blockType,
+        rootNodeId: nodeId,
+        nodeIds: [nodeId],
+        destination: { parentId: null, index: 1 },
+      });
+    },
+  );
+
   it("should reject an unknown block type without mutating the source", () => {
     const snapshot = createSnapshot();
     const original = structuredClone(snapshot.document);
@@ -886,6 +956,8 @@ describe("executeEditorCommand", () => {
     ]);
     button.props.targetStateNodeId = state.id;
     button.props.stateAction = "toggle";
+    button.props.stateAccessibility = "disclosure";
+    button.props.disclosureContentNodeId = connected.id;
     connected.stateBinding = {
       stateNodeId: state.id,
       on: "show",
@@ -931,10 +1003,15 @@ describe("executeEditorCommand", () => {
         .targetStateNodeId,
     ).toBe(duplicatedStateId);
     expect(
+      duplicatedPage.nodes[result.value.idMap[button.id]].props
+        .disclosureContentNodeId,
+    ).toBe(result.value.idMap[connected.id]);
+    expect(
       duplicatedPage.nodes[result.value.idMap[connected.id]].stateBinding
         ?.stateNodeId,
     ).toBe(duplicatedStateId);
     expect(page.nodes[button.id].props.targetStateNodeId).toBe(state.id);
+    expect(page.nodes[button.id].props.disclosureContentNodeId).toBe(connected.id);
     expect(page.nodes[connected.id].stateBinding?.stateNodeId).toBe(state.id);
   });
 
@@ -1092,6 +1169,105 @@ describe("executeEditorCommand", () => {
     expect(node.styles.tablet?.fontSize).toEqual({ value: 18, unit: "px" });
     expect(node.styles.mobile?.display).toBe("none");
     expect(node.meta).not.toHaveProperty("hidden");
+  });
+
+  it("should atomically clear Disclosure configuration after an incompatible Button edit", () => {
+    const snapshot = createSnapshot();
+    const { button, content } = addDisclosureToSnapshot(snapshot);
+    const original = structuredClone(snapshot.document);
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateProps",
+      pageId: asPageId("page-home"),
+      nodeId: button.id,
+      nextProps: { ...button.props, stateAction: "turn-on" },
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(
+      result.candidate.document.pages[asPageId("page-home")].nodes[button.id]
+        .props,
+    ).toMatchObject({
+      stateAction: "turn-on",
+      targetStateNodeId: button.props.targetStateNodeId,
+      stateAccessibility: "none",
+      disclosureContentNodeId: "",
+    });
+    expect(
+      result.candidate.document.pages[asPageId("page-home")].nodes[content.id]
+        .stateBinding,
+    ).toEqual(content.stateBinding);
+    expect(snapshot.document).toEqual(original);
+  });
+
+  it("should preserve recoverable Disclosure configuration during unrelated Button edits", () => {
+    const snapshot = createSnapshot();
+    const { button, content, page, root } = addDisclosureToSnapshot(snapshot);
+    delete page.nodes[content.id];
+    root.childIds = root.childIds.filter((nodeId) => nodeId !== content.id);
+    const tree = buildProjectParentIndex(snapshot.document);
+    if (!tree.success) throw new Error(tree.issue.reason);
+    snapshot.parentById = tree.parentById;
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateProps",
+      pageId: page.id,
+      nodeId: button.id,
+      nextProps: { ...button.props, text: "Updated disclosure" },
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.candidate.document.pages[page.id].nodes[button.id].props).toMatchObject({
+      text: "Updated disclosure",
+      stateAccessibility: "disclosure",
+      disclosureContentNodeId: content.id,
+    });
+  });
+
+  it("should clear a directly selected Disclosure target that does not resolve", () => {
+    const snapshot = createSnapshot();
+    const { button, page } = addDisclosureToSnapshot(snapshot);
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateProps",
+      pageId: page.id,
+      nodeId: button.id,
+      nextProps: {
+        ...button.props,
+        disclosureContentNodeId: "missing-content",
+      },
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.candidate.document.pages[page.id].nodes[button.id].props).toMatchObject({
+      stateAccessibility: "none",
+      disclosureContentNodeId: "",
+    });
+  });
+
+  it("should accept a direct link edit by atomically disabling incompatible state behavior", () => {
+    const snapshot = createSnapshot();
+    const { button, page } = addDisclosureToSnapshot(snapshot);
+
+    const result = executeEditorCommand(snapshot, {
+      kind: "node.updateProps",
+      pageId: page.id,
+      nodeId: button.id,
+      nextProps: { ...button.props, href: "/details" },
+    });
+
+    expect(result.status).toBe("applied");
+    if (result.status !== "applied") return;
+    expect(result.candidate.document.pages[page.id].nodes[button.id].props).toMatchObject({
+      href: "/details",
+      stateAction: "none",
+      targetStateNodeId: "",
+      stateAccessibility: "none",
+      disclosureContentNodeId: "",
+    });
   });
 
   it("should reject invalid style values without mutating the source", () => {

@@ -5,7 +5,7 @@ scope: Product and architecture description for the web-builder application and 
 authority: Curated product and architecture description; approved product decisions own intent, while code, schemas, tests, configuration, and verified runtime behavior own current implementation behavior
 owner: Project owner
 lifecycle: maintained
-freshness: Updated on 2026-08-13 with verified responsive component-positioning, document-schema-version-2, eligibility, interaction, and Canvas/Preview rendering contracts; invalidated by a relevant product decision or registry, document schema, migration, command, style, rendering, editor interaction, preview, publishing, persistence, or supported-runtime change
+freshness: Updated on 2026-08-18 with verified connected block compilation, Disclosure semantics, Boolean State ownership, responsive Editor remediation, and Chrome runtime evidence; invalidated by a relevant product decision or registry, block-template, document schema, migration, command, state, accessibility, style, rendering, editor interaction, preview, publishing, persistence, or supported-runtime change
 ---
 
 # Drag-and-Drop Website Builder
@@ -304,6 +304,8 @@ Button content icons follow the same serializable contract. A Button stores a cu
 
 Button also stores an explicit `button` or `submit` behavior. Existing Button versions migrate to `button`, so introducing Form cannot make an existing project submit unexpectedly. A regular, unlinked, non-submit Button may additionally target one page-local Boolean State and run Turn On, Turn Off, or Toggle on activation. Its State tab presents this action first. Only a Button with a configured state action opts into direct Canvas activation; a Button with no state action retains its drag, resize, and spacing editing affordances. Button visibility is a separate optional disclosure: a new Button has no `stateBinding`, remains always visible, and exposes Show/Hide mapping only after the author deliberately opens and connects that disclosure. Linked and submit Buttons cannot run state actions. An unresolved target is reported without mutating runtime or document state.
 
+Button version 6 may additionally persist `stateAccessibility: "disclosure"` and one page-local `disclosureContentNodeId` when the Button is an unlinked, non-submit Toggle targeting a Boolean State. This configuration is an accessibility claim, not merely a styling option. A read-only evaluator emits `aria-expanded` only while the Button, Boolean State, controlled Container, exact On -> Show / Off -> Hide binding, shared parent, ancestor presentation, and live runtime visibility all agree. It omits the attribute when any relationship is broken or unavailable and never repairs or rewrites the document during rendering or hydration. Direct Button edits that make the configuration incompatible clear Disclosure mode atomically; panel moves, binding edits, deletion, or independent hiding preserve recoverable configuration and surface an explicit Inspector warning and repair path. Version 5 migrates deterministically to version 6 with Disclosure mode disabled, so project schema remains version 3.
+
 Label stores non-empty visible text and a valid authored control ID target. It renders one native `<label>` root whose `for` attribute points to the authored target, remains a leaf component, and supports the same Inspector and Canvas inline-text editing path as other text-bearing primitives. Label may be placed at the page root, in general-purpose containers, or directly inside Form. V1 does not validate the cross-node reference or document-wide ID uniqueness; authors keep the Label target and control ID synchronized until a shared Form Field wrapper can own that relationship.
 
 Input stores one curated text-like HTML input type plus an accessible fallback label, optional control ID, field name, placeholder, authored default value, required/disabled state, and an opt-in password-reveal capability. Standard configurations render one native `<input>` root. A password with reveal enabled renders one styled field shell containing the native input and a non-submit visibility button; the button changes only runtime masking and never changes the authored `inputType` or visitor value. An empty control ID preserves the existing `aria-label` fallback; a non-empty control ID becomes the native `id` and defers the accessible name to its external visible Label. The renderer preserves the visitor's live value across unrelated render updates and adopts a changed authored default or input type. File, hidden, and date/time controls require separate component contracts rather than expanding this string-valued primitive. Existing Input versions migrate through an empty control ID without changing their accessible name.
@@ -473,6 +475,7 @@ Nonvisual Boolean State nodes are deliberately excluded from the Component Libra
 | Content Card | Card with Heading, Text, and Button children |
 | Image Card | Card with Image, Heading, and Text children |
 | Pricing Card | Card with plan content, features, and Button children |
+| Disclosure | Container with a native Button, controlled content Container, Text, and nested Boolean State |
 
 The V1 registry can register Content Card and Image Card because their primitive node types are present. Pricing Card demonstrates the same block pattern but is not a valid registry entry until every primitive component type required by its final template has been added to `componentRegistry`.
 
@@ -488,20 +491,40 @@ type LibraryItem =
     };
 
 type ComponentTemplate = {
+  key?: string;
+  nameHint?: string;
   type: ComponentType;
   props?: Record<string, JsonValue>;
   styles?: Partial<ResponsiveStyles>;
-  children?: ComponentTemplate[];
+  nodeReferences?: readonly {
+    path: string;
+    targetKey: string;
+  }[];
+  stateBinding?: {
+    stateKey: string;
+    on: "show" | "hide";
+    off: "show" | "hide";
+  };
+  children?: readonly ComponentTemplate[];
 };
 
 type BlockDefinition = {
-  label: string;
-  category: string;
+  library: {
+    label: string;
+    category: string;
+    family: "layout" | "navbar" | "buttons" | "inputs" | "interactive";
+    icon: React.ComponentType;
+    searchTerms?: readonly string[];
+  };
   createTemplate: () => ComponentTemplate;
 };
 ```
 
 The static `blockRegistry` key is the block type; a block definition does not repeat that identity. Block type keys exist only for library lookup and insertion because block identity is not persisted after the template becomes ordinary component nodes.
+
+Template-local keys, name hints, symbolic node references, and symbolic state bindings exist only during block resolution and insertion. Registration validates key grammar, duplicate declarations, relationship paths, target component types, raw reference conflicts, and visual-root placement before a block can enter the library. `block.insert` then reserves every real node ID, materializes references and bindings, validates the complete isolated subtree, and performs one atomic insertion. A rejection leaves the source document unchanged. The public command result remains limited to the block type, root node ID, ordered node IDs, and destination; no template key, placeholder, or block identity persists.
+
+The Disclosure block is the first connected-template adopter. Its root owns the Button, controlled content, and Boolean State so deleting or whole-root duplicating the subtree follows existing ownership and reference-remapping rules. Two insertions receive disjoint state IDs. Duplicating only one consumer preserves its existing external targets, while duplicating the complete root remaps both Button references and the panel binding to the copied state.
 
 Any Component Library thumbnail that shows an authored component look must resolve the real component or block template and compile its styles through the same responsive style compiler used by Canvas and Preview. Thumbnail-only presentation may provide a neutral surface, clipping, and scale, but must not duplicate or override the component's authored colors, borders, typography, backgrounds, shadows, or blur. Semantic component interactions, such as Button icon motion, reuse the component's real markup and shared interaction selector rather than a thumbnail-specific imitation.
 
@@ -1413,6 +1436,7 @@ The Node Rendering Controller:
 - Recursively renders ordered children and uses the leaf or container renderer contract selected by the definition.
 - Forwards an optional `rootRef` supplied by an external consumer; it does not own registration or measurement.
 - Injects the runtime-only node identity, mode, and optional form-availability guidance supplied by the owning surface.
+- Evaluates configured Disclosure relationships read-only and emits `aria-expanded` only when the persisted references, structure, responsive presentation, and live Boolean State agree.
 - Applies React keys externally using stable node IDs.
 - Does not mutate the document, manage selection, handle drag-and-drop, or insert blocks.
 
@@ -2078,9 +2102,13 @@ The first proof of concept must demonstrate that the architecture can:
 39. Move an eligible non-container leaf with responsive positive, negative, inherited, explicit-zero, and off-canvas offsets; confirm structural order is unchanged, one gesture creates one Undo entry, Canvas and Preview geometry match, Inspector reset recovers the leaf without Canvas hit-testing, and root/container/absolute/fixed/sticky positioning remains centrally denied.
 40. Select an existing component and confirm its optional visibility is collapsed as **Always visible**; expand it, create and connect a Boolean State with unchecked **Start visible**, and confirm the new binding defaults to On → Show and Off → Show. Connect multiple ordinary components with independent On/Off visibility mappings and configure a regular Button to turn the same state On, Off, and Toggle. Confirm Editor authoring remains available, Preview presence follows the state, unresolved references fail safely, internal references remap on subtree and page duplication, a Button without a state action retains Canvas drag/resize/spacing controls, schema-version-2 documents migrate deterministically to version 3, disabled legacy controls remain inert, and runtime actions create no document revision or history entry.
 
+41. Insert a Disclosure block and confirm one atomic command creates a readable five-node subtree with a nested Boolean State and no persisted template keys. Confirm two insertions are independent, whole-root duplication remaps both Button references plus the content binding, Preview starts collapsed, pointer/Enter/Space toggle truthful `aria-expanded`, focus remains on the persistent Button, and breaking any state, content, binding, structure, or visibility condition omits the attribute until an explicit Inspector repair restores the exact relationship.
+
 ## Editor Workspace Layout
-  
+
 The main editor will use a three-panel layout so that building and styling a page feels clear and predictable.
+
+Above 48rem the workspace retains the three-column Component Library, Canvas, and Inspector grid. At widths up to 48rem it becomes one vertically scrollable column with full-width panels and no fixed shell minimum; at widths up to 32rem the toolbar also becomes one compact column. Expanded and collapsed side-panel controls remain available in the stacked layout.
 
 ### Project Pages
 

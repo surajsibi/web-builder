@@ -30,3 +30,19 @@ export function CommerceNavbarBlockIcon() {
     </svg>
   );
 }
+
+export function DisclosureBlockIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      height="20"
+      viewBox="0 0 20 20"
+      width="20"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <rect fill="none" height="14" rx="2" stroke="currentColor" width="18" x="1" y="3" />
+      <path d="m5 8 2 2-2 2M10 8h5M10 12h4" stroke="currentColor" strokeLinecap="round" />
+    </svg>
+  );
+}

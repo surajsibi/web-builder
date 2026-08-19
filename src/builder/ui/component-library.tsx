@@ -135,14 +135,16 @@ const COMPONENT_ENTRIES: readonly ComponentLibraryEntry[] = COMPONENT_TYPES.map(
 const BUTTON_PRESET_ENTRIES: readonly BlockLibraryEntry[] =
   BUTTON_PRESET_CATALOG.map((preset) => {
     const blockType = preset.blockType as BlockType;
+    const definition = blockRegistry[blockType];
     return {
       id: `block:${blockType}`,
       kind: "block",
       blockType,
-      label: blockRegistry[blockType].label,
-      category: blockRegistry[blockType].category,
-      family: "buttons",
-      icon: blockRegistry[blockType].icon,
+      label: definition.library.label,
+      category: definition.library.category,
+      family: definition.library.family,
+      icon: definition.library.icon,
+      searchTerms: definition.library.searchTerms,
       previewNode: resolveBlockTemplate(blockType),
       presetGroup: preset.group,
       presetKind: "button",
@@ -153,14 +155,16 @@ const BUTTON_PRESET_ENTRIES: readonly BlockLibraryEntry[] =
 const INPUT_PRESET_ENTRIES: readonly BlockLibraryEntry[] =
   INPUT_PRESET_CATALOG.map((preset) => {
     const blockType = preset.blockType as BlockType;
+    const definition = blockRegistry[blockType];
     return {
       id: `block:${blockType}`,
       kind: "block",
       blockType,
-      label: blockRegistry[blockType].label,
-      category: blockRegistry[blockType].category,
-      family: "inputs",
-      icon: blockRegistry[blockType].icon,
+      label: definition.library.label,
+      category: definition.library.category,
+      family: definition.library.family,
+      icon: definition.library.icon,
+      searchTerms: definition.library.searchTerms,
       previewNode: resolveBlockTemplate(blockType),
       presetKind: "input",
       isPreset: true,
@@ -180,10 +184,11 @@ const STRUCTURAL_BLOCK_ENTRIES: readonly BlockLibraryEntry[] = (
       id: `block:${blockType}`,
       kind: "block",
       blockType,
-      label: definition.label,
-      category: definition.category,
-      family: definition.category === "Navigation" ? "navbar" : "layout",
-      icon: definition.icon,
+      label: definition.library.label,
+      category: definition.library.category,
+      family: definition.library.family,
+      icon: definition.library.icon,
+      searchTerms: definition.library.searchTerms,
       previewNode: resolveBlockTemplate(blockType),
     };
   });
@@ -263,6 +268,12 @@ const FAMILY_CONFIG = [
     icon: "⌄",
   },
   {
+    id: "interactive",
+    label: "Interactive",
+    description: "Add state-powered interactions built from editable components.",
+    icon: "◇",
+  },
+  {
     id: "navbar",
     label: "Navbar",
     description: "Browse prebuilt navbar blocks and customize every component.",
@@ -307,12 +318,18 @@ function RenderedComponentPreview({
 }: {
   node: ResolvedComponentTemplate;
 }) {
+  if (node.type === "boolean-state") return null;
+
   const style = compileStyleValues(
     resolveResponsiveStyles(node.styles, "desktop"),
   );
 
   if (node.type === "button") {
-    const props = componentRegistry.button.propsSchema.parse(node.props);
+    // Registry resolution already validated symbolic template references. A
+    // library preview intentionally renders before real IDs are materialized.
+    const props = node.props as ReturnType<
+      typeof componentRegistry.button.propsSchema.parse
+    >;
     const icon =
       props.icon === null ? null : <ButtonContentIcon name={props.icon} />;
 

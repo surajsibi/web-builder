@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from "react";
 
 import type { StyleChange } from "@/builder/commands/types";
+import {
+  evaluateDisclosureSemantics,
+  type DisclosureSemanticsReason,
+} from "@/builder/interaction/disclosure-semantics";
 import { asNodeId, type NodeId } from "@/builder/model/ids";
 import type { JsonObject, JsonValue } from "@/builder/model/json";
 import type {
@@ -71,10 +75,25 @@ type InspectorPanelProps = {
   onRename: (name: string) => void;
   onUpdateProps: (nextProps: JsonObject) => void;
   onUpdateStateBinding: (binding: BooleanStateBinding | null) => void;
+  onRepairDisclosure: (action: DisclosureRepairAction) => void;
   onCreateStateAndConnect: (name: string, defaultValue: boolean) => void;
   onUpdateStyles: (changes: readonly [StyleChange, ...StyleChange[]]) => void;
   onCollapsedChange: (collapsed: boolean) => void;
 };
+
+export type DisclosureRepairAction =
+  | {
+      kind: "reconnect-visibility";
+      contentNodeId: NodeId;
+      stateNodeId: NodeId;
+    }
+  | {
+      kind: "restore-structure";
+      contentNodeId: NodeId;
+      stateNodeId: NodeId;
+      parentNodeId: NodeId;
+    }
+  | { kind: "reveal"; nodeId: NodeId; viewport: Viewport };
 
 type DimensionProperty = "width" | "height";
 
@@ -1757,11 +1776,43 @@ function EffectsControl({
 type StateControlsProps = {
   node: Readonly<BuilderNode>;
   page: Readonly<PageDocument>;
+  parentId: NodeId | null;
+  viewport: Viewport;
   disabled: boolean;
   onCreateStateAndConnect: (name: string, defaultValue: boolean) => void;
   onUpdateProps: (nextProps: JsonObject) => void;
   onUpdateStateBinding: (binding: BooleanStateBinding | null) => void;
+  onRepairDisclosure: (action: DisclosureRepairAction) => void;
 };
+
+function disclosureDiagnosticMessage(reason: DisclosureSemanticsReason): string {
+  switch (reason) {
+    case "button-configuration":
+      return "Disclosure requires an unlinked regular Button with Toggle, a Boolean State, and controlled content.";
+    case "state-reference-missing":
+      return "The Disclosure Boolean State no longer exists. Choose another state, undo the deletion, or clear Disclosure configuration.";
+    case "state-reference-wrong-type":
+      return "The Disclosure state reference is not a Boolean State. Choose another state or clear Disclosure configuration.";
+    case "content-reference-missing":
+      return "The controlled content no longer exists. Undo the deletion or clear Disclosure configuration.";
+    case "content-reference-wrong-type":
+      return "The controlled-content reference is not a Container. Choose another Container or clear Disclosure configuration.";
+    case "visibility-binding-missing":
+      return "The controlled Container is not connected to the Disclosure state.";
+    case "visibility-binding-state":
+      return "The controlled Container is connected to a different Boolean State.";
+    case "visibility-binding-mapping":
+      return "The controlled Container must use On → Show and Off → Hide.";
+    case "structural-relationship":
+      return "The Button, Boolean State, and controlled Container must share one direct parent.";
+    case "independent-presentation":
+      return "The controlled content or one of its ancestors is independently hidden at this viewport.";
+    case "independent-visibility":
+      return "An ancestor visibility binding currently hides the controlled content independently.";
+    case "runtime-unavailable":
+      return "The relationship is ready; live expanded state is evaluated on the Canvas and in Preview.";
+  }
+}
 
 function booleanStateOptions(page: Readonly<PageDocument>) {
   const candidates = Object.values(page.nodes).filter(
@@ -1787,10 +1838,13 @@ function booleanStateOptions(page: Readonly<PageDocument>) {
 function StateControls({
   node,
   page,
+  parentId,
+  viewport,
   disabled,
   onCreateStateAndConnect,
   onUpdateProps,
   onUpdateStateBinding,
+  onRepairDisclosure,
 }: StateControlsProps) {
   const [newStateName, setNewStateName] = useState(`${node.meta.name} visible`);
   const [newStateDefault, setNewStateDefault] = useState(false);
@@ -1828,6 +1882,28 @@ function StateControls({
   const actionTargetAvailable = actionTargetNode?.type === "boolean-state";
   const actionTargetUnavailable =
     actionTarget !== "" && !actionTargetAvailable;
+  const disclosureContentTarget =
+    node.type === "button" &&
+    typeof node.props.disclosureContentNodeId === "string"
+      ? node.props.disclosureContentNodeId
+      : "";
+  const disclosureContentNode = disclosureContentTarget
+    ? page.nodes[asNodeId(disclosureContentTarget)]
+    : undefined;
+  const disclosureEnabled =
+    node.type === "button" && node.props.stateAccessibility === "disclosure";
+  const disclosureEvaluation =
+    node.type === "button"
+      ? evaluateDisclosureSemantics({
+          page,
+          buttonNodeId: node.id,
+          viewport,
+          runtime: null,
+        })
+      : null;
+  const containerOptions = Object.values(page.nodes)
+    .filter((candidate) => candidate.type === "container")
+    .map((candidate) => ({ label: candidate.meta.name, value: candidate.id }));
   const buttonCanRunStateAction =
     node.type === "button" &&
     node.props.href === "" &&
@@ -1960,6 +2036,7 @@ function StateControls({
   return (
     <>
       {node.type === "button" ? (
+        <>
         <section className="inspector-section inspector-state-panel">
           <h3>Button action</h3>
           <p className="inspector-help">
@@ -2032,6 +2109,141 @@ function StateControls({
             </p>
           ) : null}
         </section>
+        <section className="inspector-section inspector-state-panel">
+          <h3>Disclosure semantics</h3>
+          <p className="inspector-help">
+            Persisted configuration: <strong>{disclosureEnabled ? "Enabled" : "Disabled"}</strong>
+          </p>
+          <SelectField
+            disabled={
+              disabled ||
+              action !== "toggle" ||
+              !actionTargetAvailable ||
+              (containerOptions.length === 0 && !disclosureContentTarget)
+            }
+            label="Controlled content"
+            onChange={(contentNodeId) =>
+              onUpdateProps({
+                ...node.props,
+                stateAccessibility: contentNodeId === "" ? "none" : "disclosure",
+                disclosureContentNodeId: contentNodeId,
+              })
+            }
+            options={[
+              { label: "Disclosure disabled", value: "" },
+              ...containerOptions,
+              ...(disclosureContentTarget && !disclosureContentNode
+                ? [
+                    {
+                      label: `Unavailable (${disclosureContentTarget})`,
+                      value: disclosureContentTarget,
+                    },
+                  ]
+                : []),
+            ]}
+            value={disclosureContentTarget}
+          />
+          {disclosureEnabled && disclosureEvaluation?.status === "invalid" ? (
+            <>
+              <p
+                className={
+                  disclosureEvaluation.reason === "runtime-unavailable"
+                    ? "inspector-help"
+                    : "inspector-field-error"
+                }
+                role={
+                  disclosureEvaluation.reason === "runtime-unavailable"
+                    ? "note"
+                    : "alert"
+                }
+              >
+                Effective semantics: {disclosureDiagnosticMessage(disclosureEvaluation.reason)}
+              </p>
+              {(
+                disclosureEvaluation.reason === "visibility-binding-missing" ||
+                disclosureEvaluation.reason === "visibility-binding-state" ||
+                disclosureEvaluation.reason === "visibility-binding-mapping"
+              ) && disclosureContentNode?.type === "container" && actionTargetAvailable ? (
+                <button
+                  className="inline-value-button"
+                  disabled={disabled}
+                  onClick={() =>
+                    onRepairDisclosure({
+                      kind: "reconnect-visibility",
+                      contentNodeId: disclosureContentNode.id,
+                      stateNodeId: asNodeId(actionTarget),
+                    })
+                  }
+                  type="button"
+                >
+                  Reconnect visibility
+                </button>
+              ) : null}
+              {disclosureEvaluation.reason === "structural-relationship" &&
+              parentId &&
+              disclosureContentNode?.type === "container" &&
+              actionTargetAvailable ? (
+                <button
+                  className="inline-value-button"
+                  disabled={disabled}
+                  onClick={() =>
+                    onRepairDisclosure({
+                      kind: "restore-structure",
+                      contentNodeId: disclosureContentNode.id,
+                      stateNodeId: asNodeId(actionTarget),
+                      parentNodeId: parentId,
+                    })
+                  }
+                  type="button"
+                >
+                  Restore shared structure
+                </button>
+              ) : null}
+              {disclosureEvaluation.reason === "independent-presentation" &&
+              disclosureEvaluation.relatedNodeId ? (
+                <button
+                  className="inline-value-button"
+                  disabled={disabled}
+                  onClick={() =>
+                    onRepairDisclosure({
+                      kind: "reveal",
+                      nodeId: disclosureEvaluation.relatedNodeId!,
+                      viewport,
+                    })
+                  }
+                  type="button"
+                >
+                  Show at this viewport
+                </button>
+              ) : null}
+              {disclosureEvaluation.reason !== "runtime-unavailable" ? (
+                <button
+                  className="inline-value-button"
+                  disabled={disabled}
+                  onClick={() =>
+                    onUpdateProps({
+                      ...node.props,
+                      stateAccessibility: "none",
+                      disclosureContentNodeId: "",
+                    })
+                  }
+                  type="button"
+                >
+                  Clear Disclosure configuration
+                </button>
+              ) : null}
+            </>
+          ) : disclosureEnabled ? (
+            <p className="inspector-help">
+              Effective semantics: Ready at the {viewport} viewport.
+            </p>
+          ) : (
+            <p className="inspector-help">
+              Choose a Toggle state and controlled Container to enable Disclosure.
+            </p>
+          )}
+        </section>
+        </>
       ) : null}
 
       <section className="inspector-section inspector-state-panel">
@@ -2100,6 +2312,7 @@ export function InspectorPanel({
   onCreateStateAndConnect,
   onUpdateProps,
   onUpdateStateBinding,
+  onRepairDisclosure,
   onUpdateStyles,
   onCollapsedChange,
 }: InspectorPanelProps) {
@@ -2610,9 +2823,12 @@ export function InspectorPanel({
           key={node.id}
           node={node}
           onCreateStateAndConnect={onCreateStateAndConnect}
+          onRepairDisclosure={onRepairDisclosure}
           onUpdateProps={onUpdateProps}
           onUpdateStateBinding={onUpdateStateBinding}
+          parentId={parentId}
           page={page}
+          viewport={viewport}
         />
       )}
 

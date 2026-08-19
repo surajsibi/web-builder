@@ -6,6 +6,7 @@ import type {
 } from "react";
 
 import { useBooleanStateRuntime } from "@/builder/interaction/boolean-state-runtime";
+import { evaluateDisclosureSemantics } from "@/builder/interaction/disclosure-semantics";
 import type { JsonObject } from "@/builder/model/json";
 import type { NodeId } from "@/builder/model/ids";
 import type {
@@ -85,6 +86,15 @@ export function NodeRenderingController({
     ...compileStyleValues(resolveResponsiveStyles(node.styles, viewport)),
     ...getPreviewStyle?.(node),
   };
+  const disclosureSemantics =
+    node.type === "button"
+      ? evaluateDisclosureSemantics({
+          page,
+          buttonNodeId: node.id,
+          viewport,
+          runtime: stateRuntime,
+        })
+      : null;
   const rootAttributes = {
     ...getRootAttributes?.(node),
     ...(runtime?.mode === "editor" && stateBinding
@@ -97,6 +107,10 @@ export function NodeRenderingController({
       : {}),
     ...(runtime?.mode === "editor" && componentUsesDirectInteraction(node)
       ? { "data-editor-direct-interaction": "true" as const }
+      : {}),
+    ...(disclosureSemantics?.status === "valid" &&
+    (runtime?.mode !== "editor" || disclosureSemantics.expanded)
+      ? { "aria-expanded": disclosureSemantics.expanded }
       : {}),
   };
   const rendererProps = {
