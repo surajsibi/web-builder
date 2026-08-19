@@ -31,7 +31,10 @@ type PortableBenchmarkResult = {
 };
 
 function normalizedPath(path: string): string {
-  return path.replaceAll("\\", "/");
+  const normalized = path.replaceAll("\\", "/");
+  const sourceIndex = normalized.lastIndexOf("/src/");
+
+  return sourceIndex >= 0 ? normalized.slice(sourceIndex + 1) : normalized;
 }
 
 export class PercentileBenchmarkReporter implements Reporter {
