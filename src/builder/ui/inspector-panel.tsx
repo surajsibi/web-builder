@@ -1809,9 +1809,20 @@ function disclosureDiagnosticMessage(reason: DisclosureSemanticsReason): string 
       return "The controlled content or one of its ancestors is independently hidden at this viewport.";
     case "independent-visibility":
       return "An ancestor visibility binding currently hides the controlled content independently.";
+    case "ancestor-runtime-unavailable":
+      return "An ancestor visibility binding requires live runtime evaluation on the Canvas or in Preview.";
     case "runtime-unavailable":
-      return "The relationship is ready; live expanded state is evaluated on the Canvas and in Preview.";
+      return "The persisted relationship is structurally valid; live expanded state is evaluated on the Canvas and in Preview.";
   }
+}
+
+function disclosureReasonRequiresRuntime(
+  reason: DisclosureSemanticsReason,
+): boolean {
+  return (
+    reason === "runtime-unavailable" ||
+    reason === "ancestor-runtime-unavailable"
+  );
 }
 
 function booleanStateOptions(page: Readonly<PageDocument>) {
@@ -2147,12 +2158,12 @@ function StateControls({
             <>
               <p
                 className={
-                  disclosureEvaluation.reason === "runtime-unavailable"
+                  disclosureReasonRequiresRuntime(disclosureEvaluation.reason)
                     ? "inspector-help"
                     : "inspector-field-error"
                 }
                 role={
-                  disclosureEvaluation.reason === "runtime-unavailable"
+                  disclosureReasonRequiresRuntime(disclosureEvaluation.reason)
                     ? "note"
                     : "alert"
                 }
@@ -2216,7 +2227,7 @@ function StateControls({
                   Show at this viewport
                 </button>
               ) : null}
-              {disclosureEvaluation.reason !== "runtime-unavailable" ? (
+              {!disclosureReasonRequiresRuntime(disclosureEvaluation.reason) ? (
                 <button
                   className="inline-value-button"
                   disabled={disabled}

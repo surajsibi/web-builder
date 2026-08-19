@@ -14,7 +14,6 @@ import { asNodeId, asPageId } from "@/builder/model/ids";
 import type { ProjectDocument } from "@/builder/model/project-document";
 import { createNewProject } from "@/builder/project/factory";
 import { createBuilderStore } from "@/builder/store/builder-store";
-import { editorStore } from "@/builder/store/editor-store";
 import { createMemoryPreviewStorage } from "@/builder/testing/memory-preview-storage";
 import { createTestNode } from "@/builder/testing/project-fixtures";
 import { takePreviewSnapshot } from "@/builder/preview/preview-snapshot";
@@ -132,9 +131,64 @@ describe("EditorShell", () => {
   });
 
   it("should render the intended default project name in the toolbar", () => {
-    render(<EditorShell store={editorStore} />);
+    render(<EditorShell store={createEditorTestStore()} />);
 
-    expect(screen.getByText("Make It Yours")).toBeInTheDocument();
+    expect(screen.getByText("Editor Test Project")).toBeInTheDocument();
+  });
+
+  it("should show storage-failure guidance and keep manual retry available", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    const onSaveNow = vi.fn();
+    const message =
+      "Changes could not be saved because browser storage is unavailable.";
+    store.getState().markSaveFailed({ status: "error", message });
+
+    render(<EditorShell onSaveNow={onSaveNow} store={store} />);
+
+    const guidance = screen.getByText(message);
+    const status = guidance.closest('[role="status"]');
+    const saveButton = screen.getByRole("button", { name: "Save now" });
+    expect(guidance).toBeVisible();
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
+    expect(status).toHaveTextContent("Save failed");
+    expect(saveButton).toBeEnabled();
+
+    await user.click(saveButton);
+    expect(onSaveNow).toHaveBeenCalledOnce();
+  });
+
+  it("should show conflict guidance and keep the dashboard recovery action available", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore();
+    const onDashboard = vi.fn();
+    const message =
+      "This project changed in another editor. Reload it or return to Projects before making more changes.";
+    store.getState().markSaveFailed({ status: "conflict", message });
+
+    render(
+      <EditorShell
+        onDashboard={onDashboard}
+        onSaveNow={vi.fn()}
+        store={store}
+      />,
+    );
+
+    const guidance = screen.getByText(message);
+    const status = guidance.closest('[role="status"]');
+    const returnButton = screen.getByRole("button", {
+      name: "Return to Projects",
+    });
+    expect(guidance).toBeVisible();
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
+    expect(status).toHaveTextContent("Save conflict");
+    expect(screen.getByRole("button", { name: "Save now" })).toBeDisabled();
+    expect(returnButton).toBeEnabled();
+
+    await user.click(returnButton);
+    expect(onDashboard).toHaveBeenCalledOnce();
   });
 
   it("should render the toolbar, component library, empty canvas, and empty Inspector", () => {
@@ -1030,6 +1084,36 @@ describe("EditorShell", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("should reject shared-structure repair before moving state when content is locked", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore((project) => {
+      addDisclosureFixture(project, { content: "moved" });
+      const page = project.pages[asPageId("page-editor-test")];
+      const root = page.nodes[asNodeId("node-disclosure-root")];
+      const content = page.nodes[asNodeId("node-disclosure-content")];
+      const state = page.nodes[asNodeId("node-disclosure-state")];
+      root.childIds = root.childIds.filter((nodeId) => nodeId !== state.id);
+      content.meta.locked = true;
+      page.rootIds.push(state.id);
+    });
+    const before = structuredClone(store.getState().document);
+    render(<EditorShell store={store} />);
+
+    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    await user.click(
+      screen.getByRole("button", { name: "Select Show details" }),
+    );
+    await user.click(screen.getByRole("tab", { name: "State" }));
+    await user.click(
+      screen.getByRole("button", { name: "Restore shared structure" }),
+    );
+
+    expect(store.getState().document).toEqual(before);
+    expect(
+      screen.getByText("Change rejected: A locked node cannot be moved"),
+    ).toBeInTheDocument();
+  });
+
   it("should explicitly reveal independently hidden Disclosure content", () => {
     const store = createEditorTestStore((project) =>
       addDisclosureFixture(project, { hidden: true }),
@@ -1053,6 +1137,86 @@ describe("EditorShell", () => {
       ].styles.base.display,
     ).toBe("block");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["desktop", "tablet", "base"],
+    ["tablet", "mobile", "tablet"],
+  ] as const)(
+    "should override inherited %s hiding when revealing at the %s viewport",
+    async (_sourceViewport, viewport, hiddenLayer) => {
+      const user = userEvent.setup();
+      const store = createEditorTestStore((project) => {
+        addDisclosureFixture(project);
+        const content =
+          project.pages[asPageId("page-editor-test")].nodes[
+            asNodeId("node-disclosure-content")
+          ];
+        if (hiddenLayer === "base") {
+          content.styles.base.display = "none";
+        } else {
+          content.styles.tablet = {
+            ...content.styles.tablet,
+            display: "none",
+          };
+        }
+      });
+      store.getState().setViewport(viewport);
+      render(<EditorShell store={store} />);
+
+      await user.click(screen.getByRole("tab", { name: "Layers" }));
+      await user.click(
+        screen.getByRole("button", { name: "Select Show details" }),
+      );
+      await user.click(screen.getByRole("tab", { name: "State" }));
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "independently hidden",
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Show at this viewport" }),
+      );
+
+      const content =
+        store.getState().document!.pages[asPageId("page-editor-test")].nodes[
+          asNodeId("node-disclosure-content")
+        ];
+      expect(content.styles[viewport]?.display).toBe("block");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
+
+  it("should describe ancestor-controlled visibility as unverified instead of ready", async () => {
+    const user = userEvent.setup();
+    const store = createEditorTestStore((project) => {
+      addDisclosureFixture(project);
+      const page = project.pages[asPageId("page-editor-test")];
+      const root = page.nodes[asNodeId("node-disclosure-root")];
+      const ancestorState = createTestNode(
+        "boolean-state",
+        "node-disclosure-ancestor-state",
+      );
+      ancestorState.props.defaultValue = false;
+      root.stateBinding = {
+        stateNodeId: ancestorState.id,
+        on: "show",
+        off: "hide",
+      };
+      page.nodes[ancestorState.id] = ancestorState;
+      page.rootIds.push(ancestorState.id);
+    });
+    render(<EditorShell store={store} />);
+
+    await user.click(screen.getByRole("tab", { name: "Layers" }));
+    await user.click(
+      screen.getByRole("button", { name: "Select Show details" }),
+    );
+    await user.click(screen.getByRole("tab", { name: "State" }));
+
+    const diagnostic = screen.getByText(/Effective semantics:/);
+    expect(diagnostic).toHaveTextContent(
+      "An ancestor visibility binding requires live runtime evaluation on the Canvas or in Preview.",
+    );
+    expect(diagnostic).not.toHaveTextContent(/ready/i);
   });
 
   it("should preserve a deleted-panel reference until configuration is explicitly cleared", () => {
@@ -1179,7 +1343,7 @@ describe("EditorShell", () => {
     await user.click(screen.getByRole("tab", { name: "State" }));
 
     expect(screen.getByText(/Effective semantics:/)).toHaveTextContent(
-      "The relationship is ready; live expanded state is evaluated on the Canvas and in Preview.",
+      "The persisted relationship is structurally valid; live expanded state is evaluated on the Canvas and in Preview.",
     );
 
     act(() => {

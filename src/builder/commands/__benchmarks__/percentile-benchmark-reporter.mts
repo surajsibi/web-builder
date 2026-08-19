@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import type { BenchmarkResult } from "vitest";
 import {
   experimental_getRunnerTask,
@@ -19,9 +20,23 @@ function formatMilliseconds(value: number): string {
   return `${value.toFixed(4)} ms`;
 }
 
+type PortableBenchmarkResult = {
+  file: string;
+  fullName: string;
+  name: string;
+  median: number;
+  p95: number;
+  sampleCount: number;
+  samples: readonly number[];
+};
+
+function normalizedPath(path: string): string {
+  return path.replaceAll("\\", "/");
+}
+
 export class PercentileBenchmarkReporter implements Reporter {
   onTestRunEnd(testModules: readonly TestModule[]): void {
-    const results: BenchmarkResult[] = [];
+    const results: PortableBenchmarkResult[] = [];
 
     for (const testModule of testModules) {
       for (const testCase of testModule.children.allTests()) {
@@ -30,7 +45,17 @@ export class PercentileBenchmarkReporter implements Reporter {
           task.result as { benchmark?: BenchmarkResult } | undefined
         )?.benchmark;
 
-        if (benchmark?.samples.length) results.push(benchmark);
+        if (benchmark?.samples.length) {
+          results.push({
+            file: normalizedPath(testModule.relativeModuleId),
+            fullName: testCase.fullName,
+            name: benchmark.name,
+            median: benchmark.median,
+            p95: nearestRankPercentile(benchmark.samples, 0.95),
+            sampleCount: benchmark.samples.length,
+            samples: [...benchmark.samples],
+          });
+        }
       }
     }
 
@@ -39,8 +64,51 @@ export class PercentileBenchmarkReporter implements Reporter {
     console.log("\n BENCH  Median and nearest-rank p95");
     for (const result of results) {
       console.log(
-        `   · ${result.name}: median ${formatMilliseconds(result.median)}; p95 ${formatMilliseconds(nearestRankPercentile(result.samples, 0.95))}; samples ${result.samples.length}`,
+        `   - ${result.name}: median ${formatMilliseconds(result.median)}; p95 ${formatMilliseconds(result.p95)}; samples ${result.sampleCount}`,
       );
+    }
+
+    const outputPath = process.env.CSB_BENCHMARK_OUTPUT;
+    if (outputPath) {
+      writeFileSync(
+        outputPath,
+        `${JSON.stringify(
+          {
+            schemaVersion: 1,
+            runtime: {
+              node: process.version,
+              platform: process.platform,
+              architecture: process.arch,
+            },
+            percentileMethod: "nearest-rank",
+            benchmarks: results,
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      );
+      console.log("Benchmark JSON evidence written in UTF-8.");
+    }
+
+    const logOutputPath = process.env.CSB_BENCHMARK_LOG_OUTPUT;
+    if (logOutputPath) {
+      writeFileSync(
+        logOutputPath,
+        [
+          "BENCHMARK EVIDENCE",
+          `Node: ${process.version}`,
+          `Platform: ${process.platform} ${process.arch}`,
+          "Percentile method: nearest-rank",
+          ...results.map(
+            (result) =>
+              `${result.file} | ${result.name} | median ${formatMilliseconds(result.median)} | p95 ${formatMilliseconds(result.p95)} | samples ${result.sampleCount}`,
+          ),
+          "",
+        ].join("\n"),
+        "utf8",
+      );
+      console.log("Benchmark log evidence written in UTF-8.");
     }
   }
 }

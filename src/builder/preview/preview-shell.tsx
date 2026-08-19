@@ -11,7 +11,6 @@ import {
   createBuilderStore,
   type BuilderStoreState,
 } from "@/builder/store/builder-store";
-import { editorStore } from "@/builder/store/editor-store";
 import {
   takePreviewSnapshot,
   type PreviewSnapshotReader,
@@ -33,7 +32,7 @@ export function PreviewShell({
     id: string;
     value: ReturnType<typeof takePreviewSnapshot>;
   } | null>(null);
-  const previewStore = store ?? (snapshotId ? snapshotStore : editorStore);
+  const previewStore = store ?? snapshotStore;
   const [snapshotResult, setSnapshotResult] = useState<{
     id: string | null;
     status: "loading" | "ready" | "unavailable";

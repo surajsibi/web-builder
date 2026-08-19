@@ -29,6 +29,7 @@ export type DisclosureSemanticsReason =
   | "structural-relationship"
   | "independent-presentation"
   | "independent-visibility"
+  | "ancestor-runtime-unavailable"
   | "runtime-unavailable";
 
 type ResolvedDisclosureRelationship = {
@@ -227,6 +228,21 @@ export function evaluateDisclosureSemantics({
         status: "invalid",
         reason: "independent-presentation",
         relatedNodeId: candidate.id,
+        relationship,
+      };
+    }
+  }
+
+  if (!runtime) {
+    const runtimeDependentAncestor = contentPath
+      .slice(1)
+      .map((nodeId) => page.nodes[nodeId])
+      .find((candidate) => candidate.stateBinding);
+    if (runtimeDependentAncestor) {
+      return {
+        status: "invalid",
+        reason: "ancestor-runtime-unavailable",
+        relatedNodeId: runtimeDependentAncestor.id,
         relationship,
       };
     }

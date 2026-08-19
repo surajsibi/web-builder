@@ -1,5 +1,5 @@
-import { EditorShell } from "@/builder/ui/editor-shell";
+import { ProjectDashboard } from "@/builder/dashboard/project-dashboard";
 
 export default function HomePage() {
-  return <EditorShell />;
+  return <ProjectDashboard />;
 }

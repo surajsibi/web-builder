@@ -4,6 +4,7 @@ import type { MouseEvent } from "react";
 import type { PageId } from "@/builder/model/ids";
 import type { PageDocument } from "@/builder/model/project-document";
 import type { Viewport } from "@/builder/styles/types";
+import type { ProjectPersistenceStatus } from "@/builder/store/builder-store";
 
 type EditorToolbarProps = {
   projectName: string;
@@ -11,6 +12,8 @@ type EditorToolbarProps = {
   activePageId: PageId;
   activeViewport: Viewport;
   dirty: boolean;
+  persistenceStatus: ProjectPersistenceStatus;
+  persistenceMessage: string | null;
   canUndo: boolean;
   canRedo: boolean;
   previewHref: string;
@@ -19,6 +22,8 @@ type EditorToolbarProps = {
   onUndo: () => void;
   onRedo: () => void;
   onPreviewOpen: (event: MouseEvent<HTMLAnchorElement>) => void;
+  onDashboard?: () => void;
+  onSaveNow?: () => void;
 };
 
 const VIEWPORTS: readonly { value: Viewport; label: string }[] = [
@@ -27,12 +32,22 @@ const VIEWPORTS: readonly { value: Viewport; label: string }[] = [
   { value: "mobile", label: "Mobile" },
 ];
 
+const SAVE_STATUS_LABEL: Record<ProjectPersistenceStatus, string> = {
+  saved: "Saved locally",
+  dirty: "Unsaved changes",
+  saving: "Saving...",
+  error: "Save failed",
+  conflict: "Save conflict",
+};
+
 export function EditorToolbar({
   projectName,
   pages,
   activePageId,
   activeViewport,
   dirty,
+  persistenceStatus,
+  persistenceMessage,
   canUndo,
   canRedo,
   previewHref,
@@ -41,10 +56,22 @@ export function EditorToolbar({
   onUndo,
   onRedo,
   onPreviewOpen,
+  onDashboard,
+  onSaveNow,
 }: EditorToolbarProps) {
   return (
     <header className="editor-toolbar">
       <div className="editor-brand">
+        {onDashboard ? (
+          <button
+            aria-label="Return to Projects"
+            className="toolbar-dashboard-button"
+            onClick={onDashboard}
+            type="button"
+          >
+            {"\u2190"}
+          </button>
+        ) : null}
         <span aria-hidden="true" className="editor-brand-mark">
           C
         </span>
@@ -92,10 +119,32 @@ export function EditorToolbar({
       </div>
 
       <div className="toolbar-status-actions">
-        <div className={dirty ? "save-indicator dirty" : "save-indicator"}>
-          <span aria-hidden="true" />
-          {dirty ? "Unsaved changes" : "All changes local"}
+        <div
+          aria-atomic="true"
+          aria-live="polite"
+          className="toolbar-persistence-status"
+          role={persistenceMessage ? "status" : undefined}
+        >
+          <div className={`save-indicator ${persistenceStatus}`}>
+            <span aria-hidden="true" />
+            {SAVE_STATUS_LABEL[persistenceStatus]}
+          </div>
+          {persistenceMessage ? (
+            <p className="toolbar-persistence-message">
+              {persistenceMessage}
+            </p>
+          ) : null}
         </div>
+        {onSaveNow ? (
+          <button
+            className="toolbar-save-button"
+            disabled={!dirty || persistenceStatus === "saving" || persistenceStatus === "conflict"}
+            onClick={onSaveNow}
+            type="button"
+          >
+            Save now
+          </button>
+        ) : null}
         <Link
           className="toolbar-preview-link"
           href={previewHref}

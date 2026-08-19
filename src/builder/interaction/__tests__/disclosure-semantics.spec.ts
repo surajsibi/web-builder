@@ -174,6 +174,61 @@ describe("evaluateDisclosureSemantics", () => {
     });
   });
 
+  it("should report ancestor visibility as runtime-dependent when no runtime is available", () => {
+    const { button, page, root } = createDisclosurePage();
+    const ancestorState = createTestNode("boolean-state", "ancestor-state");
+    ancestorState.props.defaultValue = false;
+    root.stateBinding = {
+      stateNodeId: ancestorState.id,
+      on: "show",
+      off: "hide",
+    };
+    page.nodes[ancestorState.id] = ancestorState;
+    page.rootIds.push(ancestorState.id);
+
+    const result = evaluateDisclosureSemantics({
+      page,
+      buttonNodeId: button.id,
+      viewport: "desktop",
+      runtime: null,
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "ancestor-runtime-unavailable",
+      relatedNodeId: root.id,
+    });
+  });
+
+  it("should reject content hidden by an ancestor state binding at runtime", () => {
+    const { button, page, root, state } = createDisclosurePage();
+    const ancestorState = createTestNode("boolean-state", "ancestor-state");
+    ancestorState.props.defaultValue = false;
+    root.stateBinding = {
+      stateNodeId: ancestorState.id,
+      on: "show",
+      off: "hide",
+    };
+    page.nodes[ancestorState.id] = ancestorState;
+    page.rootIds.push(ancestorState.id);
+
+    const result = evaluateDisclosureSemantics({
+      page,
+      buttonNodeId: button.id,
+      viewport: "desktop",
+      runtime: runtimeFor({
+        [state.id]: false,
+        [ancestorState.id]: false,
+      }),
+    });
+
+    expect(result).toMatchObject({
+      status: "invalid",
+      reason: "independent-visibility",
+      relatedNodeId: root.id,
+    });
+  });
+
   it("should evaluate without mutating the page or persisted configuration", () => {
     const { button, page } = createDisclosurePage();
     const original = structuredClone(page);

@@ -18,6 +18,7 @@ import type {
   EditorCommand,
   StyleChange,
 } from "@/builder/commands/types";
+import { dryRunEditorCommand } from "@/builder/commands/execute-command";
 import type { JsonObject } from "@/builder/model/json";
 import type { NodeId, PageId } from "@/builder/model/ids";
 import type { BooleanStateBinding } from "@/builder/model/state-binding";
@@ -38,7 +39,6 @@ import {
   type HistoryActionResult,
   type SessionActionResult,
 } from "@/builder/store/builder-store";
-import { editorStore } from "@/builder/store/editor-store";
 import {
   createPreviewHref,
   createPreviewSnapshotId,
@@ -72,7 +72,9 @@ import {
 
 type EditorShellProps = {
   previewStorage?: PreviewSnapshotWriter;
-  store?: StoreApi<BuilderStoreState>;
+  store: StoreApi<BuilderStoreState>;
+  onDashboard?: () => void;
+  onSaveNow?: () => void;
 };
 
 const EDITOR_PANEL_PREFERENCES_STORAGE_KEY =
@@ -249,7 +251,9 @@ function usesHeadingLevelPreset(
 
 export function EditorShell({
   previewStorage,
-  store = editorStore,
+  store,
+  onDashboard,
+  onSaveNow,
 }: EditorShellProps) {
   const state = useStore(
     store,
@@ -264,6 +268,8 @@ export function EditorShell({
       dragSession: current.dragSession,
       history: current.history,
       parentById: current.parentById,
+      persistenceMessage: current.persistenceMessage,
+      persistenceStatus: current.persistenceStatus,
       redo: current.redo,
       selectedNodeId: current.selectedNodeId,
       selectNode: current.selectNode,
@@ -689,27 +695,73 @@ export function EditorShell({
     }
 
     if (action.kind === "reveal") {
+      const repairNode = activePage.nodes[action.nodeId];
+      if (!repairNode) {
+        setAnnouncement("Change rejected: the Disclosure content is unavailable.");
+        return;
+      }
       runCommand(
         {
-          kind: "node.hide",
+          kind: "node.updateStyles",
           pageId: activePage.id,
           nodeId: action.nodeId,
-          hidden: false,
           viewport: action.viewport,
+          changes: [
+            {
+              target: { property: "display" },
+              value:
+                componentRegistry[repairNode.type].defaults.styles.base.display ??
+                "block",
+            },
+          ],
         },
         "Restored Disclosure content visibility.",
       );
       return;
     }
 
+    const initial = store.getState();
+    const initialPage = initial.document?.pages[activePage.id];
+    const parent = initialPage?.nodes[action.parentNodeId];
+    if (!initial.document || !initialPage || !parent) {
+      setAnnouncement("Change rejected: the Disclosure parent is unavailable.");
+      return;
+    }
+
+    const plannedNodeIds = [action.stateNodeId, action.contentNodeId].filter(
+      (nodeId) => initial.parentById[nodeId] !== action.parentNodeId,
+    );
+    for (const nodeId of plannedNodeIds) {
+      const preflight = dryRunEditorCommand(
+        {
+          document: initial.document,
+          parentById: initial.parentById,
+          activePageId: activePage.id,
+          selectedNodeId: initial.selectedNodeId,
+        },
+        {
+          kind: "node.move",
+          pageId: activePage.id,
+          nodeId,
+          destination: {
+            parentId: action.parentNodeId,
+            index: parent.childIds.length,
+          },
+        },
+      );
+      if (preflight.status === "rejected") {
+        setAnnouncement(`Change rejected: ${preflight.error.reason}`);
+        return;
+      }
+    }
+
     const historyGroupId = `disclosure-structure:${selectedNode.id}:${state.commitId + 1}`;
     let lastResult: CommandResult | null = null;
-    for (const nodeId of [action.stateNodeId, action.contentNodeId]) {
+    for (const nodeId of plannedNodeIds) {
       const current = store.getState();
-      if (current.parentById[nodeId] === action.parentNodeId) continue;
       const currentPage = current.document?.pages[activePage.id];
-      const parent = currentPage?.nodes[action.parentNodeId];
-      if (!currentPage || !parent) {
+      const currentParent = currentPage?.nodes[action.parentNodeId];
+      if (!currentPage || !currentParent) {
         setAnnouncement("Change rejected: the Disclosure parent is unavailable.");
         return;
       }
@@ -720,7 +772,7 @@ export function EditorShell({
           nodeId,
           destination: {
             parentId: action.parentNodeId,
-            index: parent.childIds.length,
+            index: currentParent.childIds.length,
           },
         },
         { historyGroupId },
@@ -856,6 +908,7 @@ export function EditorShell({
         canRedo={state.history.future.length > 0}
         canUndo={state.history.past.length > 0}
         dirty={state.dirty}
+        onDashboard={onDashboard}
         onPreviewOpen={(event) => {
           try {
             storePreviewSnapshot(
@@ -882,6 +935,7 @@ export function EditorShell({
           resetVisualEditing();
           setAnnouncement(actionMessage(state.undo(), "Undid the last change."));
         }}
+        onSaveNow={onSaveNow}
         onViewportChange={(viewport) => {
           resetVisualEditing();
           setAnnouncement(
@@ -893,6 +947,8 @@ export function EditorShell({
         }}
         pages={document.pageOrder.map((pageId) => document.pages[pageId])}
         previewHref={createPreviewHref(previewSnapshotId)}
+        persistenceMessage={state.persistenceMessage}
+        persistenceStatus={state.persistenceStatus}
         projectName={document.name}
       />
 

@@ -5,14 +5,14 @@ scope: Proposed project persistence, dashboard repository, storage record, and H
 authority: Draft product and interface intent only; verified code owns current behavior, and an approved executable schema will own the future machine contract
 owner: Project owner
 lifecycle: draft
-freshness: Reverified on 2026-08-14 against project schema version 3 at commit d12b4c5af8dc710cfc153a927aaf059bb08906f8; invalidated by an approved persistence, dashboard, authentication, API, project-schema, migration, or storage decision
+freshness: Updated on 2026-08-14 after aligning the implemented browser-local repository and dashboard contract with project schema version 3 from main; invalidated by an approved persistence, dashboard, authentication, API, project-schema, hydration-error, migration, recovery, or storage decision
 ---
 
 # Project persistence and backend specification
 
 ## Status and intended outcome
 
-This document preserves the proposed contract for saving projects before and after a backend exists. It does not authorize implementation. Each delivery slice requires a separate explicit request and its own implementation plan.
+This document preserves the contract for saving projects before and after a backend exists. The browser-local repository, dashboard, project route, safe unavailable-record behavior, and revision-checked autosave are implemented on `feature/project-dashboard` after a separate explicit request. Backend API, authentication, deletion, export/recovery, and cloud migration sections remain proposed future contracts and require their own approval.
 
 The intended transition is:
 
@@ -25,7 +25,7 @@ The dashboard and editor depend on `ProjectRepository`, not directly on IndexedD
 
 ## Problem and evidence
 
-The editor has a versioned, JSON-compatible project model but has no durable project repository, project dashboard route, or project API. The implemented application routes are the editor, Preview, and a fail-closed form-submission endpoint. Preview browser storage is a one-use transfer and is not project persistence.
+The editor has a versioned, JSON-compatible project model, a browser-local project repository, and a project dashboard route, but it has no authenticated backend project API. Preview browser storage remains a one-use transfer and is not project persistence.
 
 Verified current authorities:
 
@@ -128,9 +128,62 @@ type ProjectSummary = {
   createdAt: string;
   updatedAt: string;
 };
+
+type UnavailableProjectSummary = {
+  recoveryId: string;
+  displayName: string;
+  lastKnownUpdatedAt: string | null;
+  reason: "invalid-project" | "unsupported-version";
+};
+
+type ProjectListItem =
+  | { availability: "ready"; summary: ProjectSummary }
+  | { availability: "unavailable"; summary: UnavailableProjectSummary };
 ```
 
-The list contract does not include component nodes. Opening a project retrieves the complete `ProjectDocument` separately.
+The list contract does not include component nodes. Opening a ready project retrieves the complete `ProjectDocument` separately. `recoveryId` is a stable opaque reference derived by the owning storage adapter from the physical record key; it is not a valid editor route ID and must not be presented as a project identity.
+
+### Corrupt and unsupported project dashboard contract
+
+A stored project is **corrupt** when its physical record can be enumerated but a cloned payload cannot complete normal project hydration because of malformed JSON, a missing or invalid envelope, failed document or component migration, invalid schema, invalid tree, unknown component, invalid component props or styles, or invalid placement. Corrupt is an internal data classification; the user-facing dashboard label is **Needs recovery**.
+
+A stored project is **unsupported** when hydration returns an explicit stable compatibility result showing that the document or a known component requires a newer or unsupported version. Unsupported records use the same unavailable-card behavior but different explanatory copy. Implementation must use structured compatibility/error codes; it must not classify by parsing human-readable error messages.
+
+The following are not corrupt-project records:
+
+- a missing project key, which is **Not found**;
+- IndexedDB denial, blocked opening, transaction failure, or inability to enumerate records, which is a dashboard-level **Storage unavailable** state; or
+- a supported older project that successfully migrates and fully hydrates on a working clone, which is a ready project that needs a later revisioned save.
+
+The local repository evaluates each physical record independently during `list`:
+
+1. Preserve the untouched raw value.
+2. Clone it and call `prepareProjectHydration`.
+3. Return a ready summary only when full hydration succeeds.
+4. Return an unavailable summary with `unsupported-version` only for a stable compatibility result.
+5. Return an unavailable summary with `invalid-project` for every other hydration failure.
+6. Continue listing other records when one record is unavailable.
+
+The adapter derives display-only recovery metadata defensively. It may use a raw project name only when it is a bounded, trimmed, non-empty string without control characters; otherwise use **Unavailable local project**. It may expose `lastKnownUpdatedAt` only when it is a valid bounded ISO date-time. It never derives or displays page count, revision, schema version, or ordinary project actions from an invalid document.
+
+The dashboard renders an unavailable record as follows:
+
+| Surface | Required behavior |
+| --- | --- |
+| Card title | Safe bounded name or **Unavailable local project**. |
+| Status | Visible text badge **Needs recovery**; color is not the only signal. |
+| Corrupt explanation | **This project's saved data is damaged or incomplete and cannot be opened safely.** |
+| Unsupported explanation | **This project was created with a version of Canvas Studio that this build cannot open.** |
+| Location | **Stored on this browser** so the user knows data still exists locally. |
+| Metadata | Safe last-known update time when available; no page count or revision. |
+| Action | **View recovery details**, opening an accessible dialog with the safe reason category, preservation statement, and future recovery guidance. |
+| Prohibited actions | Do not render Open, Rename, Duplicate, Preview, Save, or Delete for the unavailable record. |
+
+The recovery-details dialog must not expose raw JSON, stack traces, browser exception text, component props, validation paths containing authored content, or internal database details. It explains that the original browser record remains unchanged and that normal editing and autosave are disabled. Raw recovery download/import remains a separately approved recovery slice; until it exists, the dialog must not claim the project can already be repaired or exported.
+
+Unavailable records remain visible rather than disappearing from the project count. Dashboard summary copy reports both totals, for example **4 local projects, 1 needs recovery**. Search may match only the safe `displayName`. Ready and unavailable entries sort by safe update time descending; unavailable entries without a safe time sort last with a stable `recoveryId` tie-breaker.
+
+Navigating directly to `/projects/{projectId}` for an unavailable record renders the same bounded recovery state. It never creates a replacement blank project, hydrates partial content, starts autosave, runs project mutations, or rewrites the raw source. Future migration to backend storage also excludes the record until the separately approved recovery path produces a fully validated project.
 
 ## Proposed repository interface
 
@@ -142,7 +195,7 @@ interface ProjectRepository {
     cursor?: string;
     limit?: number;
   }): Promise<{
-    items: ProjectSummary[];
+    items: ProjectListItem[];
     nextCursor: string | null;
   }>;
 
@@ -188,7 +241,7 @@ Local behavior must:
 - use the same revision comparison as the future API adapter;
 - update `updatedAt` and increment `revision` only after a successful write;
 - show **Saved locally on this browser** rather than implying cloud backup;
-- keep corrupt or unsupported source available for recovery while preventing editing and autosave;
+- return corrupt or unsupported records as isolated **Needs recovery** list items while preserving their raw source and preventing ordinary project actions, editing, and autosave;
 - explain that clearing browser data, using private browsing, or changing devices can remove access;
 - avoid silently uploading local projects when a backend later becomes available.
 
@@ -353,6 +406,9 @@ Validation failures and revision conflicts must not partially write the project.
 | BE-08 | Project documents never store visitor form values, credentials, or editor-only session state. | Must | Schema and security tests reject prohibited fields. |
 | BE-09 | List pagination uses an opaque cursor and an approved maximum limit. | Should | Pagination contract tests cover stable ordering and malformed cursors. |
 | BE-10 | Create and duplicate operations have an approved retry/idempotency policy before production use. | Should | Network-retry tests prove no accidental duplicate project creation. |
+| BE-11 | One corrupt or unsupported record remains visible as **Needs recovery** and does not prevent valid records from listing. | Must | Repository and dashboard tests cover every hydration failure stage and mixed valid/unavailable inventories. |
+| BE-12 | Unavailable records cannot open, rename, duplicate, preview, save, autosave, delete, or silently upload. | Must | Component and route tests prove prohibited actions are absent and direct navigation remains bounded. |
+| BE-13 | The dashboard exposes only bounded recovery metadata and stable reason categories. | Must | Security and accessibility tests prove raw payloads, exception text, validation details, and color-only status are absent. |
 
 ## Constraints and policies
 
@@ -366,19 +422,22 @@ Validation failures and revision conflicts must not partially write the project.
 - Require HTTPS and secure authentication before remote project storage is made available.
 - Keep asset, publishing, deployment, and form-submission lifecycles separate from project-document persistence.
 
-## Candidate delivery slices requiring separate approval
+## Delivery status and future slices
 
-These are candidates, not authorized tasks:
+The project owner approved and the feature branch implements these local slices:
 
-1. Define repository contract tests and an IndexedDB adapter.
-2. Add a local-only project dashboard and project-specific editor route.
-3. Add debounced local autosave and explicit save-state UI.
-4. Add JSON export/import and corrupt-source recovery.
-5. Select backend, database, deployment, and authentication architecture.
-6. Implement the API adapter, durable storage, authorization, and operational controls.
-7. Offer an explicit local-project upload/migration flow.
+1. Repository contract tests and an IndexedDB adapter.
+2. A local-only project dashboard and project-specific editor route.
+3. Debounced local autosave and explicit save-state UI.
 
-Only the slice explicitly selected by the project owner may move into implementation planning.
+These future slices remain candidates that require separate approval:
+
+1. Add JSON export/import and corrupt-source recovery.
+2. Select backend, database, deployment, and authentication architecture.
+3. Implement the API adapter, durable storage, authorization, and operational controls.
+4. Offer an explicit local-project upload/migration flow.
+
+Only a future slice explicitly selected by the project owner may move into implementation planning.
 
 ## Risks and open questions
 
